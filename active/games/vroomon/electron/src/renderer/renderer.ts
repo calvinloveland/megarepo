@@ -2230,17 +2230,17 @@ function drawWildRace(): void {
 
 function drawWildRaceInto(
   ctx: CanvasRenderingContext2D,
-  canvas: { width: number; height: number },
+  size: { width: number; height: number },
 ): void {
   const frames = wildRaceState.frames;
   const index = wildRaceState.frameIndex;
   const ground = terrainGroundHeight();
 
-  const laneTop = canvas.height * 0.34;
-  const laneBottom = canvas.height * 0.78;
+  const laneTop = size.height * 0.34;
+  const laneBottom = size.height * 0.78;
   // The track: a start post, two lanes, and a finish they can actually reach.
   const startPostX = 40;
-  const finishPostX = canvas.width - 68;
+  const finishPostX = size.width - 68;
   for (const y of [laneTop, laneBottom]) {
     ctx.strokeStyle = "rgba(168, 122, 74, 0.75)";
     ctx.lineWidth = 2;
@@ -2291,9 +2291,9 @@ function drawWildRaceInto(
       }
       const shapes = inspectVehicle(dna, inspectorTuning()).shapes;
       const span = Math.max(60, ...shapes.map((shape) => shape.x));
-      const scale = Math.min(0.6, (canvas.width - 120) / span);
+      const scale = Math.min(0.6, (size.width - 120) / span);
       for (const shape of shapes) {
-        const x = (canvas.width - span * scale) / 2 + shape.x * scale;
+        const x = (size.width - span * scale) / 2 + shape.x * scale;
         if (shape.kind === "wheel") {
           const radius = Math.max(3, shape.radius * scale);
           ctx.fillStyle = "#22282f";
@@ -2334,12 +2334,12 @@ function drawWildRaceInto(
   };
   const furthest = Math.max(travelled(frames.mine), travelled(frames.wild));
   const startLaneX = 56;
-  const finishX = canvas.width - 84;
+  const finishX = size.width - 84;
   const scale = (finishX - startLaneX) / furthest;
   // One world origin, not an origin plus a per-part offset: the plates and
   // wheels already carry world coordinates, so applying `(plate.x - startX)`
   // on top of an offset that had already accounted for the car's travel pushed
-  // the leading car clean off the right edge of the canvas.
+  // the leading car clean off the right edge of the size.
   const originX = startLaneX - startX * scale;
   const drawCar = (
     frameset: VehiclePreviewFrame[],
@@ -2398,9 +2398,9 @@ function drawWildRaceInto(
   if (result) {
     ctx.font = "600 13px ui-sans-serif, system-ui, sans-serif";
     ctx.fillStyle = "#ffd166";
-    ctx.fillText(`${Math.round(result.mine)} px`, canvas.width - 150, laneTop - 12);
+    ctx.fillText(`${Math.round(result.mine)} px`, size.width - 150, laneTop - 12);
     ctx.fillStyle = "#ffb3a7";
-    ctx.fillText(`${Math.round(result.wild)} px`, canvas.width - 150, laneBottom - 12);
+    ctx.fillText(`${Math.round(result.wild)} px`, size.width - 150, laneBottom - 12);
   }
 }
 
@@ -2638,7 +2638,7 @@ function drawInspectionInto(
   inspection: VehicleInspection,
   snapshot: VehicleSnapshot | null,
   ctx: CanvasRenderingContext2D,
-  canvas: { width: number; height: number },
+  size: { width: number; height: number },
 ): void {
 
   // A live snapshot when a track has been run, otherwise the parts as built.
@@ -2687,9 +2687,9 @@ function drawInspectionInto(
   );
   const spanX = Math.max(maxX - minX, 60);
   const spanY = Math.max(maxY - minY, 40);
-  const scale = Math.min((canvas.width - 40) / spanX, (canvas.height - 60) / spanY);
-  const originX = (canvas.width - spanX * scale) / 2 - minX * scale;
-  const groundY = canvas.height - 24;
+  const scale = Math.min((size.width - 40) / spanX, (size.height - 60) / spanY);
+  const originX = (size.width - spanX * scale) / 2 - minX * scale;
+  const groundY = size.height - 24;
   // Sit the car so its lowest point rests on the ground line.
   const originY = groundY - maxY * scale;
 
@@ -2698,7 +2698,7 @@ function drawInspectionInto(
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(0, groundY);
-  ctx.lineTo(canvas.width, groundY);
+  ctx.lineTo(size.width, groundY);
   ctx.stroke();
 
   for (const shape of normalized) {

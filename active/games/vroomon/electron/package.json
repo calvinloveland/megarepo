@@ -12,15 +12,19 @@
     "profile:sim": "npm run build && node scripts/profile-sim.mjs",
     "package:dir": "npm run build && electron-builder --dir",
     "start": "npm run build && electron .",
-    "test": "vitest run",
+    "test": "vitest run tests/engine tests/game",
     "test:e2e": "npm run build && node scripts/run-playwright.mjs",
     "test:smoke": "npm run build && node scripts/smoke-electron.mjs",
     "export:sprites": "npm run build && node scripts/export-sprites.mjs",
     "test:e2e:smoke": "npm run build && node scripts/run-playwright.mjs -g @smoke",
     "test:e2e:fast": "node scripts/run-playwright.mjs",
     "test:e2e:fast:smoke": "node scripts/run-playwright.mjs -g @smoke",
-    "test:all": "npm test && npm run test:e2e",
-    "verify:sprites": "node scripts/verify-sprites.mjs"
+    "test:all": "vitest run tests && npm run test:e2e",
+    "verify:sprites": "node scripts/verify-sprites.mjs",
+    "test:engine": "vitest run tests/engine",
+    "test:game": "vitest run tests/game",
+    "test:balance": "vitest run tests/balance",
+    "test:unit": "vitest run tests"
   },
   "build": {
     "appId": "dev.loveland.vroomon",

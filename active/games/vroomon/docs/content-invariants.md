@@ -133,3 +133,37 @@ until somebody follows a link, and both happen on an edit that looks harmless:
 `tests/docs.test.ts` covers all three. Verified by mutation: renaming an
 indexed heading fails with `the notes index points at headings that are gone:
 the-mechanic-with-no-teacher-2026-09-15`.
+
+
+## The suite has three speeds, and that is on purpose
+
+Twenty-seven of the unit tests are **measurements**: they race hundreds of cars
+across dozens of generations to answer a question about balance. They were 110
+of the suite's 120 seconds of CPU, and running them on every edit made the fast
+loop useless.
+
+```
+npm test              engine + game   ~5s     the default
+npm run test:engine   simulation core ~1.3s   46 tests
+npm run test:game     rules + content ~4.3s   378 tests
+npm run test:balance  measurements    ~38s    27 tests, on demand
+```
+
+The split is by *kind*, not by importance. The measurements still assert their
+claims and still fail when a tuning change moves a curve; they just do not stand
+between you and a red-green signal. `scripts/check_all.py` runs `npm test`, so
+the repo-level check got the same eight-fold speed-up without being told.
+
+**The move itself was a good test of the invariants.** Relocating 47 files broke
+exactly four things, and every one of them was a path that had been written
+against a file's location rather than against the repository root: the coverage
+map scanned `tests/` non-recursively, the docs test counted declarations the same
+way, the deployment test climbed five directories to the repo root, and one
+coverage *claim* named a test file that had moved. Each announced itself by name
+— `the overview claims 449 unit tests; the suite declares 0`, `coverage claims
+that name nothing: src/renderer/ambience.ts claims "tests/ambience-layer.test.ts"`
+— which is the whole argument for writing failure messages as sentences.
+
+I also "fixed" the docs test by making its path file-relative when it was
+already correctly cwd-relative, which broke twenty-two more links and took one
+run to spot. Measuring before editing applies to test infrastructure too.

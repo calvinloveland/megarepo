@@ -1,6 +1,6 @@
 # How Vroomon fits together
 
-*Last verified against the game at **449 unit + 56 e2e** (2026-09-15). The
+*Last verified against the game at **457 unit + 56 e2e** (2026-09-15). The
 measured sections below — progression, the wild, the economy — were true when
 written; if those counts have moved a long way, re-measure before trusting the
 numbers in them.*
@@ -178,14 +178,36 @@ closed.
 
 ```
 cd electron
-npm test                 # unit        (~10s)
-npm run test:e2e:smoke   # smoke       (~25s)
-npm run test:e2e         # full        (~1.5m)
-VROOMON_SLOW_TESTS=1 npx vitest run tests/pacing.test.ts   # re-measure the curve
-npm run build && node scripts/web-server.mjs               # local play session
-npm run export:sprites    # redraw every sprite as a PNG (needs a browser)
-npm run verify:sprites    # re-export and prove nothing changed (~30s)
+npm test                 # engine + game   (~5s)   <- the default
+npm run test:engine      # simulation core (~1.3s)  46 tests
+npm run test:game        # rules + content (~4.3s) 378 tests
+npm run test:balance     # measurements    (~38s)   27 tests, on demand
+npm run test:unit        # all of the above (~42s)
+npm run test:e2e:fast    # browser, no build   (~2.7m)
+npm run test:e2e         # build + browser     (~3m)
+npm run test:e2e:smoke   # the @smoke subset   (~2.1m)
+npm run test:all         # everything
+npm run build && node scripts/web-server.mjs   # local play session
+npm run export:sprites   # redraw every sprite as a PNG (needs a browser)
+npm run verify:sprites   # re-export and prove nothing changed (~30s)
 ```
+
+**Why the suite is split three ways.** Twenty-seven of the 457 unit tests are
+*measurements* — they race hundreds of cars across dozens of generations to
+answer a question about balance ("does the herd out-climb random search", "is
+tier II reachable by hunting"). They were 110 of the suite's 120 seconds of CPU.
+They are not less important for being slow; they are simply a different kind of
+test, and running them on every edit makes the fast feedback loop useless. So:
+
+- **engine** — the simulation core: DNA decoding, frame geometry, the physics
+  harness, the population. Pure, no content.
+- **game** — the rules and the shipped content: quests, maps, economy, the
+  panels' view models, plus the content invariants that read the real catalogs.
+- **balance** — the measurements, run when you are tuning something.
+
+`npm test` runs the first two, which is what you want while working. The
+measurements are still in the repository and still assert their claims; they
+just do not stand between you and a red-green signal.
 
 `verify:sprites` is the determinism check: it re-exports and diffs, then puts
 the committed files back, so it is always safe to run. It exists because the
