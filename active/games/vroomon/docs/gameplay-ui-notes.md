@@ -224,6 +224,7 @@ new entry that is not indexed here fails the suite.
 - [The world was stretched to fit the window (2026-09-15) ✅](#the-world-was-stretched-to-fit-the-window-2026-09-15)
 - [Two modules nobody tested, and a map to catch the next (2026-09-15) ✅](#two-modules-nobody-tested-and-a-map-to-catch-the-next-2026-09-15)
 - [Where this session left the project (2026-09-15) ✅](#where-this-session-left-the-project-2026-09-15)
+- [The last rule with no teacher: what the wild is *for* (2026-09-15) ✅](#the-last-rule-with-no-teacher-what-the-wild-is-for-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -442,6 +443,43 @@ Every one was fixed by anchoring on stable text or explicit markers instead.
    `factions.ts` were.
 4. **The user-gated work**: live deploy (k3s + Cloudflare) and AI sprite
    generation both still wait on credentials in `.secrets/`.
+
+---
+
+## The last rule with no teacher: what the wild is *for* (2026-09-15) ✅
+
+Weather got a teacher two cycles ago. Auditing the other mechanics for the same
+gap — a rule the game enforces that only a HUD chip states — left one, and it
+was the most important in the game:
+
+**Nothing said when to go hunting, or why.** The wild table says what each
+ground would send, and the encounter panel says where an animal came from, but
+no person ever connected the grass to the bench. A player could spend a whole
+session breeding a plateaued herd and never learn that the answer was a walk.
+
+Professor Axle — who already teaches the bench and the Record Barn — now
+answers the question directly, as a fourth item on his menu:
+
+> **"When do I go looking in the grass?"** — *"When the bench stops giving you
+> anything. A herd bred from itself flattens out — you will see the same numbers
+> three generations running, and no amount of patience moves them. That is the
+> moment to walk into the grass. The wild has been breeding without you, on its
+> own ground, and what it is worth depends entirely on where you stand: the far
+> grounds send better animals than the field behind your house. Bring one back,
+> put it on the bench, and the whole line lifts."*
+
+That is the plateau measurement, the "where you hunt matters" finding and the
+import mechanic, in one paragraph from the person whose job it is.
+
+### The contract, consolidated
+
+The weather check became a table of **rules the HUD states and a person must
+teach**: four kinds of weather, the wild's purpose, where-you-hunt-matters, and
+the tier's shape demand. Mutation-verified — replacing Axle's words with
+synonyms fails with `nobody explains: the wild's purpose`.
+
+Also visible in the screenshot: the schoolhouse renders with **square tiles**,
+which is the letterbox fix from the previous cycle doing its work indoors.
 
 ---
 

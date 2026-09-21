@@ -475,6 +475,7 @@ export const MAPS: Record<string, Tilemap> = {
           options: [
             { label: "What is a Herd Book?", next: "vroomdex-explain" },
             { label: "How do I breed a champion?", next: "breed-champion-explain" },
+            { label: "When do I go looking in the grass?", next: "grass-purpose" },
             { label: "Got it, thanks!", next: "professor-farewell" },
           ],
         },
@@ -499,6 +500,18 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "professor",
         dialogue: {
           text: "It happens in the paddock, not on the road. Your starters sit on the breeding bench: run a generation and the fast ones rise, then save the best to the Record Barn. The Barn tests any car on any terrain, and the records board keeps every lap. A champion is just a name on that board.",
+          onComplete: "vroomdex",
+        },
+      },
+      {
+        id: "grass-purpose",
+        name: "Professor Axle",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "When the bench stops giving you anything. A herd bred from itself flattens out — you will see the same numbers three generations running, and no amount of patience moves them. That is the moment to walk into the grass. The wild has been breeding without you, on its own ground, and what it is worth depends entirely on where you stand: the far grounds send better animals than the field behind your house. Bring one back, put it on the bench, and the whole line lifts.",
           onComplete: "vroomdex",
         },
       },

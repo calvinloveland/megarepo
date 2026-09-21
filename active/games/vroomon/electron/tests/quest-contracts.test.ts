@@ -420,6 +420,33 @@ describe("quest contracts", () => {
     }
   });
 
+  it("has somebody in the world explain each rule the HUD only states", () => {
+    // The same idea as the walk-on ledger, applied to mechanics: a rule the
+    // game enforces should be taught by a person somewhere. Weather was a note
+    // on a panel for its whole life; the wild's purpose — that the grass is
+    // where a plateaued herd finds its next jump, and that the far grounds
+    // send better animals — was never said out loud at all.
+    const spoken = Object.values(MAPS)
+      .flatMap((map) => map.npcs)
+      .map((npc) => JSON.stringify(npc.dialogue ?? {}))
+      .join(" ")
+      .toLowerCase();
+
+    const TAUGHT: Record<string, string[]> = {
+      "weather — clear": ["clear means", "dry day"],
+      "weather — shower": ["shower", "rain"],
+      "weather — gale": ["crosswind", "gale"],
+      "weather — mist": ["mist"],
+      "the wild's purpose": ["stops giving you anything", "walk into the grass"],
+      "where you hunt matters": ["depends entirely on where you stand", "far grounds"],
+      "the tier's shape demand": ["shape the mesa likes", "four wheels planted"],
+    };
+    const untaught = Object.entries(TAUGHT)
+      .filter(([, phrases]) => !phrases.some((phrase) => spoken.includes(phrase)))
+      .map(([rule]) => rule);
+    expect(untaught, `nobody explains: ${untaught.join(", ")}`).toEqual([]);
+  });
+
   it("has somebody in the world explain every kind of weather", () => {
     // Weather is a rule the game enforces - wet grass costs grip and raises a
     // feud's bar - and for a long time the only place it was explained was a
