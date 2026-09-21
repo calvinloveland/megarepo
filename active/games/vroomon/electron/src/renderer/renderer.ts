@@ -6711,10 +6711,14 @@ let heritageFocusId: string | null = null;
 
 function heritageSignatureFor(): string {
   const run = rendererState.runState;
+  // The canvas size is part of the signature: the tree is laid out to the
+  // canvas, so a narrower window is a different drawing, not a stale one.
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-heritage-canvas]");
   return [
     run.generation,
     run.population.length,
     Object.keys(run.genealogy ?? {}).length,
+    canvas?.width ?? 0,
   ].join("|");
 }
 
@@ -6797,6 +6801,24 @@ function renderHeritage(force = false): void {
     genealogy: rendererState.runState.genealogy ?? {},
   });
   heritageGraph = graph;
+
+  // Draw at the size the canvas is actually displayed at. The element used to
+  // be a fixed 1200x620 scaled down by CSS, which shrank every label with it -
+  // at 1024px wide the node names were two thirds of their designed size.
+  const displayed = Math.round(canvas.clientWidth);
+  if (displayed > 0) {
+    const target = Math.max(520, Math.min(1600, displayed));
+    // The stylesheet clamps the height to 62vh. Match that here, or the CSS
+    // squashes the drawing vertically by the difference.
+    const targetHeight = Math.min(
+      Math.round((target * 620) / 1200),
+      Math.round(window.innerHeight * 0.62),
+    );
+    if (canvas.width !== target || canvas.height !== targetHeight) {
+      canvas.width = target;
+      canvas.height = targetHeight;
+    }
+  }
 
   const ctx = canvas.getContext("2d");
   if (!ctx) {
