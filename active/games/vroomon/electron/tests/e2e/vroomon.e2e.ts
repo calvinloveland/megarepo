@@ -698,8 +698,11 @@ test.describe("vroomon Playwright harness", () => {
     // Breed until the herd's best clears the bar, which is the player's own
     // loop. A new herd is random, so the number of generations varies; the
     // ceiling on the loop is what is being asserted.
+    // Cap generously: the starting herd is random, and the measured curve says
+    // the loaner's line passes 2400 within 18 generations on its own. A cap of
+    // 8 was flaky precisely because it sat inside the herd's noise band.
     let generations = 0;
-    for (let attempt = 1; attempt <= 8; attempt += 1) {
+    for (let attempt = 1; attempt <= 25; attempt += 1) {
       // Wait for the generation pill to actually move rather than guessing at
       // a sleep: four workers share this machine, and a fixed wait that is
       // generous alone is marginal in parallel.
@@ -716,8 +719,11 @@ test.describe("vroomon Playwright harness", () => {
         break;
       }
     }
-    expect(generations).toBeLessThanOrEqual(8);
-    expect(await bestScore()).toBeGreaterThanOrEqual(1000);
+    expect(generations).toBeLessThanOrEqual(25);
+    // Poll rather than read once: the leader pill can still be showing the
+    // previous generation when the loop's own read returns, which made the
+    // loop exit on a number that then "went backwards".
+    await expect.poll(bestScore, { timeout: 20000 }).toBeGreaterThanOrEqual(1000);
 
     // The feud is raced by the best car in the RECORD BARN, not by whatever
     // the herd happens to hold - so the loop the game teaches is: find your
@@ -727,6 +733,22 @@ test.describe("vroomon Playwright harness", () => {
     // Read the score out of its own span: chip text also carries the car's id,
     // and ids end in digits ("preview-...-00070"), so stripping non-digits over
     // the whole string invents numbers.
+    // Where the choice is made, the panel says what your best is - so the
+    // sticky selection cannot hide it behind a chip you did not notice. The
+    // default selection IS the leader, so park on a worse car first and watch
+    // the note change its mind.
+    const focusNote = page.locator("[data-focus-note]");
+    await expect(focusNote).toBeVisible();
+    const chipsNow = page.locator("[data-select-vehicle]");
+    if ((await chipsNow.count()) > 1) {
+      // The strip is a row with clips its tail, so pick the second chip: it is
+      // on screen, and the panel only ever leads with the selection.
+      await chipsNow.nth(1).click();
+      await page.waitForTimeout(400);
+      await expect(focusNote).toContainText("Your best is");
+      await expect(focusNote).toContainText("record that one");
+    }
+
     // Record the car the HUD itself calls the leader, by id. The chip strip
     // shows the racers it has painted, which is not always the same set, and
     // picking "the highest chip" once saved a 919 car while the HUD read above
@@ -743,6 +765,8 @@ test.describe("vroomon Playwright harness", () => {
       await page.locator("[data-select-vehicle]").first().click();
     }
     await page.waitForTimeout(300);
+    // Having selected it, the note says so.
+    await expect(page.locator("[data-focus-note]")).toContainText("This is your best");
     await page.waitForTimeout(300);
     // The button names the car and its score, so a stale selection cannot
     // quietly swap your champion for a slower one.

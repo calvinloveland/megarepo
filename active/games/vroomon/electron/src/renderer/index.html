@@ -571,6 +571,14 @@
         flex-wrap: wrap;
       }
 
+      .hud-note {
+        display: block;
+        font-family: var(--font-screen);
+        font-size: 0.7rem;
+        color: var(--muted);
+        margin: 0.15rem 0 0.25rem;
+      }
+      .hud-note b { color: #ffe6a3; font-weight: 600; }
       .hud-btn[data-best="true"] {
         border-color: rgba(255, 209, 102, 0.66);
         color: #ffe6a3;
@@ -1938,6 +1946,7 @@
               <span data-batch-progress-text style="font-size:0.7rem;color:var(--muted);"></span>
             </div>
             <div class="action-row" hidden data-vehicle-strip data-selected-vehicle-buttons style="flex-wrap:wrap;"></div>
+            <span class="hud-note" data-focus-note hidden></span>
             <div class="action-row" hidden data-save-selected-row>
               <button class="hud-btn" type="button" data-save-selected-to-hall data-best="false" title="Save the selected vehicle to the Hall of Fame">🏆 SAVE</button>
             </div>

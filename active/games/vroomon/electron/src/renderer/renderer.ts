@@ -2983,10 +2983,32 @@ function labelHallSaveButton(): void {
   button.dataset.best = String(isLeader);
 }
 
+/** Where the choice is made: say what your best is, and whether you have it. */
+function renderFocusNote(vehicles: GenerationResult["evaluatedPopulation"]): void {
+  const note = document.querySelector<HTMLElement>("[data-focus-note]");
+  if (!note) {
+    return;
+  }
+  const ranked = vehicles.slice().sort((left, right) => right.score - left.score);
+  const leader = ranked[0];
+  if (!leader) {
+    note.hidden = true;
+    return;
+  }
+  note.hidden = false;
+  if (rendererState.selectedVehicleId === leader.id) {
+    note.innerHTML = `This is your best: <b>${escapeHtml(leader.id)}</b> · ${formatNumber(leader.score)}`;
+  } else {
+    note.innerHTML =
+      `Your best is <b>${escapeHtml(leader.id)}</b> · ${formatNumber(leader.score)} — select it to record that one.`;
+  }
+}
+
 function renderVehicleFocusStrip(
   vehicles: GenerationResult["evaluatedPopulation"],
 ): void {
   labelHallSaveButton();
+  renderFocusNote(vehicles);
   selectedVehicleButtons.innerHTML = vehicles
     .map(
       (vehicle) =>
