@@ -204,14 +204,19 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator("[data-overworld-vroomdex-count]")).toContainText("0 specimens");
     await expect(page.locator("[data-overworld-badge-list]")).toContainText("No brands");
 
-    // Player starts at (7, 7). Professor Axle is at (4, 3), so we need
-    // to move left 3 tiles then up 3 tiles to stand at (4, 4) facing up.
-    await page.locator("[data-dpad=\"left\"]").click();
-    await page.locator("[data-dpad=\"left\"]").click();
-    await page.locator("[data-dpad=\"left\"]").click();
-    await page.locator("[data-dpad=\"up\"]").click();
-    await page.locator("[data-dpad=\"up\"]").click();
-    await page.locator("[data-dpad=\"up\"]").click();
+    // The professor keeps the schoolhouse now: walk to the door at (6, 2)
+    // from the spawn at (7, 7) and step up into his room.
+    for (const direction of ["up", "up", "up", "up", "left", "up"] as const) {
+      await page.locator(`[data-dpad="${direction}"]`).click();
+      await page.waitForTimeout(220);
+    }
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Schoolhouse");
+
+    // Then walk to where he stands and talk.
+    for (const direction of ["right", "right", "right", "up"] as const) {
+      await page.locator(`[data-dpad="${direction}"]`).click();
+      await page.waitForTimeout(220);
+    }
     await page.locator('[data-dpad="interact"]').click();
 
     await expect(page.locator("[data-overworld-dialogue]")).toBeVisible();
@@ -1037,10 +1042,11 @@ test.describe("vroomon Playwright harness", () => {
     await expect(page.locator(".menu-howto")).toHaveCount(0);
     await expect(page.locator('[data-onboard="evolution"]')).toHaveCount(0);
 
-    // Axle teaches breeding through the story.
-    for (const dir of ["up", "up", "up", "up", "left", "left"]) {
+    // Axle teaches breeding through the story — from inside the schoolhouse
+    // he keeps now.
+    for (const dir of ["up", "up", "up", "up", "left", "up", "right", "right", "right", "up"]) {
       await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(260);
     }
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
@@ -1057,6 +1063,8 @@ test.describe("vroomon Playwright harness", () => {
       const world = await window.vroomon.loadWorldState();
       await window.vroomon.saveWorldState({
         ...world,
+        // Back out of the schoolhouse: Wanda works the street, not the lab.
+        currentMapId: "starter_town",
         playerX: 10,
         playerY: 3,
         playerFacing: "right",
@@ -1265,9 +1273,12 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.waitForTimeout(900);
     await expect(page.locator("[data-world-summary]")).toContainText("Ranch Yard");
 
-    // The porch is straight above where the house door puts you.
+    // The porch is straight above where the house door puts you: two paces
+    // (the landing is a tile in from the mat).
     await page.keyboard.press("ArrowUp");
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(400);
+    await page.keyboard.press("ArrowUp");
+    await page.waitForTimeout(800);
     await expect(page.locator("[data-world-summary]")).toContainText("Ranch House");
   });
 
@@ -1462,6 +1473,43 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     }
   });
 
+  test("@smoke Starter Town has rooms: the schoolhouse and the supply store", async ({
+    page,
+  }) => {
+    await seedAndEnterWorld(page);
+
+    // The professor's lab is a room now, and his student sweeps up in it.
+    await enterMapAt(page, "town_schoolhouse", 8, 4, "up");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Schoolhouse");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Professor Axle");
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("starter DNA");
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(400);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(400);
+
+    // The store has a keeper with a job about walking the new landmarks.
+    await enterMapAt(page, "town_store", 5, 4, "up");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Storekeep Bram");
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("Word From The Switchback");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("walk the Switchback");
+
+    // And the town's doors are walkable: step out onto the street.
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(300);
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(800);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Starter Town");
+  });
+
   test("@smoke people move with the day, and remember you", async ({ page }) => {
     await seedAndEnterWorld(page);
     // Morning: Jess is in the market square where she always is.
@@ -1600,11 +1648,12 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.waitForTimeout(900);
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Cookhouse");
 
-    // Walk over to the sink and talk to Nim.
-    await page.keyboard.press("ArrowLeft");
-    await page.waitForTimeout(300);
-    await page.keyboard.press("ArrowLeft");
-    await page.waitForTimeout(400);
+    // Walk over to the sink and face Nim: two left, one down, then turn left
+    // (walking into somebody only turns you to face them).
+    for (const key of ["ArrowLeft", "ArrowLeft", "ArrowDown", "ArrowLeft"] as const) {
+      await page.keyboard.press(key);
+      await page.waitForTimeout(280);
+    }
     await page.keyboard.press("z");
     await page.waitForTimeout(700);
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Pot-washer Nim");

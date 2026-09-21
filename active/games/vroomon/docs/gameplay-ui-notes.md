@@ -842,6 +842,34 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Starter Town has rooms now (2026-09-15) ✅
+
+The town's two buildings were facades with nothing behind them. Both open:
+
+- **The Schoolhouse** — where **Professor Axle** actually works now, which
+  finally makes the main quest's line (*"Talk to Professor Axle at the
+  schoolhouse"*) literally true. **Pup Tam** sweeps up in exchange for
+  lessons and knows the important one already: *"the bench doesn't care how
+  fast your car is, only how fast the next one is."* Axle's whole explain
+  thread (Herd Book, breeding a champion, farewell) moved in with him.
+- **The Supply Store** — **Storekeep Bram** sells grain, grease and gossip,
+  and pays for *Word From The Switchback*: walk the cable station above the
+  Mesa and tell him what the cable hand says about light cars.
+
+### Two more invariants, and the nine bugs they found
+
+- **You land inside a room, not on the way back out.** A gate that lands you
+  *on* another gate is a door you cannot stop falling through. The
+  schoolhouse and store both did it — and then the invariant found **eight
+  more across the whole world**: every mutual road gate (town↔ranch, town↔
+  orchard, route↔arena, biome↔biome, waystation↔route) landed on its
+  partner's exit tile, so walking a road and continuing in the same direction
+  bounced you straight back.
+- Moving Axle into the schoolhouse was done by **following his dialogue
+  thread**: the explain nodes he points at had to move with him, or the
+  conversation would stop dead (the link invariant added last cycle made that
+  mechanical rather than hopeful).
+
 ## People have days, and memories (2026-09-15) ✅
 
 NPCs were statues with a paragraph. Now they have **routines** and

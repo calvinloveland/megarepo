@@ -8,8 +8,8 @@ const STARTER_TOWN_TILES: TileKind[][] = [
   // Two gates in the north wall: the ranch doorstep at 8, and the lane up to
   // Marrow Orchard at 10.
   row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "doormat", "tree", "doormat", "tree", "tree", "tree", "tree", "tree"),
-  row("tree", "grass", "grass", "grass", "grass", "building", "building", "building", "path", "building", "grass", "grass", "grass", "grass", "grass", "tree"),
-  row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "building", "door", "building", "path", "door", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "path", "path", "path", "path", "doormat", "path", "path", "doormat", "path", "path", "path", "path", "grass", "tree"),
   row("tree", "grass", "path", "counter", "path", "path", "path", "path", "path", "path", "path", "path", "counter", "path", "grass", "tree"),
   row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
   row("tree", "grass", "path", "doormat", "path", "path", "path", "path", "path", "path", "path", "path", "doormat", "path", "grass", "tree"),
@@ -167,7 +167,173 @@ const DEPOT_TILES: TileKind[][] = [
   row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
 ];
 
+const SCHOOLHOUSE_TILES: TileKind[][] = [
+  row("wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "wall"),
+  row("wall", "indoor-floor", "counter", "counter", "counter", "indoor-floor", "indoor-floor", "counter", "counter", "counter", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall"),
+];
+
+const TOWN_STORE_TILES: TileKind[][] = [
+  row("wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"),
+  row("wall", "counter", "counter", "counter", "counter", "counter", "counter", "counter", "counter", "counter", "counter", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "counter", "counter", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall"),
+];
+
 export const MAPS: Record<string, Tilemap> = {
+  town_schoolhouse: {
+    id: "town_schoolhouse",
+    name: "The Schoolhouse",
+    width: 12,
+    height: 6,
+    interior: true,
+    tiles: SCHOOLHOUSE_TILES,
+    ambientColor: "#c9b183",
+    npcs: [
+      {
+        id: "professor-axle",
+        name: "Professor Axle",
+        x: 8,
+        y: 3,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Welcome to the lab, kid! I'm Professor Axle. The Continent of Vroom is full of evolving vehicles. Here, take this starter DNA and a Hall of Fame key.",
+          next: "professor-axle-2",
+        },
+      },
+      {
+        id: "professor-axle-2",
+        name: "Professor Axle",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Head east on Route 1, walk through the Vroomgrass to capture wild DNA, and when you reach the Roundup Grounds, choose your ranch: the Greensprouts' meadow or the Reds' summer circuit. Your Herd Book fills as you go.",
+          options: [
+            { label: "What is a Herd Book?", next: "vroomdex-explain" },
+            { label: "How do I breed a champion?", next: "breed-champion-explain" },
+            { label: "Got it, thanks!", next: "professor-farewell" },
+          ],
+        },
+      },      {
+        id: "vroomdex-explain",
+        name: "Professor Axle",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Every vehicle you encounter leaves a DNA fingerprint in your Herd Book. Track the wheels, chassis, and powertrains you've seen. The data is precious — every specimen counts.",
+          onComplete: "vroomdex",
+        },
+      },
+      {
+        id: "breed-champion-explain",
+        name: "Professor Axle",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "It happens in the paddock, not on the road. Your starters sit on the breeding bench: run a generation and the fast ones rise, then save the best to the Record Barn. The Barn tests any car on any terrain, and the records board keeps every lap. A champion is just a name on that board.",
+          onComplete: "vroomdex",
+        },
+      },
+      {
+        id: "professor-farewell",
+        name: "Professor Axle",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: { text: "Race a champion, win a Brand, and outrun the road. The meadow's watching, kid.", setFlag: "met-axle" },
+      },
+      {
+        id: "pup-tam",
+        name: "Pup Tam",
+        x: 2,
+        y: 4,
+        facing: "right",
+        sprite: "villager",
+        dialogue: {
+          text: "Axle lets me sit in on the lessons if I sweep up. I know the important one already: the bench doesn't care how fast your car is, only how fast the next one is.",
+        },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "5,5": { mapId: "starter_town", toX: 6, toY: 3, facing: "down" },
+      "6,5": { mapId: "starter_town", toX: 6, toY: 3, facing: "down" },
+    },
+  },
+  town_store: {
+    id: "town_store",
+    name: "The Supply Store",
+    width: 12,
+    height: 6,
+    interior: true,
+    tiles: TOWN_STORE_TILES,
+    ambientColor: "#cdb488",
+    npcs: [
+      {
+        id: "storekeep-bram",
+        name: "Storekeep Bram",
+        x: 5,
+        y: 3,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Grain, gearset grease, and gossip — I sell all three. What I don't sell is a reason to stay in town: the roads out there are where a herd is made.",
+          options: [
+            { label: "What's worth walking to?", next: "bram-road" },
+            { label: "I'll walk one for you", next: "bram-job" },
+            { label: "Just browsing", next: "bram-browse" },
+          ],
+        },
+      },
+      {
+        id: "bram-road",
+        name: "Storekeep Bram",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Every road has a landmark now. A cable station up the Mesa face, a cutting in the quarry, the last depot before the ice. Walk to any of them and you'll come back with something to sell me.",
+        },
+      },
+      {
+        id: "bram-job",
+        name: "Storekeep Bram",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "The switchback above the Mesa — walk it and tell me what the cable hand says about light cars. That's worth paying for.",
+          setFlag: "quest-roadwalk-accepted",
+        },
+      },
+      {
+        id: "bram-browse",
+        name: "Storekeep Bram",
+        x: 0, y: 0, facing: "down", sprite: "villager",
+        dialogue: { text: "Browse away. Everything here is heavier than it looks." },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "5,5": { mapId: "starter_town", toX: 9, toY: 3, facing: "down" },
+      "6,5": { mapId: "starter_town", toX: 9, toY: 3, facing: "down" },
+    },
+  },
 
   mesa_switchback: {
     id: "mesa_switchback",
@@ -728,12 +894,12 @@ export const MAPS: Record<string, Tilemap> = {
       // sit one tile in from the tree border, because a transition on the
       // border can never be stepped on.
       // The cookhouse and the workshop stand behind their own doors.
-      "3,4": { mapId: "long_haul_cookhouse", toX: 5, toY: 4, facing: "up" },
-      "13,4": { mapId: "long_haul_workshop", toX: 5, toY: 4, facing: "up" },
-      "1,5": { mapId: "route_2", toX: 20, toY: 5, facing: "left" },
-      "1,6": { mapId: "route_2", toX: 20, toY: 6, facing: "left" },
-      "16,5": { mapId: "hills_map", toX: 5, toY: 6, facing: "right" },
-      "16,6": { mapId: "hills_map", toX: 5, toY: 7, facing: "right" },
+      "3,4": { mapId: "long_haul_cookhouse", toX: 5, toY: 3, facing: "up" },
+      "13,4": { mapId: "long_haul_workshop", toX: 5, toY: 3, facing: "up" },
+      "1,5": { mapId: "route_2", toX: 19, toY: 5, facing: "left" },
+      "1,6": { mapId: "route_2", toX: 19, toY: 6, facing: "left" },
+      "16,5": { mapId: "hills_map", toX: 4, toY: 6, facing: "right" },
+      "16,6": { mapId: "hills_map", toX: 4, toY: 7, facing: "right" },
     },
   },
   home_ranch: {
@@ -813,8 +979,8 @@ export const MAPS: Record<string, Tilemap> = {
     encounters: {},
     transitions: {
       // The porch: a doormat in the doorway, straight out to the yard.
-      "6,4": { mapId: "ranch_yard", toX: 6, toY: 2, facing: "down" },
-      "7,4": { mapId: "ranch_yard", toX: 7, toY: 2, facing: "down" },
+      "6,4": { mapId: "ranch_yard", toX: 6, toY: 3, facing: "down" },
+      "7,4": { mapId: "ranch_yard", toX: 7, toY: 3, facing: "down" },
     },
   },
   ranch_yard: {
@@ -946,8 +1112,8 @@ export const MAPS: Record<string, Tilemap> = {
     encounters: {},
     transitions: {
       // Back inside, and out the garden gate to town.
-      "6,1": { mapId: "home_ranch", toX: 6, toY: 4, facing: "up" },
-      "7,1": { mapId: "home_ranch", toX: 7, toY: 4, facing: "up" },
+      "6,1": { mapId: "home_ranch", toX: 6, toY: 3, facing: "up" },
+      "7,1": { mapId: "home_ranch", toX: 7, toY: 3, facing: "up" },
       "7,10": { mapId: "starter_town", toX: 8, toY: 5, facing: "up" },
     },
   },
@@ -1121,8 +1287,8 @@ export const MAPS: Record<string, Tilemap> = {
       // South down the lane to town, west along the hedge to Route 1. The
       // hedge gate sits in from the tree border so it can be stepped on.
       "10,12": { mapId: "starter_town", toX: 10, toY: 2, facing: "down" },
-      "1,4": { mapId: "route_1", toX: 18, toY: 4, facing: "left" },
-      "1,5": { mapId: "route_1", toX: 18, toY: 5, facing: "left" },
+      "1,4": { mapId: "route_1", toX: 17, toY: 4, facing: "left" },
+      "1,5": { mapId: "route_1", toX: 17, toY: 4, facing: "left" },
     },
   },
   starter_town: {
@@ -1133,67 +1299,6 @@ export const MAPS: Record<string, Tilemap> = {
     tiles: STARTER_TOWN_TILES,
     ambientColor: "#9bc16a",
     npcs: [
-      {
-        id: "professor-axle",
-        name: "Professor Axle",
-        x: 4,
-        y: 3,
-        facing: "down",
-        sprite: "professor",
-        dialogue: {
-          text: "Welcome to the lab, kid! I'm Professor Axle. The Continent of Vroom is full of evolving vehicles. Here, take this starter DNA and a Hall of Fame key.",
-          next: "professor-axle-2",
-        },
-      },
-      {
-        id: "professor-axle-2",
-        name: "Professor Axle",
-        x: 0,
-        y: 0,
-        facing: "down",
-        sprite: "professor",
-        dialogue: {
-          text: "Head east on Route 1, walk through the Vroomgrass to capture wild DNA, and when you reach the Roundup Grounds, choose your ranch: the Greensprouts' meadow or the Reds' summer circuit. Your Herd Book fills as you go.",
-          options: [
-            { label: "What is a Herd Book?", next: "vroomdex-explain" },
-            { label: "How do I breed a champion?", next: "breed-champion-explain" },
-            { label: "Got it, thanks!", next: "professor-farewell" },
-          ],
-        },
-      },
-      {
-        id: "vroomdex-explain",
-        name: "Professor Axle",
-        x: 0,
-        y: 0,
-        facing: "down",
-        sprite: "professor",
-        dialogue: {
-          text: "Every vehicle you encounter leaves a DNA fingerprint in your Herd Book. Track the wheels, chassis, and powertrains you've seen. The data is precious — every specimen counts.",
-          onComplete: "vroomdex",
-        },
-      },
-      {
-        id: "breed-champion-explain",
-        name: "Professor Axle",
-        x: 0,
-        y: 0,
-        facing: "down",
-        sprite: "professor",
-        dialogue: {
-          text: "It happens in the paddock, not on the road. Your starters sit on the breeding bench: run a generation and the fast ones rise, then save the best to the Record Barn. The Barn tests any car on any terrain, and the records board keeps every lap. A champion is just a name on that board.",
-          onComplete: "vroomdex",
-        },
-      },
-      {
-        id: "professor-farewell",
-        name: "Professor Axle",
-        x: 0,
-        y: 0,
-        facing: "down",
-        sprite: "professor",
-        dialogue: { text: "Race a champion, win a Brand, and outrun the road. The meadow's watching, kid.", setFlag: "met-axle" },
-      },
       {
         id: "wanda-first-buys",
         name: "Wrench Wanda",
@@ -1395,8 +1500,11 @@ export const MAPS: Record<string, Tilemap> = {
       // The historical gate was "1,0" — a tree tile, so the town exit was
       // unreachable and the overworld was a dead end.
       "13,2": { mapId: "route_1", toX: 1, toY: 10, facing: "down" },
-      "10,0": { mapId: "marrow_orchard", toX: 10, toY: 12, facing: "up" },
-      "8,0": { mapId: "ranch_yard", toX: 7, toY: 10, facing: "up" },
+      "10,0": { mapId: "marrow_orchard", toX: 10, toY: 11, facing: "up" },
+      // The doors in the north buildings: schoolhouse left, store right.
+      "6,2": { mapId: "town_schoolhouse", toX: 5, toY: 4, facing: "up" },
+      "9,2": { mapId: "town_store", toX: 5, toY: 4, facing: "up" },
+      "8,0": { mapId: "ranch_yard", toX: 7, toY: 9, facing: "up" },
     },
   },
   route_1: {
@@ -1512,7 +1620,7 @@ export const MAPS: Record<string, Tilemap> = {
       "18,5": { mapId: "route_2", toX: 1, toY: 6, facing: "right" },
       // One tile each: two transitions on the same key meant the second
       // won and the Salt Road gate silently disappeared.
-      "17,5": { mapId: "gym_1", toX: 6, toY: 9, facing: "up" },
+      "17,5": { mapId: "gym_1", toX: 6, toY: 8, facing: "up" },
     },
   },
   gym_1: {
@@ -1588,8 +1696,8 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "6,9": { mapId: "route_1", toX: 18, toY: 5 },
-      "7,9": { mapId: "route_1", toX: 18, toY: 5 },
+      "6,9": { mapId: "route_1", toX: 18, toY: 6 },
+      "7,9": { mapId: "route_1", toX: 18, toY: 6 },
     },
   },
   route_2: {
@@ -1754,9 +1862,9 @@ export const MAPS: Record<string, Tilemap> = {
     encounters: {},
     transitions: {
       "1,7": { mapId: "route_1", toX: 17, toY: 6 },
-      "19,3": { mapId: "hills_map", toX: 1, toY: 6, facing: "right" },
+      "19,3": { mapId: "hills_map", toX: 2, toY: 6, facing: "right" },
       "20,5": { mapId: "long_haul", toX: 2, toY: 5, facing: "right" },
-      "20,4": { mapId: "gym_2", toX: 6, toY: 9, facing: "up" },
+      "20,4": { mapId: "gym_2", toX: 6, toY: 8, facing: "up" },
     },
   },
   gym_2: {
@@ -1822,8 +1930,8 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "6,9": { mapId: "route_2", toX: 20, toY: 5 },
-      "7,9": { mapId: "route_2", toX: 20, toY: 5 },
+      "6,9": { mapId: "route_2", toX: 20, toY: 6 },
+      "7,9": { mapId: "route_2", toX: 20, toY: 6 },
     },
   },
 
@@ -1900,8 +2008,8 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "1,6": { mapId: "route_2", toX: 18, toY: 3, facing: "left" },
-      "14,6": { mapId: "rocky_map", toX: 1, toY: 6, facing: "right" },
+      "1,6": { mapId: "route_2", toX: 18, toY: 4, facing: "left" },
+      "14,6": { mapId: "rocky_map", toX: 2, toY: 6, facing: "right" },
       // The Switchback climbs off the Mesa.
       "5,6": { mapId: "mesa_switchback", toX: 6, toY: 7, facing: "down" },
     },
@@ -1979,8 +2087,8 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "1,6": { mapId: "hills_map", toX: 14, toY: 6, facing: "left" },
-      "14,6": { mapId: "ice_map", toX: 1, toY: 6, facing: "right" },
+      "1,6": { mapId: "hills_map", toX: 13, toY: 6, facing: "left" },
+      "14,6": { mapId: "ice_map", toX: 2, toY: 6, facing: "right" },
       // The Cut runs off the Quarry road.
       "5,6": { mapId: "the_cut", toX: 6, toY: 6, facing: "down" },
     },
@@ -2058,9 +2166,9 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "1,6": { mapId: "rocky_map", toX: 14, toY: 6, facing: "left" },
+      "1,6": { mapId: "rocky_map", toX: 13, toY: 6, facing: "left" },
       // The Long Light Depot is the last roof before the ice.
-      "5,6": { mapId: "long_light_depot", toX: 6, toY: 6, facing: "down" },
+      "5,6": { mapId: "long_light_depot", toX: 6, toY: 5, facing: "down" },
     },
   },
 };

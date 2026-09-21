@@ -245,6 +245,17 @@ export const SIDE_QUESTS: SideQuest[] = [
       "Names on a chalk board mean nothing without Brands behind them. Bring me three and we'll talk about the Roundup.",
   },
   {
+    id: "road-walk",
+    title: "Word From The Switchback",
+    giver: "Storekeep Bram",
+    mapId: "town_store",
+    acceptFlag: "quest-roadwalk-accepted",
+    objective: { kind: "visit", mapId: "mesa_switchback", label: "walk the Switchback" },
+    reward: { wallet: 120, feed: 2, thanks: "You walked it. Light cars, is it? I'll price the grease accordingly." },
+    offer:
+      "Walk the switchback above the Mesa and tell me what the cable hand says about light cars. That's worth paying for.",
+  },
+  {
     id: "nim-scraps",
     title: "Out Past The Fence",
     giver: "Pot-washer Nim",

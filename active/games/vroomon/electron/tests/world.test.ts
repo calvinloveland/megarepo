@@ -365,6 +365,25 @@ describe("world reachability", () => {
     }
   });
 
+  it("lands you inside a room rather than on the way back out", () => {
+    // A gate that lands you ON another gate is a door you cannot stop
+    // falling through: the schoolhouse and the store both did this, walking
+    // a player straight back into the street.
+    for (const map of MAP_LIST) {
+      for (const [key, transition] of Object.entries(map.transitions)) {
+        const target = getMap(transition.mapId);
+        if (!target) {
+          continue;
+        }
+        const landing = `${transition.toX},${transition.toY}`;
+        expect(
+          target.transitions[landing],
+          `${map.id} ${key} lands on ${transition.mapId} ${landing}, which is itself a gate`,
+        ).toBeUndefined();
+      }
+    }
+  });
+
   it("lands every transition somewhere you can stand", () => {
     for (const mapId of ["starter_town", "home_ranch", "ranch_yard", "route_1", "route_2", "gym_1", "gym_2"]) {
       const map = getMap(mapId);
