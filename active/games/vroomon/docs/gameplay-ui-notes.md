@@ -842,6 +842,15 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The save audit now covers every store (2026-09-15) ✅
+
+The journey e2e already proved the world, the herd and the quest tallies
+survive a reload. It now also **enshrines a car in the Hall of Fame** (which
+means running a generation first, because the Hall reads the ranked herd) and
+**buys a ranch upgrade**, then reloads and asserts the Hall, the upgrades and
+the records board all came back. Four separate stores — world, run, records,
+hall — are checked in one session's worth of play.
+
 ## A landmark for every far road (2026-09-15) ✅
 
 Each leg of the circuit now has a place with a face on it, off its biome's

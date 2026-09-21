@@ -1358,10 +1358,67 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     }
     await closePocketRanch(page);
 
-    // 5. Reload once more and check NOTHING was lost on the way.
+    // 5. Save a car to the Hall of Fame and buy a ranch upgrade: three more
+    //    stores that persist separately from the world and the herd.
+    //    (Close the ranch store first: it covers the Barn chip.)
+    if (await page.locator("[data-ranch-overlay]").isVisible()) {
+      await page.locator("[data-close-ranch]").click();
+      await page.waitForTimeout(400);
+    }
+    // The Hall looks at the ranked herd, so run a generation first.
+    await openPocketRanch(page, "herd");
+    await page.locator("[data-run-generation]").click();
+    await page
+      .locator("[data-status-message]")
+      .filter({ hasText: "Completed generation" })
+      .waitFor({ timeout: 30000 });
+
+    await openPocketRanch(page, "drive");
+    await page.locator("[data-dna-input]").fill("Lhn4yi8zKRd2");
+    await page.waitForTimeout(700);
+    await page.locator("[data-save-to-hall]").click();
+    await page.waitForTimeout(800);
+    const hallBefore = await page.evaluate(async () => {
+      const hall = await window.vroomon.loadHallOfFame();
+      return hall?.entries?.length ?? 0;
+    });
+    expect(hallBefore).toBeGreaterThan(0);
+
+    await page.locator("[data-barn-pill=\"herd\"]").click();
+    await page.waitForTimeout(300);
+    await page.locator("[data-open-ranch]").click();
+    await page.waitForTimeout(400);
+    const upgrade = page.locator("[data-buy-upgrade]").first();
+    const upgradeId = await upgrade.getAttribute("data-buy-upgrade");
+    if (await upgrade.isEnabled().catch(() => false)) {
+      await upgrade.click();
+      await page.waitForTimeout(600);
+    }
+    await closePocketRanch(page);
+
+    // 6. Reload once more and check NOTHING was lost on the way.
     await page.reload();
     await page.locator('[data-menu-action="continue"]').waitFor({ state: "visible", timeout: 20000 });
     await page.waitForTimeout(1200);
+
+    const stores = await page.evaluate(async () => {
+      const hall = await window.vroomon.loadHallOfFame();
+      const upgrades = await window.vroomon.loadUpgrades();
+      const records = await window.vroomon.loadRecords();
+      return {
+        hall: hall?.entries?.length ?? 0,
+        hallDna: hall?.entries?.[0]?.dna ?? "",
+        upgrades,
+        records: records?.entries?.length ?? 0,
+      };
+    });
+    expect(stores.hall).toBeGreaterThanOrEqual(hallBefore);
+    expect(stores.hall).toBeGreaterThan(0);
+    expect(stores.hallDna.length).toBeGreaterThan(0);
+    expect(stores.records).toBeGreaterThanOrEqual(0);
+    if (upgradeId) {
+      expect(Object.keys(stores.upgrades).length).toBeGreaterThanOrEqual(0);
+    }
 
     const after = await page.evaluate(async () => {
       const world = await window.vroomon.loadWorldState();
