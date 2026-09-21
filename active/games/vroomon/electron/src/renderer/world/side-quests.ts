@@ -161,6 +161,52 @@ export const SIDE_QUESTS: SideQuest[] = [
       "The Mesa's wild stock climbs better than anything on the flats. Beat two of them on my ground and the school is yours.",
   },
   {
+    // The Vent Keeper lives on the Mesa and had no work to give, so the two
+    // jobs that touch the high ground were both handed out in town. The
+    // people standing on a ground should be the people who want something
+    // done on it.
+    id: "vent-line",
+    title: "The Vent Line",
+    giver: "Vent Keeper",
+    mapId: "hills_map",
+    requires: "mesa-thermals",
+    acceptFlag: "quest-vent-line-accepted",
+    objective: {
+      kind: "champion-on",
+      terrain: "Hills",
+      score: 2600,
+      label: "a 2600 champion on the Mesa",
+    },
+    reward: {
+      wallet: 300,
+      feed: 4,
+      dna: "PNEexlimSimR",
+      thanks: "Twenty-six hundred on the high ground. That is a car built for the vents, not a car that got lucky.",
+    },
+    offer:
+      "The vents eat light cars whole. Bring me a champion that runs twenty-six hundred on my Mesa and I will show you how the fast ones are laid out.",
+  },
+  {
+    id: "cold-storage",
+    title: "Cold Storage",
+    giver: "Depot Keeper Sable",
+    mapId: "long_light_depot",
+    requires: "mesa-thermals",
+    acceptFlag: "quest-cold-storage-accepted",
+    objective: {
+      kind: "catch-wild",
+      count: 4,
+      label: "wild vroomon brought in",
+    },
+    reward: {
+      wallet: 280,
+      feed: 5,
+      thanks: "Four of them off the ice. The lamps stay lit another season on what those are worth.",
+    },
+    offer:
+      "The Depot lives off what the drift gives up. Bring me four wild ones off the ice — any four, I am not fussy — and the lamps stay lit.",
+  },
+  {
     id: "quarry-shift",
     title: "A Shift In The Quarry",
     giver: "The Ringleader",

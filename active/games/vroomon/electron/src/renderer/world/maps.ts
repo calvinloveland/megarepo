@@ -826,6 +826,7 @@ export const MAPS: Record<string, Tilemap> = {
           options: [
             { label: "What's out on the ice?", next: "sable-ice" },
             { label: "I'll race it", next: "sable-job" },
+            { label: "Need anything brought in?", next: "sable-storage" },
             { label: "Just sheltering", next: "sable-warm" },
           ],
         },
@@ -851,6 +852,30 @@ export const MAPS: Record<string, Tilemap> = {
         dialogue: {
           text: "Eleven hundred on the Drift Perimeter. Bring me that and I'll load your carrier for the road home.",
           setFlag: "quest-depot-accepted",
+        },
+      },
+      {
+        id: "sable-storage",
+        name: "Depot Keeper Sable",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Four wild ones off the ice, any four. The lamps run on what the drift gives up, and I am not fussy about how they look.",
+          setFlag: "quest-cold-storage-accepted",
+        },
+      },
+      // The Depot's working: the bowser the haulers fill from.
+      {
+        id: "depot-bowser",
+        name: "The Fuel Bowser",
+        x: 8,
+        y: 5,
+        facing: "right",
+        sprite: "mechanic",
+        dialogue: {
+          text: "A tank on wheels, hand-pumped, half full. Somebody has scratched NO CREDIT into the paint and then, more recently, into smaller letters: please.",
         },
       },
       {
@@ -2391,8 +2416,68 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "sign",
         dialogue: { text: "Three, two, one... GO!", onComplete: "gym" },
       },
-      { id: "vent-keeper", name: "Vent Keeper", x: 8, y: 2, facing: "down", sprite: "rider",
-        dialogue: { text: "At dusk the mesa vents whistle. Some say the updrafts call their own — city folks just hear wind." } },
+      {
+        id: "vent-keeper",
+        name: "Vent Keeper",
+        x: 8,
+        y: 2,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "At dusk the mesa vents whistle. Some say the updrafts call their own — city folks just hear wind. I keep the vane on this ridge; it says more about the ground than any clock.",
+          options: [
+            { label: "What does the ground want?", next: "vent-wants" },
+            { label: "I'll run the vents", next: "vent-job" },
+            { label: "Which way is the wind?", next: "vent-wind" },
+          ],
+        },
+      },
+      {
+        id: "vent-wants",
+        name: "Vent Keeper",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "High ground, thin air. A car that wanders loses the line and never gets it back — four wheels planted, two of them pulling, that is the shape the Mesa likes.",
+        },
+      },
+      {
+        id: "vent-job",
+        name: "Vent Keeper",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Twenty-six hundred on my Mesa and I will show you how the fast ones are laid out.",
+          setFlag: "quest-vent-line-accepted",
+        },
+      },
+      {
+        id: "vent-wind",
+        name: "Vent Keeper",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Up the ridge and north, always. Race the switchback with it behind you and you will think your herd got faster overnight.",
+        },
+      },
+      // A working you can walk up to: the vane the Keeper reads.
+      {
+        id: "mesa-vane",
+        name: "The Ridge Vane",
+        x: 10,
+        y: 2,
+        facing: "left",
+        sprite: "sign",
+        dialogue: {
+          text: "A wind vane on a stone post, its tail worn bright. Someone has chalked the week's readings up the post: the Mesa keeps its own weather book.",
+        },
+      },
     ],
     encounters: {},
     transitions: {

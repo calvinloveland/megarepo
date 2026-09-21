@@ -913,6 +913,34 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## The people standing on a ground give its work (2026-09-15) ✅
+
+The Highland Mesa and the Long Light Depot both had people on them and jobs
+attached to them — but in both cases the job was handed out somewhere else.
+Sable kept the last roof before the perimeter and never asked you for anything;
+the Vent Keeper read the wind on the ridge and had no use for you at all.
+
+Two new jobs, given where they belong:
+
+**The Vent Line** — Vent Keeper, Highland Mesa. A 2600 champion on Hills
+terrain, paid in credits, feed and `PNEexlimSimR` (the four-wheeled reference
+build). Her menu now answers the question the shape rules raise — *"High ground,
+thin air. A car that wanders loses the line and never gets it back — four
+wheels planted, two of them pulling, that is the shape the Mesa likes."*
+
+**Cold Storage** — Depot Keeper Sable, The Long Light Depot. Four wild vroomon
+off the ice, any four, paid in credits and feed. *"The lamps run on what the
+drift gives up, and I am not fussy about how they look."*
+
+Each ground also got a **working you can walk up to and read**: the Ridge Vane
+on the Mesa, its post chalked with the week's readings, and the Fuel Bowser at
+the Depot, with RETURNED scratched into the paint and then, in smaller letters,
+*please*.
+
+The quest-contract suite caught the first half of this before I wrote a word of
+dialogue — `vent-line (quest-vent-line-accepted) is offered by nobody` — which
+is exactly what it is for.
+
 ## Six biomes, six animals — measured (2026-09-15) ✅
 
 The tier shapes raised a question worth answering with numbers rather than
