@@ -8,13 +8,15 @@ import {
   PLAYER_MOVE_DURATION_MS,
   TILE_SIZE,
   type Direction,
+  type NpcDefinition,
   type Tilemap,
   type WorldState,
 } from "./types.js";
 import { findDecor } from "./decor.js";
 import { HOUSE_ACCENTS, houseAccentForNpc, SPRITE_PALETTE as PAL } from "./sprites-palette.js";
 import { FACTIONS } from "./factions.js";
-import { ambientMotes, dayTint, footstepPuffs, waterPhase, type Track } from "./ambience-layer.js";
+import { ambientMotes, dayPhase, dayTint, footstepPuffs, waterPhase, type Track } from "./ambience-layer.js";
+import { npcPositionAt } from "./routines.js";
 
 export interface OverworldRenderFrame {
   map: Tilemap;
@@ -251,18 +253,21 @@ export function renderOverworld(
   }
 
   const sortedEntities: Array<{ y: number; draw: (px: number) => void }> = [];
+  const clockPhase = dayPhase(tick);
   for (const npc of map.npcs) {
+    // People with a routine are wherever the day has put them.
+    const spot = npcPositionAt(npc, clockPhase);
     // Dialogue-only stubs sit on impassable tiles (conventionally at 0,0) and
     // resolve by id, not by position — skip them so no ghost sprites render
     // in the map corner.
-    if (!isTilePassable(map.tiles[npc.y]?.[npc.x] ?? "grass")) {
+    if (!isTilePassable(map.tiles[spot.y]?.[spot.x] ?? "grass")) {
       continue;
     }
     sortedEntities.push({
-      y: npc.y,
+      y: spot.y,
       draw: (px) => {
-        const npcPx = npc.x * TILE_SIZE - cameraX;
-        const npcPy = npc.y * TILE_SIZE - cameraY;
+        const npcPx = spot.x * TILE_SIZE - cameraX;
+        const npcPy = spot.y * TILE_SIZE - cameraY;
         if (
           npcPx < -TILE_SIZE ||
           npcPx > width ||
@@ -490,6 +495,7 @@ export function isOnWildEncounterTile(world: WorldState): boolean {
 
 export function findAdjacentNpc(
   world: WorldState,
+  timeMs: number = Date.now(),
 ): ReturnType<typeof getNpcByPosition> {
   const map = getMap(world.currentMapId);
   if (!map) {
@@ -497,7 +503,29 @@ export function findAdjacentNpc(
   }
   const dx = world.playerFacing === "left" ? -1 : world.playerFacing === "right" ? 1 : 0;
   const dy = world.playerFacing === "up" ? -1 : world.playerFacing === "down" ? 1 : 0;
-  return getNpcByPosition(map, world.playerX + dx, world.playerY + dy);
+  const phase = dayPhase(timeMs);
+  return (
+    map.npcs.find((npc) => {
+      const spot = npcPositionAt(npc, phase);
+      return spot.x === world.playerX + dx && spot.y === world.playerY + dy;
+    }) ?? null
+  );
+}
+
+/** Is somebody standing on this tile right now? */
+export function npcOnTile(
+  map: Tilemap,
+  x: number,
+  y: number,
+  timeMs: number = Date.now(),
+): NpcDefinition | null {
+  const phase = dayPhase(timeMs);
+  return (
+    map.npcs.find((npc) => {
+      const spot = npcPositionAt(npc, phase);
+      return spot.x === x && spot.y === y;
+    }) ?? null
+  );
 }
 
 export function getNpcByPosition(map: Tilemap, x: number, y: number) {

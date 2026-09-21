@@ -34,6 +34,21 @@ export interface NpcDefinition {
   sprite: string;
   dialogue: DialogueNode | null;
   encounterId?: string;
+  /**
+   * Where this person stands at each part of the day. Missing slots fall back
+   * to earlier ones, so a routine only has to describe what changes.
+   */
+  routine?: Partial<
+    Record<"dawn" | "morning" | "afternoon" | "dusk" | "night", { x: number; y: number; facing?: Direction }>
+  >;
+  /** Opening lines by standing ("new" / "known" / "champion") and by how the
+   * last race with you went ("after:win" / "after:loss"). */
+  greetings?: Partial<
+    Record<
+      "new" | "known" | "champion" | "after:win" | "after:loss",
+      string
+    >
+  >;
 }
 
 export interface DialogueNode {
@@ -105,6 +120,12 @@ export interface WorldState {
    * state in a dozen places.
    */
   tally: Record<string, number>;
+  /**
+   * Pins the time of day (0 = dawn, 0.5 = afternoon, 0.9 = night). Null means
+   * the real clock runs it. Used so a session — or a test — can hold a
+   * particular hour, since people now move with the day.
+   */
+  timeOverride: number | null;
   /** dna -> where that specimen came off, what it ran, and when. */
   specimenMeta: Record<string, { mapId: string; score: number; caughtAt: string; origin: "caught" | "bought" }>;
   /**
@@ -148,6 +169,8 @@ export interface PersistedWorldState {
   hunting?: boolean;
   /** Optional for old saves: counters, empty until a quest needs one. */
   tally?: Record<string, number>;
+  /** Optional: a pinned hour, absent when the live clock runs the day. */
+  timeOverride?: number | null;
   /** Optional: herd book provenance, absent in saves made before it. */
   specimenMeta?: Record<string, { mapId: string; score: number; caughtAt: string; origin: "caught" | "bought" }>;
   /** Optional: wild packs appear the first time you walk a biome's grass. */
@@ -175,6 +198,7 @@ export const EMPTY_PERSISTED_WORLD: PersistedWorldState = {
   feudTiers: {},
   hunting: true,
   tally: {},
+  timeOverride: null,
   specimenMeta: {},
   wildPacks: {},
   wildGenerations: {},
@@ -198,6 +222,7 @@ export function serializeWorldState(world: WorldState): PersistedWorldState {
     feudTiers: { ...world.feudTiers },
     hunting: world.hunting,
     tally: { ...world.tally },
+    timeOverride: world.timeOverride,
     specimenMeta: { ...world.specimenMeta },
     wildPacks: { ...world.wildPacks },
     wildGenerations: { ...world.wildGenerations },

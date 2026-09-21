@@ -842,6 +842,36 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## People have days, and memories (2026-09-15) ✅
+
+NPCs were statues with a paragraph. Now they have **routines** and
+**memories** (`src/renderer/world/routines.ts`, pure and unit-tested):
+
+- **They move with the day.** Wrangler Jess works the market square in the
+  morning, takes the gate road in the afternoon and drinks by the well at
+  dusk. Picker Sprout works the rows and races in the afternoon. Cook Ada is
+  at her stove by day and at the door in the evening. A routine only
+  describes what changes — a missing slot borrows from earlier in the day, so
+  a night watch stays where the evening left it.
+- **They know you.** Standing is derived (`new` / `known` / `champion`) from
+  Brands, Herd Book size and the Hall of Fame, and an NPC can carry opening
+  lines per tier: one Brand gets *"Back off the grass, I see"*; three gets
+  *"the rider with a Brand and a champion in the barn"*.
+- **Rivals remember the last race.** A trainer race records the result
+  against the rival's name, and a rival with `after:win` / `after:loss`
+  lines opens with it: *"You beat me on my own road"* or *"Told you the Long
+  Haul's quick."*
+
+### The trap this set, and the fix
+
+Moving people made **every position test time-dependent** — a suite that
+passes at 9am and fails at noon is worse than no suite. The world now carries
+a **pinned hour** (`timeOverride`, saved with everything else), the renderer's
+clock, the day tint, the routines and the controller's interaction all read
+the same source, and the e2e harness pins morning. The feature's own test
+walks the same street at dawn and at dusk and proves the difference — which is
+only possible *because* the hour is deterministic.
+
 ## The save audit now covers every store (2026-09-15) ✅
 
 The journey e2e already proved the world, the herd and the quest tallies

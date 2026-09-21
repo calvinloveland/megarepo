@@ -2,6 +2,7 @@ import { getMap, isTilePassable } from "./maps.js";
 import {
   attemptMove,
   findAdjacentNpc,
+  npcOnTile,
   isAtEdgeTransition,
   isOnWildEncounterTile,
   startMoveAnimation,
@@ -18,10 +19,12 @@ import {
   transitionToMap,
 } from "./world-state.js";
 import { findFaction, type Faction } from "./factions.js";
+import { greetingFor, standingFor, type Standing } from "./routines.js";
 import { BADGE_BY_MAP } from "../circuit.js";
 import {
   type DialogueNode,
   type Direction,
+  type NpcDefinition,
   type WorldState,
 } from "./types.js";
 
@@ -53,6 +56,10 @@ export function createOverworldInputs(
      * controller only asks who is out there.
      */
     nextWildDna?: (mapId: string) => string;
+    /** A clock, so routines can be tested against a fixed day. */
+    now?: () => number;
+    /** How well the world knows this rancher (the renderer owns the Hall). */
+    standing?: () => Standing;
     onBadgeAwarded: (badge: string) => void;
     onFactionJoined?: (faction: Faction | null) => void;
     onMapTransition?: () => void;
@@ -65,6 +72,21 @@ export function createOverworldInputs(
   function commit(next: WorldState): WorldState {
     state = next;
     return state;
+  }
+
+  /** The line to open with: what happened last race, then how well they know you. */
+  function openingLine(npc: { id: string; name: string; greetings?: NpcDefinition["greetings"] }): string | null {
+    const standing: Standing =
+      dependencies.standing?.() ??
+      standingFor({
+        badges: state.badges,
+        vroomdex: state.vroomdex,
+        flags: state.flags,
+        hallOfFameEntries: 0,
+      });
+    const raced = state.tally?.[`lastrace:${npc.name}`];
+    const lastRace = raced === 1 ? "win" : raced === 0 ? "loss" : null;
+    return greetingFor(npc, standing, lastRace);
   }
 
   function interact(): WorldState {
@@ -81,9 +103,13 @@ export function createOverworldInputs(
       return state;
     }
 
-    const npc = findAdjacentNpc(state);
+    const npc = findAdjacentNpc(state, dependencies.now?.() ?? Date.now());
     if (npc && npc.dialogue) {
-      return commit(startDialogue(state, npc.id, npc.dialogue));
+      // People remember: a rival opens with the last race, everyone else with
+      // how well they know you.
+      const greeting = openingLine(npc);
+      const dialogue = greeting ? { ...npc.dialogue, text: greeting } : npc.dialogue;
+      return commit(startDialogue(state, npc.id, dialogue));
     }
 
     return state;
@@ -236,9 +262,8 @@ export function createOverworldInputs(
     }
 
     const targetTile = map.tiles[targetY]?.[targetX] ?? "grass";
-    const hasNpc = map.npcs.some(
-      (npc) => npc.x === targetX && npc.y === targetY,
-    );
+    // Whoever is standing there NOW, which a routine can move.
+    const hasNpc = npcOnTile(map, targetX, targetY, dependencies.now?.() ?? Date.now()) !== null;
 
     if (!isTilePassable(targetTile) || hasNpc) {
       return commit(setPlayerFacing(state, direction));

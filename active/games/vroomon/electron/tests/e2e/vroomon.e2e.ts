@@ -1462,6 +1462,59 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     }
   });
 
+  test("@smoke people move with the day, and remember you", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    // Morning: Jess is in the market square where she always is.
+    await enterMapAt(page, "starter_town", 6, 7, "up");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Wrangler Jess");
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(400);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(400);
+
+    // Dusk: she has moved to the well, and standing where she was finds nobody.
+    await enterMapAt(page, "starter_town", 6, 7, "up", 0.7);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toHaveText("");
+
+    // Walk to the well instead and she is there.
+    await enterMapAt(page, "starter_town", 3, 9, "left", 0.7);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Wrangler Jess");
+
+    // One Brand and she knows you; three and she calls you a champion.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({ ...world, badges: ["Grassland Brand"] });
+    });
+    await enterMapAt(page, "starter_town", 6, 7, "up", 0.25);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Back off the grass");
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(400);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(400);
+
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        badges: ["Grassland Brand", "Salt Road Brand", "Highland Brand"],
+      });
+    });
+    await enterMapAt(page, "starter_town", 6, 7, "up", 0.25);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText(
+      "rider with a Brand",
+    );
+  });
+
   test("@smoke every far road has a landmark with a job on it", async ({ page }) => {
     await seedAndEnterWorld(page);
     // The landmark jobs chain behind the town board, so unlock them.
@@ -1969,9 +2022,10 @@ async function enterMapAt(
   x: number,
   y: number,
   facing: "up" | "down" | "left" | "right" = "down",
+  hour = 0.25,
 ): Promise<void> {
   await page.evaluate(
-    async ({ mapId: id, x: px, y: py, facing: pf }) => {
+    async ({ mapId: id, x: px, y: py, facing: pf, hour: ph }) => {
       const world = await window.vroomon.loadWorldState();
       await window.vroomon.saveWorldState({
         ...world,
@@ -1983,10 +2037,11 @@ async function enterMapAt(
         playerY: py,
         playerFacing: pf,
         hunting: true,
+        timeOverride: ph,
         flags: { ...(world?.flags ?? {}), "opening-seen": true },
       });
     },
-    { mapId, x, y, facing },
+    { mapId, x, y, facing, hour },
   );
   await page.reload();
   await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
@@ -2031,6 +2086,9 @@ async function seedRancher(
       lastSavedAt: new Date().toISOString(),
       rancherName: "E2E",
       rancherCap: "rust",
+      // Pin the hour: people move with the day now, and a test needs the same
+      // street every run.
+      timeOverride: 0.25,
     });
   });
   await page.reload();

@@ -65,6 +65,8 @@ import {
   specimenEntries,
 } from "./world/specimens.js";
 import { questFor } from "./world/quest.js";
+import { standingFor } from "./world/routines.js";
+import { DAY_LENGTH_MS } from "./world/ambience-layer.js";
 import type { Track } from "./world/ambience-layer.js";
 import {
   activeSideQuests,
@@ -692,6 +694,14 @@ const overworldController = createOverworldInputs(rendererState.world, {
     plantStarterVroomon();
   },
   nextWildDna: (mapId) => nextWildDna(mapId),
+  now: () => worldClock(),
+  standing: () =>
+    standingFor({
+      badges: rendererState.world.badges,
+      vroomdex: rendererState.world.vroomdex,
+      flags: rendererState.world.flags,
+      hallOfFameEntries: rendererState.hallOfFame.entries.length,
+    }),
   onBadgeAwarded: (badge) => {
     rendererState = setWorldState(rendererState, overworldController.state);
     rendererState = {
@@ -1533,6 +1543,16 @@ function renderEvolutionStage(
     ? `Click a racer to pin the camera. ${leader.id} is currently on top.`
     : "Run a generation to inspect the active race field.";
   renderScoreChart();
+}
+
+/**
+ * The world's clock. Normally the real one; a world can pin its hour (dawn =
+ * 0, afternoon = 0.5, night = 0.9) so a saved day stays put — and so tests
+ * see the same street every run, now that people move with the day.
+ */
+function worldClock(): number {
+  const pinned = rendererState.world.timeOverride;
+  return typeof pinned === "number" ? pinned * DAY_LENGTH_MS : performance.now();
 }
 
 // ---------------------------------------------------------------------------
@@ -4996,7 +5016,7 @@ function applyPersistedWorldToRenderer(persisted: PersistedWorldState): void {
 
 function applyPersistedWorld(
   world: WorldState,
-  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; hunting?: boolean; tally?: Record<string, number>; specimenMeta?: Record<string, { mapId: string; score: number; caughtAt: string; origin: "caught" | "bought" }>; wildPacks?: Record<string, string[]>; wildGenerations?: Record<string, number>; flags: Record<string, boolean> },
+  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; hunting?: boolean; tally?: Record<string, number>; timeOverride?: number | null; specimenMeta?: Record<string, { mapId: string; score: number; caughtAt: string; origin: "caught" | "bought" }>; wildPacks?: Record<string, string[]>; wildGenerations?: Record<string, number>; flags: Record<string, boolean> },
 ): WorldState {
   // A save can predate a map change (the ranch used to be one map): put the
   // rancher somewhere they can actually stand rather than in the void.
@@ -5026,6 +5046,8 @@ function applyPersistedWorld(
       persisted.tally && typeof persisted.tally === "object"
         ? persisted.tally
         : world.tally,
+    timeOverride:
+      typeof persisted.timeOverride === "number" ? persisted.timeOverride : world.timeOverride,
     specimenMeta:
       persisted.specimenMeta && typeof persisted.specimenMeta === "object"
         ? persisted.specimenMeta
@@ -5338,7 +5360,7 @@ function startOverworldAnimationLoop(): void {
           map,
           world: overworldController.state,
           decor: rendererState.world.decor,
-          tick: performance.now(),
+          tick: worldClock(),
           spriteAssets,
           puffs: trail,
         });
@@ -5550,9 +5572,22 @@ async function startOverworldEncounter(
     return;
   }
 
+  // Whoever you lined up against remembers how it went.
+  const rival = trainerName ?? "Opponent";
+  if (kind === "trainer") {
+    overworldController._setState(
+      addTally(
+        overworldController.state,
+        `lastrace:${rival}`,
+        result.centerX >= 60 ? 1 : 0,
+      ),
+    );
+    rendererState = setWorldState(rendererState, overworldController.state);
+    scheduleWorldSave();
+  }
   rendererState = {
     ...rendererState,
-    statusMessage: `Rider race! ${trainerName ?? "Opponent"} reached x=${formatNumber(result.centerX)}.`,
+    statusMessage: `Rider race! ${rival} reached x=${formatNumber(result.centerX)}.`,
   };
   renderApp();
 

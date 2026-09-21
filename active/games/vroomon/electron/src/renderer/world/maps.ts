@@ -567,6 +567,17 @@ export const MAPS: Record<string, Tilemap> = {
         y: 6,
         facing: "right",
         sprite: "villager",
+        routine: {
+          dawn: { x: 5, y: 4, facing: "down" },
+          morning: { x: 3, y: 6, facing: "right" },
+          afternoon: { x: 3, y: 6, facing: "right" },
+          dusk: { x: 8, y: 5, facing: "left" },
+          night: { x: 2, y: 5, facing: "right" },
+        },
+        greetings: {
+          known: "Sit before you tell me anything. You've been out on the grass — I can smell it.",
+          champion: "A Branded rider at my stove. Eat first, then talk.",
+        },
         dialogue: {
           text: "Sit. Eat. The road's four hundred miles of sand either way and nothing on it but my stove. I hear everything that comes up this lane — including what your herd can do.",
           options: [
@@ -674,6 +685,16 @@ export const MAPS: Record<string, Tilemap> = {
         y: 9,
         facing: "left",
         sprite: "rider",
+        routine: {
+          morning: { x: 11, y: 9, facing: "left" },
+          afternoon: { x: 11, y: 9, facing: "left" },
+          dusk: { x: 9, y: 10, facing: "up" },
+          night: { x: 9, y: 10, facing: "up" },
+        },
+        greetings: {
+          "after:win": "You beat me on my own road. Say that again and I'll want another go.",
+          "after:loss": "Told you the Long Haul's quick. Come back when your line's grown up.",
+        },
         dialogue: {
           text: "Everyone fast stops at Ada's. I'm the fastest that stays. My car's a Long Haul special — nothing off the shelf about it. Race me if you think your line's better than mine.",
           options: [
@@ -996,6 +1017,11 @@ export const MAPS: Record<string, Tilemap> = {
         y: 4,
         facing: "left",
         sprite: "rival",
+        routine: {
+          morning: { x: 13, y: 4, facing: "left" },
+          afternoon: { x: 13, y: 4, facing: "left" },
+          dusk: { x: 8, y: 9, facing: "right" },
+        },
         dialogue: {
           text: "You're the one off the shoddy ranch! I pick here summers and I race everything that comes up the lane. My car's nothing special — that's the point. Race me and see what yours is worth.",
           options: [
@@ -1243,6 +1269,18 @@ export const MAPS: Record<string, Tilemap> = {
         y: 6,
         facing: "up",
         sprite: "rival",
+        // Morning in the square, afternoon on the gate road, dusk at the well.
+        routine: {
+          dawn: { x: 6, y: 8, facing: "up" },
+          morning: { x: 6, y: 6, facing: "up" },
+          afternoon: { x: 11, y: 5, facing: "left" },
+          dusk: { x: 2, y: 9, facing: "right" },
+          night: { x: 2, y: 9, facing: "right" },
+        },
+        greetings: {
+          champion: "Well — the rider with a Brand and a champion in the barn. The board's got room for one more name.",
+          known: "Back off the grass, I see. Bring me the count when you've got it.",
+        },
         dialogue: {
           text: "You're the new hand off the shoddy ranch. Nobody wrangles vroomon without proving they can catch one — beat three of them in a race and I'll believe you.",
           options: [
