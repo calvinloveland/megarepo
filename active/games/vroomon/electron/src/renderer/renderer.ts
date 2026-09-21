@@ -4590,16 +4590,19 @@ function renderStatsHud(): void {
       action: "hunt",
     });
     // What the wild on this ground has become while nobody was watching.
-    const wildGeneration = rendererState.world.wildGenerations[mapId] ?? 0;
-    const wildPack = rendererState.world.wildPacks[mapId];
-    chips.push({
-      label: "WILD",
-      value: wildPack
-        ? wildGeneration > 0
-          ? `gen ${wildGeneration + 1}`
-          : "founder stock"
-        : "unmet",
-    });
+    // Indoors there is no wild, so the chip would only confuse.
+    if (!map?.interior) {
+      const wildGeneration = rendererState.world.wildGenerations[mapId] ?? 0;
+      const wildPack = rendererState.world.wildPacks[mapId];
+      chips.push({
+        label: "WILD",
+        value: wildPack
+          ? wildGeneration > 0
+            ? `gen ${wildGeneration + 1}`
+            : "founder stock"
+          : "unmet",
+      });
+    }
   } else if (mode === "test-drive") {
     chips.push({ label: "HOF TOP", value: hallTop ? formatNumber(hallTop.score) : "—" });
     chips.push({ label: "GEN", value: generation });

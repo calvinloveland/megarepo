@@ -197,6 +197,40 @@ export const SIDE_QUESTS: SideQuest[] = [
       "Eight wins and I'll chalk your name on the board by the gate. Nobody argues with the board.",
   },
   {
+    id: "roundup-board",
+    title: "Brands On The Board",
+    giver: "Roundup King",
+    mapId: "gym_1",
+    requires: "town-board",
+    acceptFlag: "quest-brands-accepted",
+    objective: { kind: "brands", count: 3, label: "Brands on the board" },
+    reward: { wallet: 340, feed: 4, thanks: "Three Brands. The board out front is starting to look like a career." },
+    offer:
+      "Names on a chalk board mean nothing without Brands behind them. Bring me three and we'll talk about the Roundup.",
+  },
+  {
+    id: "nim-scraps",
+    title: "Out Past The Fence",
+    giver: "Pot-washer Nim",
+    mapId: "long_haul_cookhouse",
+    acceptFlag: "quest-scraps-accepted",
+    objective: { kind: "release", count: 3, label: "slow vroomon turned out" },
+    reward: { wallet: 90, feed: 2, thanks: "Three out past the fence. Sit — that meal's on the house after all." },
+    offer:
+      "Ada's bench culls what can't run. Three turned out past the fence and I'll get you fed and paid.",
+  },
+  {
+    id: "cogs-bracket",
+    title: "Something Worth Welding",
+    giver: "Apprentice Cogs",
+    mapId: "long_haul_workshop",
+    acceptFlag: "quest-bracket-accepted",
+    objective: { kind: "champion-score", score: 800, label: "on the flat" },
+    reward: { wallet: 80, feed: 1, thanks: "Eight hundred. Hold still — this bracket's going on your carrier." },
+    offer:
+      "Bring me eight hundred on the flat and I'll weld you a bracket for the carrier. Mine, not Raff's.",
+  },
+  {
     id: "lane-proof",
     title: "Proof For The Lane",
     giver: "Cook Ada",

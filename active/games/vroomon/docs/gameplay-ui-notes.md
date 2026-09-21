@@ -842,6 +842,34 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Rooms behind the waystation's doors (2026-09-15) ✅
+
+The Long Haul's two doors were painted and promised nothing — a door that
+leads nowhere is the map lying to the player. Both now open onto real
+interiors:
+
+- **Ada's Cookhouse** — counters, a stove, a table, warm light, and two
+  people: **Pot-washer Nim**, who turns culled stock out past the fence and
+  pays for the same (*Out Past The Fence*, the first shipped use of the
+  `release` objective), and **Hauler Quill**, who explains why a frame that
+  holds matters as much as raw speed.
+- **Raff's Workshop** — benches, scrap and a welding apprentice: **Cogs**,
+  who will say the power path back to you and pays for a car that runs 800 on
+  the flat.
+- Two more jobs in total, from **Roundup King** (*Brands On The Board*, the
+  last unused objective kind, `brands`) and the two rooms.
+
+### Two more invariants
+
+- **No dead doors.** Every `door` tile must have a transition on or beside it.
+  It found the Long Haul's pair immediately and passes now.
+- **Every objective kind is exercised by a real quest.** A declared kind no
+  quest uses is a feature-shaped hole that can rot unnoticed — this is how the
+  `brands` and `release` kinds got homes.
+
+The wild chip is also hidden on interior maps, where there is no wild to
+report.
+
 ## The Long Haul: a road stop, and five unreachable doors (2026-09-15) ✅
 
 A new area on the Salt Road — a cookhouse and two workshops between Route 2

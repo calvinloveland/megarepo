@@ -1405,6 +1405,51 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     }
   });
 
+  test("@smoke the waystation's rooms: a cookhouse job for turning stock out", async ({
+    page,
+  }) => {
+    await seedAndEnterWorld(page);
+    // Stand below the doormat and step ONTO it: gates fire when you move in.
+    await enterMapAt(page, "long_haul", 3, 5, "up");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("The Long Haul");
+    await page.keyboard.press("ArrowUp");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Cookhouse");
+
+    // Walk over to the sink and talk to Nim.
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(300);
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(400);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Pot-washer Nim");
+    await expect(page.locator("[data-dialogue-option]")).toHaveCount(3);
+    await page.locator("[data-dialogue-option]").first().click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+
+    // Releasing stock now has a face and a reward behind it.
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("Out Past The Fence");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("turned out");
+
+    // Turning one out past the fence counts.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        tally: { ...(world?.tally ?? {}), released: 2 },
+      });
+    });
+    await page.reload();
+    await page.locator('[data-menu-action="continue"]').waitFor({ state: "visible", timeout: 20000 });
+    await page.locator('[data-menu-action="continue"]').click();
+    await page.waitForTimeout(1000);
+    await enterMapAt(page, "long_haul_cookhouse", 3, 4, "left");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("2/3");
+  });
+
   test("@smoke The Long Haul: a road stop with work for a working book", async ({ page }) => {
     await seedAndEnterWorld(page);
     await enterMapAt(page, "long_haul", 4, 6, "left");

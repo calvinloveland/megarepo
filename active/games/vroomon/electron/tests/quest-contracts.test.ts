@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { MAPS } from "../src/renderer/world/maps.js";
 import { DECOR_ITEMS, findDecor } from "../src/renderer/world/decor.js";
-import { SIDE_QUESTS } from "../src/renderer/world/side-quests.js";
+import { SIDE_QUESTS, type QuestObjective } from "../src/renderer/world/side-quests.js";
 import {
   createMatterVehicle,
   snapshotMatterVehicle,
@@ -100,6 +100,28 @@ describe("quest contracts", () => {
         DECOR_ITEMS.find((item) => item.id === quest.reward.decor)?.earnedOnly,
         `${quest.id} pays ${quest.reward.decor}, which the shop also sells`,
       ).toBe(true);
+    }
+  });
+
+  it("exercises every objective kind with real content", () => {
+    // A declared kind that no quest uses is dead code pretending to be a
+    // feature: it can rot without anything noticing.
+    const kinds = new Set(SIDE_QUESTS.map((quest) => quest.objective.kind));
+    const every: QuestObjective["kind"][] = [
+      "catch-wild",
+      "win-wild",
+      "win-wild-on",
+      "dex-biomes",
+      "champion-on",
+      "champion-score",
+      "generations",
+      "decor",
+      "visit",
+      "brands",
+      "release",
+    ];
+    for (const kind of every) {
+      expect(kinds.has(kind), `no shipped quest uses the ${kind} objective`).toBe(true);
     }
   });
 

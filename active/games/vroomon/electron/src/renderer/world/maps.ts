@@ -112,7 +112,166 @@ const LONG_HAUL_TILES: TileKind[][] = [
   row("rock", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "rock"),
 ];
 
+const COOKHOUSE_TILES: TileKind[][] = [
+  row("wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "counter", "counter", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "wall"),
+  row("wall", "indoor-floor", "counter", "counter", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall"),
+];
+
+const WORKSHOP_TILES: TileKind[][] = [
+  row("wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "counter", "indoor-floor", "indoor-floor", "counter", "counter", "wall"),
+  row("wall", "indoor-floor", "rock", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "indoor-floor", "rock", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall"),
+];
+
 export const MAPS: Record<string, Tilemap> = {
+
+  long_haul_cookhouse: {
+    id: "long_haul_cookhouse",
+    name: "Ada's Cookhouse",
+    width: 12,
+    height: 6,
+    interior: true,
+    tiles: COOKHOUSE_TILES,
+    ambientColor: "#c9a97a",
+    npcs: [
+      {
+        id: "nim",
+        name: "Pot-washer Nim",
+        x: 2,
+        y: 4,
+        facing: "right",
+        sprite: "villager",
+        dialogue: {
+          text: "Ada cooks, I wash, and the slow ones go back to the wild. She says the road can't feed a herd that can't run — so anything the bench cuts goes out the door with me.",
+          options: [
+            { label: "You let them go?", next: "nim-scraps" },
+            { label: "How many do you turn out?", next: "nim-talk" },
+            { label: "Good luck with the pans", next: "nim-bye" },
+          ],
+        },
+      },
+      {
+        id: "nim-scraps",
+        name: "Pot-washer Nim",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Three, out past the fence, where the clover runs. Do that and I'll get you a hot meal and a few credits out of the till.",
+          setFlag: "quest-scraps-accepted",
+        },
+      },
+      {
+        id: "nim-talk",
+        name: "Pot-washer Nim",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "As many as the bench culls. Slow stock eats the same as fast stock, and Ada counts her grain by the mile.",
+        },
+      },
+      {
+        id: "nim-bye",
+        name: "Pot-washer Nim",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: { text: "It's the pans or the road. I took the pans." },
+      },
+      {
+        id: "hauler-quill",
+        name: "Hauler Quill",
+        x: 9,
+        y: 3,
+        facing: "left",
+        sprite: "rider",
+        dialogue: {
+          text: "I rest here between runs. Two things keep a hauler alive: a car that holds its frame at speed, and knowing what the ground does to it. There's an inspector on your carrier for the first, and the tall grass for the second.",
+        },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      // Out the front to the road.
+      "5,5": { mapId: "long_haul", toX: 3, toY: 5, facing: "down" },
+      "6,5": { mapId: "long_haul", toX: 3, toY: 5, facing: "down" },
+    },
+  },
+  long_haul_workshop: {
+    id: "long_haul_workshop",
+    name: "Raff's Workshop",
+    width: 12,
+    height: 6,
+    interior: true,
+    tiles: WORKSHOP_TILES,
+    ambientColor: "#bda878",
+    npcs: [
+      {
+        id: "apprentice-cogs",
+        name: "Apprentice Cogs",
+        x: 8,
+        y: 4,
+        facing: "left",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Raff lets me weld if I can say why a car runs. So: cylinders make power, shafts lose a little, gears split a share to their own wheel. Say it right and the bench is yours.",
+          options: [
+            { label: "Cylinders, shafts, gears", next: "cogs-right" },
+            { label: "Show me something worth welding", next: "cogs-job" },
+            { label: "Later", next: "cogs-later" },
+          ],
+        },
+      },
+      {
+        id: "cogs-right",
+        name: "Apprentice Cogs",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "That's it. Wheel with nothing upstream is along for the ride — the inspector prints the drive at every wheel, so you can see which. Fastest way to find a broken car.",
+        },
+      },
+      {
+        id: "cogs-job",
+        name: "Apprentice Cogs",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Bring me eight hundred on the flat and I'll weld you a bracket for the carrier. A small thing, but mine.",
+          setFlag: "quest-bracket-accepted",
+        },
+      },
+      {
+        id: "cogs-later",
+        name: "Apprentice Cogs",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: { text: "The bench keeps. So does the welding." },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "5,5": { mapId: "long_haul", toX: 13, toY: 5, facing: "down" },
+      "6,5": { mapId: "long_haul", toX: 13, toY: 5, facing: "down" },
+    },
+  },
 
   long_haul: {
     id: "long_haul",
@@ -268,6 +427,9 @@ export const MAPS: Record<string, Tilemap> = {
       // West back down the Salt Road, east on toward the Highlands. The gates
       // sit one tile in from the tree border, because a transition on the
       // border can never be stepped on.
+      // The cookhouse and the workshop stand behind their own doors.
+      "3,4": { mapId: "long_haul_cookhouse", toX: 5, toY: 4, facing: "up" },
+      "13,4": { mapId: "long_haul_workshop", toX: 5, toY: 4, facing: "up" },
       "1,5": { mapId: "route_2", toX: 20, toY: 5, facing: "left" },
       "1,6": { mapId: "route_2", toX: 20, toY: 6, facing: "left" },
       "16,5": { mapId: "hills_map", toX: 5, toY: 6, facing: "right" },
@@ -1059,9 +1221,12 @@ export const MAPS: Record<string, Tilemap> = {
             { label: "The Greensprouts suit me", next: "king-decline" },
                       { label: "Race the Greensprouts to settle the feud", next: "king-feud" },
             { label: "Run the Grand Roundup", next: "grand-roundup" },
+            { label: "What would three Brands buy me?", next: "king-brands" },
 ],
         },
       },
+      { id: "king-brands", name: "Roundup King", x: 0, y: 0, facing: "down", sprite: "gym-leader",
+        dialogue: { text: "Chalk washes off. Three Brands and we'll talk about the Roundup.", setFlag: "quest-brands-accepted" } },
       {
         id: "king-join-faction",
         name: "Roundup King",

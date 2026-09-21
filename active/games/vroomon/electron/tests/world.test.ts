@@ -301,6 +301,26 @@ describe("world reachability", () => {
     expect(gone.relocated).toBe(true);
   });
 
+  it("never paints a door that leads nowhere", () => {
+    // A door tile promises a room. If nothing near it transitions, the map is
+    // lying to the player — the Long Haul's cookhouse and workshop doors both
+    // did, until the rooms behind them were built.
+    for (const map of MAP_LIST) {
+      for (let y = 0; y < map.height; y += 1) {
+        for (let x = 0; x < map.width; x += 1) {
+          if (map.tiles[y]?.[x] !== "door") {
+            continue;
+          }
+          const nearby = [`${x},${y}`, `${x},${y + 1}`, `${x + 1},${y}`, `${x - 1},${y}`];
+          expect(
+            nearby.some((key) => map.transitions[key]),
+            `${map.id}: the door at ${x},${y} has nothing behind it`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
   it("puts every transition on a tile you can stand on to trigger it", () => {
     // A transition keyed to an impassable tile is unreachable: the player can
     // never stand there, so the door does nothing. (Route 2's gate to the
