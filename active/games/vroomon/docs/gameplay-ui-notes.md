@@ -31,6 +31,46 @@ the screenshot is the fourth time this session that verifying beat fixing.
 
 ---
 
+## A full sitting, played from nothing (2026-09-15) ✅
+
+Everything this session changed meets in the opening hour, so I played it
+through with an empty save rather than trusting the pieces: title, monologue,
+name, wake, Robby in the kitchen, the yard hand-off, the first catch, three
+generations, the Record Barn, the Elder, the first Brand — then a seeded climb
+to the Grand Roundup.
+
+```
+name step        WHAT SHOULD MY NEW NAME BE?
+wake             Sunlight through the cabin shutters…
+quest            Robby's in the kitchen — follow the call.
+kitchen          Rancher Robby
+first catch      The Ranch Yard · Grassland stock · the founders · best 479px
+                 Beaten by 348px — its genome is in your Herd Book.
+after praise     The garden gate opens onto town.
+herd best        preview-…-00127 · 1344.56
+briefing         Grassland I. The bar is 1000 and your barn holds 1345.
+                 This one is yours to lose.
+tier I           FEUD RACE · I | Rival took second at 940.
+brand line       Rustler Pasture I swept! The circuit moves to II — bar 1220.
+roundup          🏆 The five Brands are yours, and your champion stands in the
+                 Record Barn.
+```
+
+Nothing read stale, and three of this session's changes show up exactly where
+they were meant to: the catch panel names the ground and its stock, the Wild
+chip is absent in the yard until you meet something, and the Elder says the bar
+and your best in one breath before the race card appears.
+
+Captures: `/tmp/vshots/sit-0{1..7}-*.png`.
+
+**One note for the next pass:** the first catch was won by 348px with the
+loaner, which is comfortable — but the ground's own best is 479px, so a player
+who hunts first and then breeds has a slightly stronger starting animal than
+the loaner. That is the intended shape (the gift is a floor, not a ceiling) and
+it is worth re-checking only if the ladder ever gets harder.
+
+---
+
 ## Notes dated 2026-09-15, in file order
 
 A table of contents for this date's work, which is scattered through the file
