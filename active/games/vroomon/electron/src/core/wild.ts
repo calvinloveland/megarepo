@@ -27,6 +27,13 @@ export const WILD_TERRAIN_BY_MAP: Record<string, string> = {
   rocky_map: "Rocky",
   ice_map: "Ice",
   starter_town: "Flat",
+  // The roads and workings off each biome. These were missing, and the
+  // fallback is Grassland - so hunting on the Highland switchback, in the
+  // Canyon's cut or at the Perimeter's depot quietly bred Grassland stock,
+  // tuned to the wrong ground and scored against the wrong champions.
+  mesa_switchback: "Hills",
+  the_cut: "Rocky",
+  long_light_depot: "Ice",
 };
 
 export const WILD_PACK_SIZE = 24;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAPS } from "../src/renderer/world/maps.js";
 import { describeVehicle } from "../src/shared/blueprint.js";
 import { decodeDnaV2 } from "../src/shared/dna-v2.js";
 import {
@@ -8,6 +9,7 @@ import {
   wildPackAt,
   wildTerrainFor,
   WILD_PACK_SIZE,
+  WILD_TERRAIN_BY_MAP,
 } from "../src/core/wild.js";
 import { DAY_LENGTH_MS, dayTint, isNight } from "../src/renderer/world/ambience-layer.js";
 
@@ -155,5 +157,33 @@ describe("the wild keeps more than one build", () => {
     expect(founders.filter((driven) => driven >= 2).length).toBeGreaterThan(0);
     // ...and it is not a freebie either: some of them cannot drive at all.
     expect(founders.filter((driven) => driven < 2).length).toBeGreaterThan(0);
+  });
+});
+
+describe("every hunting ground declares its own stock", () => {
+  it("leaves no map with wild grass on the fallback terrain", () => {
+    // `wildTerrainFor` falls back to Grassland, which is the right answer for
+    // an indoor map with no grass and the wrong one for a road on the ice.
+    // Three hunting grounds - the Highland switchback, the Canyon's cut and
+    // the Perimeter's depot - were silently breeding Grassland stock.
+    const offenders: string[] = [];
+    for (const map of Object.values(MAPS)) {
+      const grass = map.tiles.flat().filter((tile) => tile === "vroomgrass").length;
+      if (grass === 0) {
+        continue;
+      }
+      if (!WILD_TERRAIN_BY_MAP[map.id]) {
+        offenders.push(`${map.id} (${map.name}) has ${grass} wild tiles and no terrain`);
+      }
+    }
+    expect(offenders, offenders.join("; ")).toEqual([]);
+  });
+
+  it("gives every biome's own ground its own stock", () => {
+    // The terrain a pack is scored on has to be the terrain its map plays as,
+    // or the animals are selected for a race nobody runs there.
+    expect(wildTerrainFor("mesa_switchback")).toBe("Hills");
+    expect(wildTerrainFor("the_cut")).toBe("Rocky");
+    expect(wildTerrainFor("long_light_depot")).toBe("Ice");
   });
 });

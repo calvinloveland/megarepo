@@ -913,6 +913,47 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## Hunting on the high road bred Grassland stock (2026-09-15) ✅
+
+Going looking for content to fill the thin biomes turned up a bug instead, and
+a worse one than a missing NPC.
+
+**Three hunting grounds had no declared wild terrain.** `wildTerrainFor` falls
+back to Grassland, and the maps with wild grass that were missing from the
+table were exactly the ones off the beaten biomes:
+
+```
+mesa_switchback   The Switchback       8 wild tiles   -> Grassland
+the_cut           The Cut              4 wild tiles   -> Grassland
+long_light_depot  The Long Light Depot 4 wild tiles   -> Grassland
+```
+
+So hunting on the Highland switchback, in the Canyon's cut or at the
+Perimeter's depot bred, scored and evolved **Grassland** stock.
+
+**And the meeting itself used the wrong ground entirely.** `openWildRace` asked
+`terrainForVenue(mapId)`, which is the *circuit's* answer and returns
+"Grassland" for every map that is not an arena. That single line decided three
+things at once: the terrain label on the panel, which of your cars
+`bestOwnedDna` picks to race with, and the ground the race is actually run on.
+A meeting on the ice was raced on Grassland, against a car chosen for
+Grassland, under a label that said Grassland.
+
+Both are fixed — the three maps declare their terrain (Hills, Rocky, Ice) and
+the encounter asks `wildTerrainFor`, the ground the pack actually lives on. An
+e2e now crosses the switchback until something breaks cover and asserts the
+panel says **Hills**; a unit test requires every map with wild grass to declare
+its own terrain, which fails loudly if a fourth is forgotten.
+
+### The thinner point
+
+That also re-balanced the world without adding a thing. Measured by people per
+wild terrain, the thin biomes looked like they had one map each (Hills 3, Rocky
+3, Ice 3) — but three of their roads were quietly counted as Grassland. With
+the terrains fixed, each of those biomes has its own hunting ground with its
+own evolving pack, which is the "own wild pack" the studio pass was looking
+for. Content that already existed simply was not on the map.
+
 ## Does the wild answer the shapes? Measured (2026-09-15) ✅
 
 The tier shapes were added so the climb would reward breeding a *build*, not

@@ -1453,6 +1453,35 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-wild-race-overlay]")).toBeHidden();
   });
 
+  test("@smoke a meeting on the high road is raced on the high road", async ({ page }) => {
+    // The encounter used the CIRCUIT's terrain, which answers "Grassland" for
+    // every map that is not an arena - so a meeting on the Highland switchback
+    // was raced, scored and chosen for on Grassland, and the panel said so.
+    // The three road maps with wild grass had no declared terrain either.
+    await seedAndEnterWorld(page);
+    await enterMapAt(page, "mesa_switchback", 3, 5);
+    await expect(page.locator("[data-hunt-toggle]")).toContainText("ON");
+
+    // Cross the switchback until something breaks cover.
+    for (let step = 0; step < 12; step += 1) {
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(420);
+      if (await page.locator("[data-wild-race-overlay]").isVisible()) {
+        break;
+      }
+      await page.keyboard.press("z");
+      await page.waitForTimeout(420);
+      if (await page.locator("[data-wild-race-overlay]").isVisible()) {
+        break;
+      }
+    }
+    await expect(page.locator("[data-wild-race-overlay]")).toBeVisible();
+    await expect(page.locator("[data-wild-race-sub]")).toContainText("Hills");
+    await expect(page.locator("[data-wild-race-sub]")).not.toContainText("Grassland");
+    await page.locator("[data-wild-race-leave]").click();
+    await page.waitForTimeout(300);
+  });
+
   test("@smoke a session's work survives a reload: catch, tally, payout, decor", async ({
     page,
   }) => {

@@ -116,7 +116,7 @@ import {
   markVisited,
   recordEncounterDna,
 } from "./world/world-state.js";
-import { advanceWildPack, scoreWildPack, seedWildPack, type WildPack } from "../core/wild.js";
+import { advanceWildPack, scoreWildPack, seedWildPack, wildTerrainFor, type WildPack } from "../core/wild.js";
 import { serializeWorldState } from "./world/types.js";
 import type { Direction, PersistedWorldState, WorldState } from "./world/types.js";
 import { advanceDialogue as advanceWorldDialogue, endDialogue as endWorldDialogue } from "./world/world-state.js";
@@ -1856,7 +1856,11 @@ function bestOwnedDna(terrainName: string): string | null {
 
 function openWildRace(wildDna: string): void {
   const mapId = rendererState.world.currentMapId;
-  const terrain = terrainForVenue(mapId) ?? "Grassland";
+  // The ground the PACK lives on, not the ground the circuit would race you
+  // on: `terrainForVenue` answers "Grassland" for every map that is not an
+  // arena, so a meeting on the ice was raced, scored and chosen for on
+  // Grassland - the panel said so, and `bestOwnedDna` picked a car for it.
+  const terrain = wildTerrainFor(mapId);
   // The sky at the moment of the meeting: a one-off race, so the campaign's
   // own races stay reproducible under a clear sky. The first lesson waits for
   // a clear spell — a tutorial catch that can be rained off teaches the wrong
