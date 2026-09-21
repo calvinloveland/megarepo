@@ -401,64 +401,56 @@ Both directions verified by mutation.
 
 ## Where this session left the project (2026-09-15) ✅
 
-**420 unit + 55 e2e pass**, both re-run twice for the wrap; tree clean; local
-server rebuilt on the latest bundle. Around eighty-five commits, all of them
-`Vroomon:`-prefixed, each a single logical unit.
+**449 unit + 56 e2e pass**, both re-run twice for the wrap; tree clean; local
+server rebuilt on the latest bundle. Around a hundred commits, each a single
+logical unit.
 
 ### The state of play
 
 - **The sim** — two-path bodies on one rigid compound chassis, wheels pinned at
-  their centres, drive applied at each driven wheel. Breeding is local
-  (one-parameter mutation), the herd climbs, and the guards that measure it
-  have explicit timeouts.
+  their centres, drive applied at each driven wheel. Breeding is local, the herd
+  climbs, and the guards that measure it carry explicit timeouts.
 - **The wild** — packs of 24 per ground, evolving on their own terrain between
   visits, elite-carrying, with immigrants keeping the builds varied. Encounters
-  send the median animal.
+  send the median animal, and every ground declares its own terrain.
 - **The circuit** — five Brands on their own ground, bars climbing ×1.22, and
   from tier II a **shape** demand as well as a score. The keeper states both
-  before the race card appears.
-- **The world** — Starter Town and its rooms, two roads, three arenas with back
-  rooms, the Mesa, the Quarry, the Perimeter, the Long Haul, the Orchard and
-  the ranch; twelve rival houses; keepers, night watches, landmarks and
-  workings; weather with a teacher; and a day that moves people around.
+  before the race card, and the Elder explains why a title's bar rises.
+- **The world** — 23 maps: a town with rooms, the ranch house and yard, an
+  orchard, two routes, arenas with back rooms, three biome grounds, a Salt Road
+  waystation and three road landmarks. Twelve rival houses, keepers and night
+  watches, weather with a teacher, and a four-minute day.
 - **The loop on screen** — the herd bench, the Inspector (parts, tracks, live
-  race, pedigree, circuit shape), the Heritage tree, the Record Barn with its
-  ledger, records and wild-grounds table, Oxide's counter and the Herd Book.
+  race, pedigree, circuit shape, what the wild sends), the Heritage tree, the
+  Record Barn (ledger, records, wild grounds and their next-step hint), Oxide's
+  counter and the Herd Book.
 
 ### What the session was actually about
 
-Not features. Almost every cycle ended up finding something by **measuring**
-what looked fine: two signs built inside a treeline, an encounter raced on the
-wrong ground, three hunting grounds breeding the wrong biome's stock, a world
-stretched 33% wider than tall, labels at 79% of their size, a reward line with
-no screen, an "earned" decoration nothing granted, a flag nothing ever set.
-Screenshots catch wrongness only if you already know the right answer;
-arithmetic catches it every time. The two together did the work.
+Not features. Almost every cycle found something by **measuring** what looked
+fine: two signs inside a treeline, an encounter raced on the wrong ground, three
+hunting grounds breeding the wrong biome's stock, a world stretched 33% wider
+than tall, labels at 79% of their size, a reward line with no screen, an
+"earned" decoration nothing granted, and **sixty-three sprites showing stale
+art** while a hundred and eleven more were drawn at runtime instead of loaded.
 
-The other half was **invariants that fail in both directions** — registers
-rather than rules. A walk-on with nothing to say, a module with no test, a docs
-entry missing from the index, a listed module that has since gained one: each
-of those lists is checked for staleness as well as completeness, so it cannot
-rot into a lie. Three of them caught the very next thing written after them.
+The second half was **invariants that fail in both directions** — registers
+rather than rules: one-line walk-ons, the docs index, source modules with no
+test, the coverage reasons they cite. Four of them caught the very next thing
+written after them, including one that caught itself.
 
-And the recurring mistake, worth naming plainly because it happened four times:
-**an edit that identifies its target by position will eventually hit the wrong
-thing.** Option indexes in tests, a bulk `nth(2)` swap, line-number edits, and a
-script that regenerated a docs index by replacing everything up to a heading.
-Every one was fixed by anchoring on stable text or explicit markers instead.
+The third was **guards aimed at how I work**, which is where the last two came
+from: the docs index that refuses to go stale, and the test runner that now
+warns when `dist/` is older than `src/` — because I had twice debugged a failure
+that was a build I had not made.
 
-### Next session
-
-1. **Breadth on the deep systems** — the wild, the circuit and the quest ledger
-   have each grown three features deep; their UI should say what each is *for*.
-2. **Make the coverage map's reasons specific** — which behaviour covers each
-   listed-untested module.
-3. **Hunt more logic hiding under tested neighbours**, the way `frame.ts` and
-   `factions.ts` were.
-4. **The user-gated work**: live deploy (k3s + Cloudflare) and AI sprite
-   generation both still wait on credentials in `.secrets/`.
-
----
+And the recurring mistake, named because it happened six times: **an edit that
+identifies its target by position will eventually hit the wrong thing.** Option
+indexes in tests, a bulk `nth(2)` swap, line-number edits, a docs index
+regenerated by replacing up to a heading, a defensive CSS rule that broke the
+thing it was meant to protect, and a summary rewrite that ate fifteen entries.
+Every one was caught — most by a check written earlier in the same session —
+and fixed by anchoring on stable text, an explicit marker, or a measurement.
 
 ## The last rule with no teacher: what the wild is *for* (2026-09-15) ✅
 
