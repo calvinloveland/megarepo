@@ -2595,6 +2595,19 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     // visible while walking rather than only at the moment of a race.
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("WILD");
 
+    // And the Record Barn's wild table says which grounds you have met, how
+    // far each has come and what it would send - the "where you hunt matters"
+    // fact, on a screen rather than only in the moment of a race.
+    await page.locator("[data-open-barn]").click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-barn-pill="barn"]').click();
+    await page.waitForTimeout(400);
+    const wildTable = page.locator("[data-wild-grounds]");
+    await expect(wildTable).toContainText("Ranch Yard");
+    await expect(wildTable).toContainText("wild gen");
+    await expect(wildTable).toContainText("sends");
+    await closePocketRanch(page);
+
     // The pack and its generation count ride along in the save.
     const generations = await page.evaluate(async () => {
       const world = await window.vroomon.loadWorldState();

@@ -79,6 +79,11 @@ import {
 import { questFor } from "./world/quest.js";
 import { standingFor } from "./world/routines.js";
 import { buildLedger, titlesToDefend, untriedGrounds } from "./ledger.js";
+import {
+  describeWildGround,
+  wildGroundRows,
+  type PackReading,
+} from "./wild-ledger.js";
 import { DAY_LENGTH_MS, dayPhase, isNight } from "./world/ambience-layer.js";
 import { encounterWeather, weatherAt, weatherDefence } from "./world/weather.js";
 import type { Track } from "./world/ambience-layer.js";
@@ -901,7 +906,40 @@ function renderLedger(): void {
       : "");
 }
 
+/**
+ * The grounds table: which packs the player has met, how far each has come and
+ * what it would send. This is where "where you hunt matters" lives outside the
+ * moment of a race.
+ */
+function renderWildGrounds(): void {
+  const list = document.querySelector<HTMLElement>("[data-wild-grounds]");
+  if (!list) {
+    return;
+  }
+  const readings: Record<string, PackReading> = {};
+  for (const [mapId, reading] of packReadings) {
+    readings[mapId] = reading;
+  }
+  const rows = wildGroundRows(overworldController.state.wildGenerations ?? {}, readings);
+  if (rows.length === 0) {
+    list.innerHTML = `<div class="menu-hall__row"><span>No pack met yet — the grass is where you find them.</span></div>`;
+    return;
+  }
+  list.innerHTML = rows
+    .map(
+      (row) =>
+        `<div class="menu-hall__row" data-wild-ground="${escapeHtml(row.mapId)}">` +
+        `<span>${escapeHtml(describeWildGround(row))}</span>` +
+        (row.median > 0
+          ? `<b>${row.median >= 1000 ? "sends a tier-grade animal" : "founder-class"}</b>`
+          : "") +
+        `</div>`,
+    )
+    .join("");
+}
+
 function renderRecordsBoard(): void {
+  renderWildGrounds();
   // The ledger is the other half of the board: bars against bests. Rendering
   // it here means every path that paints the board refreshes it too.
   renderLedger();
@@ -1693,12 +1731,41 @@ function noteFootstep(): void {
 let lastScoredPack: { mapId: string; pack: string[]; scored: WildPack } | null = null;
 
 /** What the pack on this ground is capable of — its champion's score. */
+/**
+ * The last measured numbers for each ground's pack. Scoring is real work, so
+ * nothing re-scores for a screen: this is filled in by the places that already
+ * score a pack (a meeting, the HUD chip, a hunt) and read by the wild table.
+ */
+const packReadings = new Map<string, PackReading>();
+
+function rememberPack(
+  mapId: string,
+  scored: { representative: { score: number }; champion: { score: number } },
+  generation: number,
+): void {
+  packReadings.set(mapId, {
+    generation,
+    median: scored.representative.score,
+    champion: scored.champion.score,
+  });
+}
+
 function packBestFor(mapId: string): number {
   if (lastScoredPack && lastScoredPack.mapId === mapId) {
+    rememberPack(
+      mapId,
+      lastScoredPack.scored,
+      overworldController.state.wildGenerations[mapId] ?? 0,
+    );
     return Math.round(lastScoredPack.scored.champion.score);
   }
   const pack = overworldController.state.wildPacks[mapId];
-  return pack ? Math.round(scoreWildPack(mapId, pack).champion.score) : 0;
+  if (!pack) {
+    return 0;
+  }
+  const scored = scoreWildPack(mapId, pack);
+  rememberPack(mapId, scored, overworldController.state.wildGenerations[mapId] ?? 0);
+  return Math.round(scored.champion.score);
 }
 
 function nextWildDna(mapId: string): string {
@@ -1743,6 +1810,8 @@ function advanceWildForMap(mapId: string): void {
   const step = advanceWildPack(mapId, pack, random, prescored, steps);
   lastScoredPack = null;
   const generation = (overworldController.state.wildGenerations[mapId] ?? 0) + 1;
+  // Keep what this cost us: the wild table reads these rather than re-scoring.
+  rememberPack(mapId, step, generation);
 
   overworldController._setState({
     ...overworldController.state,

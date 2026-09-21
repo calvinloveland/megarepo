@@ -146,7 +146,12 @@ export function advanceWildPack(
   prescored?: WildPack,
   /** How many generations to turn over. Nights are harder on the wild. */
   steps = 1,
-): { pack: string[]; champion: { dna: string; score: number }; terrain: string } {
+): {
+  pack: string[];
+  champion: { dna: string; score: number };
+  representative: { dna: string; score: number };
+  terrain: string;
+} {
   const scored =
     prescored && prescored.members.length === pack.length ? prescored : scoreWildPack(mapId, pack);
   const survivors = scored.members.slice(
@@ -176,7 +181,14 @@ export function advanceWildPack(
     // pack over more than once, which is what the watchman is talking about.
     return advanceWildPack(mapId, advanced.members.map((member) => member.dna), random, advanced, steps - 1);
   }
-  return { pack: next, champion: advanced.champion, terrain: advanced.terrain };
+  return {
+    pack: next,
+    champion: advanced.champion,
+    // The animal an encounter actually sends, so a caller can report what the
+    // ground would hand you rather than only its best.
+    representative: advanced.representative,
+    terrain: advanced.terrain,
+  };
 }
 
 /**

@@ -913,6 +913,36 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## Where you hunt matters, on a screen (2026-09-15) ✅
+
+The encounter panel says which ground an animal came from. That knowledge died
+with the race — walk away and the only place the fact lived was your memory.
+The Record Barn now has a **WILD GROUNDS** table, under the records:
+
+```
+WILD GROUNDS · what each pack would send
+Hills — The Switchback · wild gen 1 · sends 361 · best 1131   founder-class
+Hills — Highland Mesa  · wild gen 6
+```
+
+Per ground: its terrain, its name, how many generations its pack has turned
+over, **what an encounter would send** (the median animal, which is the number
+that matters) and the best animal alive out there. Grounds whose pack a save
+knows about but this session has not met list with their generation and no
+numbers — the honest answer, since you cannot know what a ground sends without
+having been there.
+
+It costs nothing to maintain. Scoring a pack is real work (two dozen cars,
+raced alone each), so `wildGroundRows` never scores: the renderer remembers
+what a meeting already measured, and the table reads that back. `advanceWildPack`
+now also returns its `representative`, which is why the table can say what the
+ground *sends* rather than only what its champion does.
+
+### Next
+1. **Round out the Long Haul** — five people, three jobs, no interior.
+2. **Sweep for keepers without a menu or a job**, the way the Vent Keeper and Sable were.
+3. **Put the wild table's richest ground in the HUD**, so the fact is visible while walking.
+
 ## The local-giver pattern, as an e2e (2026-09-15) ✅
 
 Two jobs used to be attached to outlying maps while being handed out in town,
