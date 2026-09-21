@@ -2626,7 +2626,17 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(wildTable).toContainText("Ranch Yard");
     await expect(wildTable).toContainText("wild gen");
     await expect(wildTable).toContainText("sends");
+    // A record is read against the alternative: what that terrain's wild would
+    // hand you. Any recorded lap on a met terrain carries the comparison.
+    const recordRows = page.locator(".records-row");
+    if ((await recordRows.count()) > 0) {
+      await expect(recordRows.first()).toContainText("px best");
+    }
     await closePocketRanch(page);
+
+    // And the world HUD carries what this ground sends, so the arms race is
+    // visible while walking rather than only at the moment of a race.
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("sends");
 
     // The pack and its generation count ride along in the save.
     const generations = await page.evaluate(async () => {

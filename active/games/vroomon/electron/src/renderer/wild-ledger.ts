@@ -68,3 +68,26 @@ export function describeWildGround(row: WildGroundRow): string {
       : "";
   return `${row.terrain} — ${row.name} · wild gen ${row.generation}${numbers}`;
 }
+
+
+/**
+ * The best animal any met ground on a terrain would send, per terrain. The
+ * records board compares the player's own best lap there against it, so "where
+ * you hunt matters" arrives next to the number it matters for.
+ */
+export function wildSendByTerrain(rows: WildGroundRow[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const row of rows) {
+    if (row.median <= 0) {
+      continue;
+    }
+    out[row.terrain] = Math.max(out[row.terrain] ?? 0, row.median);
+  }
+  return out;
+}
+
+/** "· wild sends 884" — or nothing when no met ground carries that terrain. */
+export function wildSendNote(terrain: string, sends: Record<string, number>): string {
+  const value = sends[terrain];
+  return value && value > 0 ? ` · wild sends ${Math.round(value)}` : "";
+}

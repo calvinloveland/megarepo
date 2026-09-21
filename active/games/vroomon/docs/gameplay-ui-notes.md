@@ -913,6 +913,31 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## The wild's number, next to the human one (2026-09-15) ✅
+
+Two places had a number that meant less without the other.
+
+**While walking**, the HUD's wild chip said how far the pack had come but not
+what it would do to you:
+
+```
+WILD gen 2 · sends 361
+```
+
+**In the records board**, a lap was just a lap. Now it reads against the
+alternative — what the wild on that terrain would hand you:
+
+```
+Hills   1543 px best · wild sends 361   Lhn4yi8zKRd2   Drive
+```
+
+Which is the whole "where you hunt matters" question in one row: if the ground
+sends 361 and your lap is 1543, hunting there is a waste of a walk; if it sends
+900 and your best is 700, it is the fastest way forward. `wildSendByTerrain`
+takes the strongest *met* ground per terrain (two grounds can carry the same
+terrain), and `wildSendNote` renders the clause or nothing at all — a terrain
+nobody has hunted says nothing rather than zero.
+
 ## A sweep for scenery, and the pupil who teaches (2026-09-15) ✅
 
 The intended job was to round out the Salt Road's Long Haul, which a stale

@@ -82,6 +82,8 @@ import { buildLedger, titlesToDefend, untriedGrounds } from "./ledger.js";
 import {
   describeWildGround,
   wildGroundRows,
+  wildSendByTerrain,
+  wildSendNote,
   type PackReading,
 } from "./wild-ledger.js";
 import { DAY_LENGTH_MS, dayPhase, isNight } from "./world/ambience-layer.js";
@@ -945,6 +947,16 @@ function renderRecordsBoard(): void {
   renderLedger();
 
   const entries = recordsBoard.entries;
+  // What the wild on each terrain would hand you, so a record can be read
+  // against the alternative: "1543 px best against a ground that sends 884"
+  // says whether it is worth walking out there.
+  const readings: Record<string, PackReading> = {};
+  for (const [mapId, reading] of packReadings) {
+    readings[mapId] = reading;
+  }
+  const sends = wildSendByTerrain(
+    wildGroundRows(overworldController.state.wildGenerations ?? {}, readings),
+  );
   const terrainCount = new Set(entries.map((entry) => entry.terrainName)).size;
   for (const count of Array.from(
     document.querySelectorAll<HTMLElement>("[data-records-count]"),
@@ -962,7 +974,9 @@ function renderRecordsBoard(): void {
               (entry) => `
       <div class="records-row">
         <span class="records-row__terrain">${escapeHtml(entry.terrainName)}</span>
-        <span class="records-row__score">${formatNumber(entry.score)} px best</span>
+        <span class="records-row__score">${formatNumber(entry.score)} px best${escapeHtml(
+          wildSendNote(entry.terrainName, sends),
+        )}</span>
         <span class="records-row__dna">${escapeHtml(entry.dna)}</span>
         <button class="records-row__drive" data-drive-record="${escapeHtml(entry.terrainName)}" type="button">Drive</button>
       </div>`,
@@ -4981,12 +4995,14 @@ function renderStatsHud(): void {
     if (!map?.interior) {
       const wildGeneration = rendererState.world.wildGenerations[mapId] ?? 0;
       const wildPack = rendererState.world.wildPacks[mapId];
+      // What this ground would hand you, once a meeting has measured it: the
+      // arms race is only half the fact without the number.
+      const reading = packReadings.get(mapId);
+      const send = reading && reading.median > 0 ? ` · sends ${Math.round(reading.median)}` : "";
       chips.push({
         label: "WILD",
         value: wildPack
-          ? wildGeneration > 0
-            ? `gen ${wildGeneration + 1}`
-            : "founder stock"
+          ? (wildGeneration > 0 ? `gen ${wildGeneration + 1}` : "founder stock") + send
           : "unmet",
       });
     }

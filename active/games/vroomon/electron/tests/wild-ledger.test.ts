@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   describeWildGround,
   wildGroundRows,
+  wildSendByTerrain,
+  wildSendNote,
   type PackReading,
 } from "../src/renderer/wild-ledger.js";
 
@@ -44,5 +46,30 @@ describe("what the player knows about each hunting ground", () => {
   it("ignores map ids that no longer exist", () => {
     const rows = wildGroundRows({ demolished: 3 }, {});
     expect(rows).toEqual([]);
+  });
+});
+
+describe("the wild's numbers next to the player's own", () => {
+  it("takes the best send per terrain, from the grounds actually met", () => {
+    const rows = wildGroundRows(
+      { ice_map: 4, long_light_depot: 2, ranch_yard: 9 },
+      {
+        ice_map: reading(4, 640, 1622),
+        long_light_depot: reading(2, 810, 900),
+        ranch_yard: reading(9, 450, 1001),
+      },
+    );
+    const sends = wildSendByTerrain(rows);
+    // Two grounds carry ice; the stronger one speaks for the terrain.
+    expect(sends.Ice).toBe(810);
+    expect(sends.Grassland).toBe(450);
+    // A terrain nobody has hunted says nothing at all.
+    expect(sends.Hills).toBeUndefined();
+  });
+
+  it("says it in one clause, or says nothing", () => {
+    expect(wildSendNote("Ice", { Ice: 810 })).toBe(" · wild sends 810");
+    expect(wildSendNote("Hills", { Ice: 810 })).toBe("");
+    expect(wildSendNote("Ice", { Ice: 0 })).toBe("");
   });
 });
