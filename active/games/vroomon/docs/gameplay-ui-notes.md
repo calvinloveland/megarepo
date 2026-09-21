@@ -222,6 +222,7 @@ new entry that is not indexed here fails the suite.
 - [The Heritage tree draws at the size it is shown (2026-09-15) ✅](#the-heritage-tree-draws-at-the-size-it-is-shown-2026-09-15)
 - [Every drawing surface now fits its box (2026-09-15) ✅](#every-drawing-surface-now-fits-its-box-2026-09-15)
 - [The world was stretched to fit the window (2026-09-15) ✅](#the-world-was-stretched-to-fit-the-window-2026-09-15)
+- [Two modules nobody tested, and a map to catch the next (2026-09-15) ✅](#two-modules-nobody-tested-and-a-map-to-catch-the-next-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -351,6 +352,34 @@ arithmetic, now square:
 ```
 1600x900 panel -> drawing 1200x900, tiles 75.0 x 75.0
 ```
+
+---
+
+## Two modules nobody tested, and a map to catch the next (2026-09-15) ✅
+
+Asking which source modules have no test naming them turned up nine, and two of
+them were pure logic sitting under thoroughly tested neighbours:
+
+- **`src/shared/frame.ts`** — the frame geometry and plant costs that the
+  physics *and* the Inspector both read. Covered transitively through the
+  blueprint, never directly, which is why nobody noticed the missing tests.
+- **`src/renderer/world/factions.ts`** — the rival households: two per biome,
+  joined by a dialogue flag, remembered in the save.
+
+Both have direct tests now (11 between them), and writing them was instructive
+in the usual way: my first drafts called `framePlant(decoded)` with one argument
+when it needs weights, asserted `hullCost <= 1` when the code deliberately
+allows 1.5, hand-wrote a DNA string expecting it to decode literally (base62
+does not), and seeded a herd with a *constant* RNG and then asked why every car
+was identical. Four wrong assumptions, all caught by running it.
+
+`tests/coverage-map.test.ts` keeps the map: every module under `src/` must be
+named by some test, or listed with a reason — the seven that legitimately are
+not are Electron entry points, the preload bridge, a re-export shim, WebAudio,
+the sprite loader, the app shell and the Playwright shim, each covered by the
+e2e or smoke run instead. It fails **both** ways, like the walk-on ledger: an
+unlisted untested module, and a listed module that has since gained a test.
+Both directions verified by mutation.
 
 ---
 
