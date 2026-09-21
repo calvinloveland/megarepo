@@ -1247,9 +1247,21 @@ void loadWorldStateFromDisk();
 // the animals Robby lent you — restore it quietly, without touching the
 // welcome status the rest of the boot sets up.
 // Jobs can be finished while the game is closed (or by an action that does
-// not touch the world): settle them as soon as the world is loaded.
+// not touch the world). Settling one PAYS the rancher, which writes the run
+// state — so it must not run until BOTH the world and the herd are loaded.
+// Settling on the world load alone wrote the renderer's still-empty default
+// run over a real herd: a finished job could wipe the animals.
+let bootWorldLoaded = false;
+let bootRunLoaded = false;
+function settleWhenBootIsComplete(): void {
+  if (bootWorldLoaded && bootRunLoaded) {
+    settleSideQuests();
+  }
+}
+
 void window.vroomon.loadWorldState().then(() => {
-  settleSideQuests();
+  bootWorldLoaded = true;
+  settleWhenBootIsComplete();
 });
 
 void window.vroomon.loadRunState().then((restoredRun) => {
@@ -1261,6 +1273,8 @@ void window.vroomon.loadRunState().then((restoredRun) => {
     restoredRun.population.length === 0 ||
     typeof restoredRun.config?.populationSize !== "number"
   ) {
+    bootRunLoaded = true;
+    settleWhenBootIsComplete();
     return;
   }
   const status = rendererState.statusMessage;
@@ -1277,6 +1291,8 @@ void window.vroomon.loadRunState().then((restoredRun) => {
   renderApp();
   // renderApp's menu branch writes its own line; keep the boot's welcome.
   statusMessage.textContent = status;
+  bootRunLoaded = true;
+  settleWhenBootIsComplete();
 });
 // Ranch upgrades are campaign progression: carry them into a fresh session
 // (the run state itself stays per-generation until the player saves it).

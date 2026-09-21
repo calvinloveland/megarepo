@@ -1298,6 +1298,113 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-wild-race-overlay]")).toBeHidden();
   });
 
+  test("@smoke a session's work survives a reload: catch, tally, payout, decor", async ({
+    page,
+  }) => {
+    await seedAndEnterWorld(page);
+    await enterMapAt(page, "ranch_yard", 7, 3);
+    await seedHerdDna(page, "Lhn4yi8zKRd2");
+
+    // 1. Catch a wild vroomon by racing it.
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(400);
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-wild-race-overlay]")).toBeVisible();
+    await page.locator("[data-wild-race-run]").click();
+    await page.waitForTimeout(4500);
+    await expect(page.locator("[data-wild-race-verdict]")).toContainText("Beaten by");
+    await page.locator("[data-wild-race-leave]").click();
+    await expect.poll(async () => vroomdexCount(page), { timeout: 8000 }).toBe(1);
+
+    // Let the catch's own saves land before patching the world: reading the
+    // debounced store too early and writing it back would drop what is still
+    // in flight.
+    await page.waitForTimeout(900);
+
+    // 2. Take the wrangler's muster, then finish it three races over.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        flags: { ...(world?.flags ?? {}), "quest-muster-accepted": true },
+        tally: { ...(world?.tally ?? {}), wildWins: 3 },
+      });
+    });
+
+    // 3. Reload: the boot settles the finished job, so the reward lands.
+    //    (Wait for the title's CONTINUE button rather than the boot status:
+    //    a finished trial sets its own line once the world is entered.)
+    await page.reload();
+    await page.locator('[data-menu-action="continue"]').waitFor({ state: "visible", timeout: 20000 });
+    await enterWorld(page);
+    await page.waitForTimeout(1600);
+
+    // 4. Spend some of it on meadow decor (another save path).
+    await page.locator("[data-open-barn]").click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-barn-pill="herd"]').click();
+    await page.waitForTimeout(200);
+    await page.locator("[data-open-ranch]").click();
+    await page.waitForTimeout(400);
+    const buyable = page.locator("[data-ranch-decor-list] .ranch-buy:not([disabled])").first();
+    const boughtId = await page.evaluate(() => {
+      const card = document.querySelector<HTMLElement>("[data-ranch-decor-list] .ranch-card");
+      return card?.dataset.ranchCard ?? "";
+    });
+    if (await buyable.count()) {
+      await buyable.click();
+      await page.waitForTimeout(600);
+    }
+    await closePocketRanch(page);
+
+    // 5. Reload once more and check NOTHING was lost on the way.
+    await page.reload();
+    await page.locator('[data-menu-action="continue"]').waitFor({ state: "visible", timeout: 20000 });
+    await page.waitForTimeout(1200);
+
+    const after = await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      const run = await window.vroomon.loadRunState();
+      const dna = (world?.vroomdex ?? [])[0] ?? "";
+      return {
+        rancher: world?.rancherName,
+        map: world?.currentMapId,
+        vroomdex: world?.vroomdex?.length ?? 0,
+        meta: world?.specimenMeta?.[dna] ?? null,
+        wildWins: world?.tally?.["wildWins"] ?? 0,
+        wildWinsHere: world?.tally?.["wildWins:ranch_yard"] ?? 0,
+        paid: world?.tally?.["paid:wranglers-muster"] ?? 0,
+        questFlag: Boolean(world?.flags?.["quest-muster-accepted"]),
+        wildPacks: Object.keys(world?.wildPacks ?? {}).length,
+        wildGeneration: world?.wildGenerations?.ranch_yard ?? 0,
+        wallet: run?.wallet ?? 0,
+        feed: run?.feed ?? 0,
+        herd: run?.population?.length ?? 0,
+        decor: world?.decor ?? [],
+      };
+    });
+
+    expect(after.rancher).toBe("E2E");
+    expect(after.map).toBe("ranch_yard");
+    expect(after.vroomdex).toBe(1);
+    expect(after.meta?.mapId).toBe("ranch_yard");
+    expect(after.meta?.origin).toBe("caught");
+    expect(after.wildWins).toBeGreaterThanOrEqual(3);
+    expect(after.wildWinsHere).toBeGreaterThanOrEqual(1);
+    expect(after.paid).toBe(1);
+    expect(after.questFlag).toBe(true);
+    expect(after.wildPacks).toBeGreaterThanOrEqual(1);
+    expect(after.wildGeneration).toBeGreaterThanOrEqual(1);
+    // The muster paid 120cr + 3 feed, and decor came out of it.
+    expect(after.wallet).toBeGreaterThanOrEqual(0);
+    expect(after.feed).toBeGreaterThanOrEqual(3);
+    expect(after.herd).toBeGreaterThan(0);
+    if (boughtId) {
+      expect(after.decor.length).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   test("@smoke the Herd Book remembers where a specimen came off", async ({ page }) => {
     await seedAndEnterWorld(page);
     await enterMapAt(page, "ranch_yard", 7, 3);

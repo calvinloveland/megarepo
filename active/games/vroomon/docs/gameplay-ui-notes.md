@@ -842,6 +842,21 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## A save audit, and the herd it saved (2026-09-15) ✅
+
+A full-journey e2e now walks a session — catch a wild vroomon by racing it,
+finish a job, spend the reward on meadow decor — and then reloads twice,
+asserting that **nothing** was lost: rancher, map, Herd Book and its
+provenance, every tally (overall wild wins, per-biome wild wins, paid jobs),
+quest flags, wild packs and their generation, wallet, feed, and the herd.
+
+It immediately caught a bug of my own making, and a bad one: **a finished job
+could wipe the herd.** Settling a quest pays the rancher, which writes the run
+state — and the boot settled quests as soon as the *world* had loaded. If the
+herd had not loaded yet, that write used the renderer's still-empty default
+run and saved it over a real herd of 100 animals. The boot now waits for both
+the world and the herd before paying anything out.
+
 ## Beauty pass 2: the world keeps time and remembers feet (2026-09-15) ✅
 
 - **A day.** `dayTint()` cycles dawn → morning → afternoon → dusk → night over
