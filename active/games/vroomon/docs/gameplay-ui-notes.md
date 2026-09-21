@@ -1531,7 +1531,11 @@ V    at least four driven wheels and three engines
 
 Calibrated against 500 random cars, so each rung is a real filter rather than
 a formality: **53.6%** of random cars fail tier II, 35.4% pass tier III, 11.2%
-tier IV, and only **3.6%** could ever answer tier V. The demand is stated
+tier IV, and only **3.6%** could ever answer tier V. (Later, in
+`tests/mid-game.test.ts`, a different sample of 200 cars reads 60% / 39% / 12%
+/ 4% for the same four rungs. Both are real measurements of different herds —
+the test pins the *shape* of the curve, not one sample's decimals, and it is
+the test's numbers that will move if the demands are retuned.) The demand is stated
 before the race (*"It also wants at least three wheels, two of them driven"*)
 and a car that is fast enough but the wrong shape is refused with its own
 words, so the two kinds of failure ask for different work:
