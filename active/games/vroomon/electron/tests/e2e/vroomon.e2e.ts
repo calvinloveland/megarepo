@@ -1511,6 +1511,38 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Starter Town");
   });
 
+  test("@smoke every far road has someone on after dark", async ({ page }) => {
+    await seedAndEnterWorld(page);
+
+    // Three landmarks, each with a night keeper who is not there by day.
+    const cases: Array<[string, number, number, string, string, string, number]> = [
+      // map, x, y (stand beside them, facing up), hour, name, job, option index
+      ["mesa_switchback", 10, 8, "0.5", "", "", 0],
+      ["mesa_switchback", 10, 8, "0.9", "Signal Lorn", "The Lamps Of The Mesa", 1],
+      ["the_cut", 5, 7, "0.5", "", "", 0],
+      ["the_cut", 5, 7, "0.9", "Night Powder Peg", "Night On The Spoil", 1],
+      ["marrow_orchard", 4, 9, "0.5", "", "", 0],
+      ["marrow_orchard", 4, 9, "0.9", "Night-picker Sib", "The Late Rows", 1],
+    ];
+
+    for (const [mapId, x, y, hour, name, job, option] of cases) {
+      await enterMapAt(page, mapId, x, y, "up", Number(hour));
+      await page.keyboard.press("z");
+      await page.waitForTimeout(600);
+      if (!name) {
+        // Nobody on shift at noon.
+        await expect(page.locator("[data-overworld-dialogue-name]")).toHaveText("");
+        continue;
+      }
+      await expect(page.locator("[data-overworld-dialogue-name]")).toContainText(name);
+      await page.locator("[data-dialogue-option]").nth(option).click();
+      await page.waitForTimeout(450);
+      await page.locator("[data-overworld-dialogue-text]").click();
+      await page.waitForTimeout(450);
+      await expect(page.locator("[data-stats-quest-side]")).toContainText(job);
+    }
+  });
+
   test("@smoke the arenas have back rooms with a groom in them", async ({ page }) => {
     await seedAndEnterWorld(page);
 

@@ -245,6 +245,39 @@ export const SIDE_QUESTS: SideQuest[] = [
       "Names on a chalk board mean nothing without Brands behind them. Bring me three and we'll talk about the Roundup.",
   },
   {
+    id: "lamps-of-the-mesa",
+    title: "The Lamps Of The Mesa",
+    giver: "Signal Lorn",
+    mapId: "mesa_switchback",
+    acceptFlag: "quest-lamps-accepted",
+    objective: { kind: "win-wild-on", mapId: "hills_map", count: 2, label: "wild beaten on the Mesa" },
+    reward: { wallet: 260, feed: 3, thanks: "Two on the face, past dark. Logged, and paid - I said I would." },
+    offer:
+      "Two of the Mesa's wild stock beaten on Mesa ground, past dark. I'll log it either way, but I'll pay for it.",
+  },
+  {
+    id: "night-spoil",
+    title: "Night On The Spoil",
+    giver: "Night Powder Peg",
+    mapId: "the_cut",
+    acceptFlag: "quest-nightcut-accepted",
+    objective: { kind: "win-wild-on", mapId: "rocky_map", count: 2, label: "wild beaten in the Quarry" },
+    reward: { wallet: 270, feed: 2, thanks: "Two in the dark on rock. Written in the book, and the book pays." },
+    offer:
+      "Two wild ones beaten in the Quarry after dark. The heap is quiet then and I hear you coming.",
+  },
+  {
+    id: "late-rows",
+    title: "The Late Rows",
+    giver: "Night-picker Sib",
+    mapId: "marrow_orchard",
+    acceptFlag: "quest-late-rows-accepted",
+    objective: { kind: "catch-wild", count: 8, label: "genomes off the wild" },
+    reward: { wallet: 230, feed: 3, thanks: "Eight off the wild, and the orchard's quieter for it. Take this for the rows." },
+    offer:
+      "Beat one of the orchard's wild in the dark and I'll believe you've seen what I see.",
+  },
+  {
     id: "tack-room-finisher",
     title: "A Finisher's Number",
     giver: "Groom Millie",

@@ -842,6 +842,27 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Every far road has someone on after dark (2026-09-15) ✅
+
+The night shift is now a habit of the whole island rather than two men at one
+waystation. Each far road has a keeper who exists **only between dusk and
+dawn**:
+
+- **Signal Lorn** minds the cable lamps on the Switchback: *"the lamps make a
+  false summit out of nothing, and the wind comes down the gullies cold. Cars
+  that grip do fine. Cars that don't, I log."* Pays for *The Lamps Of The
+  Mesa*.
+- **Night Powder Peg** at the Cut: *"no blasting after dark — that's the rule
+  and I'm the reason it exists."* She counts what comes off the spoil heap and
+  what gets left on it, and pays for *Night On The Spoil*.
+- **Night-picker Sib** works the orchard's late rows, where the wild stock
+  comes down to the windfalls. Pays for *The Late Rows*.
+
+That makes four night watches in the world (with Pell on the waystation street
+and Vane at the fuel shed), three new jobs, and the day cycle meaning
+something in every biome: **at noon these roads are empty; after dark every
+one of them has somebody on it.**
+
 ## Weather, and where it is allowed to matter (2026-09-15) ✅
 
 The sky now follows the hour, using the same day slots as the shifts and the

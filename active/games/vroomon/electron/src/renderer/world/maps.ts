@@ -648,6 +648,30 @@ export const MAPS: Record<string, Tilemap> = {
         dialogue: { text: "Then mind the cables. They hum when the car's coming down." },
       },
       {
+        id: "signal-lorn",
+        name: "Signal Lorn",
+        x: 10,
+        y: 7,
+        facing: "left",
+        sprite: "rider",
+        // Out between dusk and dawn, like the other night watches.
+        hours: { from: 0.78, to: 0.12 },
+        dialogue: {
+          text: "I mind the cable lamps. Every car that comes up this face at night gets counted twice - once going up and once for how it comes back down.",
+          options: [
+            { label: "What's different at night?", next: "lorn-night" },
+            { label: "I'll run the face for you", next: "lorn-job" },
+            { label: "Keep the lamps lit", next: "lorn-lamp" },
+          ],
+        },
+      },
+      { id: "lorn-night", name: "Signal Lorn", x: 0, y: 0, facing: "down", sprite: "rider",
+        dialogue: { text: "The lamps make a false summit out of nothing, and the wind comes down the gullies cold. Cars that grip do fine. Cars that don't, I log." } },
+      { id: "lorn-job", name: "Signal Lorn", x: 0, y: 0, facing: "down", sprite: "rider",
+        dialogue: { text: "Two of the Mesa's wild stock beaten on Mesa ground, past dark. I'll log it either way, but I'll pay for it.", setFlag: "quest-lamps-accepted" } },
+      { id: "lorn-lamp", name: "Signal Lorn", x: 0, y: 0, facing: "down", sprite: "rider",
+        dialogue: { text: "They're lit. That's the whole watch." } },
+      {
         id: "climber-tez",
         name: "Tez",
         x: 10,
@@ -706,6 +730,30 @@ export const MAPS: Record<string, Tilemap> = {
           text: "We blow the face, they haul the spoil, and every hauler breaks an axle on the way out. Want to know what survives this ground? Weight. Not power — weight, and a frame that doesn't fold when the front wheel drops.",
         },
       },
+      {
+        id: "night-powder-peg",
+        name: "Night Powder Peg",
+        x: 5,
+        y: 6,
+        facing: "left",
+        sprite: "mechanic",
+        // Out between dusk and dawn, like the other night watches.
+        hours: { from: 0.78, to: 0.12 },
+        dialogue: {
+          text: "No blasting after dark - that's the rule and I'm the reason it exists. Now I just count what comes off the spoil heap and what gets left on it.",
+          options: [
+            { label: "What gets left on it?", next: "peg-left" },
+            { label: "I'll take a night run", next: "peg-job" },
+            { label: "Mind the fuse", next: "peg-fuse" },
+          ],
+        },
+      },
+      { id: "peg-left", name: "Night Powder Peg", x: 0, y: 0, facing: "down", sprite: "mechanic",
+        dialogue: { text: "Folded frames, mostly. The rock doesn't care how fast you were going uphill. Bring one that holds and I'll write it in the book." } },
+      { id: "peg-job", name: "Night Powder Peg", x: 0, y: 0, facing: "down", sprite: "mechanic",
+        dialogue: { text: "Two wild ones beaten in the Quarry after dark. The spoil heap is quiet then and I'll hear you coming.", setFlag: "quest-nightcut-accepted" } },
+      { id: "peg-fuse", name: "Night Powder Peg", x: 0, y: 0, facing: "down", sprite: "mechanic",
+        dialogue: { text: "There's no fuse lit at night. That's the whole point of me." } },
       {
         id: "face-boss-halg",
         name: "Face Boss Halg",
@@ -1535,6 +1583,30 @@ export const MAPS: Record<string, Tilemap> = {
           text: "Maren keeps me on to look at the stock. You can read a vroomon like a ledger, you know — plates for structure, wheels joined at their centres, then the power path running through them. Carrier's got an inspector for it: pick any car and read its blueprint part by part.",
         },
       },
+      {
+        id: "night-picker-sib",
+        name: "Night-picker Sib",
+        x: 4,
+        y: 8,
+        facing: "left",
+        sprite: "villager",
+        // Out between dusk and dawn, like the other night watches.
+        hours: { from: 0.78, to: 0.12 },
+        dialogue: {
+          text: "I pick the late rows when the orchard's quiet. The wild stock comes down to the windfalls after dark, so I see more of it than anyone does by day.",
+          options: [
+            { label: "What do they do at night?", next: "sib-night" },
+            { label: "I'll work the late rows", next: "sib-job" },
+            { label: "Mind the shadows", next: "sib-shade" },
+          ],
+        },
+      },
+      { id: "sib-night", name: "Night-picker Sib", x: 0, y: 0, facing: "down", sprite: "villager",
+        dialogue: { text: "Same pack, and they run the rows better. Hollis complains about the clover either way - I just pick around them." } },
+      { id: "sib-job", name: "Night-picker Sib", x: 0, y: 0, facing: "down", sprite: "villager",
+        dialogue: { text: "Beat one of the orchard's wild in the dark and I'll believe you've seen what I see.", setFlag: "quest-late-rows-accepted" } },
+      { id: "sib-shade", name: "Night-picker Sib", x: 0, y: 0, facing: "down", sprite: "villager",
+        dialogue: { text: "The shadows are mine. Everything else is Hollis's." } },
       {
         id: "beekeeper-hollis",
         name: "Beekeeper Hollis",
