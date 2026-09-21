@@ -10,7 +10,9 @@ const STARTER_TOWN_TILES: TileKind[][] = [
   row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "doormat", "tree", "doormat", "tree", "tree", "tree", "tree", "tree"),
   row("tree", "grass", "grass", "grass", "grass", "building", "door", "building", "path", "door", "grass", "grass", "grass", "grass", "grass", "tree"),
   row("tree", "grass", "path", "path", "path", "path", "doormat", "path", "path", "doormat", "path", "path", "path", "path", "grass", "tree"),
-  row("tree", "grass", "path", "counter", "path", "path", "path", "path", "path", "path", "path", "path", "counter", "path", "grass", "tree"),
+  // The well head and two market stalls, drawn with tiles the world already
+  // has (counters are walkable, so the square's paths stay open).
+  row("tree", "grass", "path", "counter", "path", "counter", "counter", "path", "path", "counter", "counter", "path", "counter", "path", "grass", "tree"),
   row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
   row("tree", "grass", "path", "doormat", "path", "path", "path", "path", "path", "path", "path", "path", "doormat", "path", "grass", "tree"),
   row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),

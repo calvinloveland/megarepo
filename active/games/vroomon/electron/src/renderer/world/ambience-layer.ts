@@ -181,3 +181,34 @@ export function footstepPuffs(
 
   return puffs;
 }
+
+
+// ---- Room light ------------------------------------------------------------
+// Indoors there is a lamp somewhere and it should read as one: a warm pool
+// that breathes, so a room is lit rather than merely drawn.
+
+export interface LampGlow {
+  /** Where the pool sits, in map pixels. */
+  x: number;
+  y: number;
+  radius: number;
+  /** 0..1, already pulsed. */
+  intensity: number;
+}
+
+/** A lamp's pool for a room of this size, breathing slowly. */
+export function lampGlow(
+  timeMs: number,
+  map: { width: number; height: number },
+  options: { radius?: number; intensity?: number } = {},
+): LampGlow {
+  const seconds = timeMs / 1000;
+  const baseRadius = options.radius ?? Math.max(map.width, map.height) * 22;
+  const pulse = 0.88 + 0.12 * Math.sin(seconds / 2.1);
+  return {
+    x: (map.width / 2) * 32,
+    y: (map.height / 2) * 32,
+    radius: baseRadius * pulse,
+    intensity: (options.intensity ?? 0.22) * pulse,
+  };
+}

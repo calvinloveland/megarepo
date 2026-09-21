@@ -15,7 +15,15 @@ import {
 import { findDecor } from "./decor.js";
 import { HOUSE_ACCENTS, houseAccentForNpc, SPRITE_PALETTE as PAL } from "./sprites-palette.js";
 import { FACTIONS } from "./factions.js";
-import { ambientMotes, dayPhase, dayTint, footstepPuffs, waterPhase, type Track } from "./ambience-layer.js";
+import {
+  ambientMotes,
+  dayPhase,
+  dayTint,
+  footstepPuffs,
+  lampGlow,
+  waterPhase,
+  type Track,
+} from "./ambience-layer.js";
 import { npcPositionAt } from "./routines.js";
 
 export interface OverworldRenderFrame {
@@ -193,6 +201,23 @@ export function renderOverworld(
     }
   }
   ctx.globalAlpha = 1;
+
+  // Indoors: a warm pool of lamplight where the room's centre is.
+  if (map.interior) {
+    const glow = lampGlow(tick, map);
+    const gradient = ctx.createRadialGradient(
+      glow.x - cameraX,
+      glow.y - cameraY,
+      8,
+      glow.x - cameraX,
+      glow.y - cameraY,
+      glow.radius,
+    );
+    gradient.addColorStop(0, `rgba(255, 226, 160, ${glow.intensity})`);
+    gradient.addColorStop(1, "rgba(255, 214, 130, 0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+  }
 
   // Time of day: a light wash over everything outside. Interiors keep their
   // own light, so no tint indoors.

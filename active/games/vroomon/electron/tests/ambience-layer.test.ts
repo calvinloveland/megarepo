@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DAY_LENGTH_MS,
+  lampGlow,
   ambientMotes,
   dayPhase,
   dayTint,
@@ -130,5 +131,26 @@ describe("the clock behaves like a clock", () => {
       expect(Math.min(dx, VIEW.width - dx)).toBeLessThan(30);
       expect(Math.min(dy, VIEW.height - dy)).toBeLessThan(20);
     }
+  });
+});
+
+describe("room light", () => {
+  it("sits in the middle of the room and breathes", () => {
+    const room = { width: 12, height: 6 };
+    const glow = lampGlow(0, room);
+    expect(glow.x).toBe(12 / 2 * 32);
+    expect(glow.y).toBe(6 / 2 * 32);
+    expect(glow.intensity).toBeGreaterThan(0.1);
+    expect(glow.intensity).toBeLessThan(0.3);
+    // It pulses rather than flickering: a second later, only slightly unlike.
+    const later = lampGlow(1000, room);
+    expect(Math.abs(later.intensity - glow.intensity)).toBeLessThan(0.05);
+    expect(later.radius).toBeGreaterThan(0);
+  });
+
+  it("scales with the room", () => {
+    const small = lampGlow(0, { width: 8, height: 6 });
+    const large = lampGlow(0, { width: 20, height: 14 });
+    expect(large.radius).toBeGreaterThan(small.radius);
   });
 });

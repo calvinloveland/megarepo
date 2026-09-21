@@ -842,6 +842,16 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Beauty pass 3: rooms lit, a square furnished (2026-09-15) ✅
+
+- **Rooms have lamps.** Every interior draws a warm pool of light in the
+  middle of the room that breathes slowly (0.88–1.0 over about two seconds),
+  so a room is lit rather than merely drawn. Pure function, unit-tested, and
+  scaling with the room's size.
+- **The town square is furnished.** Market stalls and a well head, drawn with
+  tiles the world already had (counters are walkable, so no path is blocked,
+  and the walkability invariants still pass).
+
 ## A pacing audit, measured (2026-09-15) ✅
 
 Balance can't be reasoned about in this game — what a herd can do depends on
