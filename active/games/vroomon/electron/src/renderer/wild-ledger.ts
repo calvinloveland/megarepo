@@ -8,6 +8,7 @@
 
 import { MAPS } from "./world/maps.js";
 import { wildTerrainFor } from "../core/wild.js";
+import { tierLabel } from "./circuit.js";
 
 /** A pack as last measured, kept in memory by the renderer. */
 export interface PackReading {
@@ -90,4 +91,52 @@ export function wildSendByTerrain(rows: WildGroundRow[]): Record<string, number>
 export function wildSendNote(terrain: string, sends: Record<string, number>): string {
   const value = sends[terrain];
   return value && value > 0 ? ` · wild sends ${Math.round(value)}` : "";
+}
+
+
+export interface TierWalkHint {
+  terrain: string;
+  tier: number;
+  bar: number;
+  /** The met ground on that terrain that sends the most, if any. */
+  best: WildGroundRow | null;
+  /** One line the records board can print under the wild table. */
+  text: string;
+}
+
+/**
+ * Which ground is worth a walk for the tier you are actually facing. The table
+ * says what each pack sends; this says whether any of them answers the bar in
+ * front of you, which is the question a player is really asking when they open
+ * the barn.
+ */
+export function tierWalkHint(
+  rows: WildGroundRow[],
+  target: { terrain: string; tier: number; bar: number },
+): TierWalkHint {
+  const onTerrain = rows
+    .filter((row) => row.terrain === target.terrain && row.median > 0)
+    .sort((left, right) => right.median - left.median);
+  const best = onTerrain[0] ?? null;
+  const where = `${target.terrain} ${tierLabel(target.tier)}`;
+
+  if (!best) {
+    return {
+      ...target,
+      best: null,
+      text: `No pack met on ${target.terrain} yet — walk the grass there to see what it sends.`,
+    };
+  }
+  if (best.median >= target.bar) {
+    return {
+      ...target,
+      best,
+      text: `${best.name} sends ${Math.round(best.median)} — that clears ${where} (${Math.round(target.bar)}). Worth the walk.`,
+    };
+  }
+  return {
+    ...target,
+    best,
+    text: `Nothing met sends ${Math.round(target.bar)} for ${where} yet; the best is ${best.name} at ${Math.round(best.median)}.`,
+  };
 }

@@ -82,6 +82,7 @@ import { buildLedger, titlesToDefend, untriedGrounds } from "./ledger.js";
 import { fitCanvasToBox } from "./canvas-fit.js";
 import {
   describeWildGround,
+  tierWalkHint,
   wildGroundRows,
   wildSendByTerrain,
   wildSendNote,
@@ -926,8 +927,7 @@ function renderWildGrounds(): void {
   const rows = wildGroundRows(overworldController.state.wildGenerations ?? {}, readings);
   if (rows.length === 0) {
     list.innerHTML = `<div class="menu-hall__row"><span>No pack met yet — the grass is where you find them.</span></div>`;
-    return;
-  }
+  } else {
   list.innerHTML = rows
     .map(
       (row) =>
@@ -937,8 +937,27 @@ function renderWildGrounds(): void {
           ? `<b>${row.median >= 1000 ? "sends a tier-grade animal" : "founder-class"}</b>`
           : "") +
         `</div>`,
-    )
-    .join("");
+      )
+      .join("");
+  }
+
+  // And the question the table is really answering: does any of it clear the
+  // bar in front of you?
+  const hint = document.querySelector<HTMLElement>("[data-wild-hint]");
+  if (hint) {
+    const world = overworldController.state;
+    const target = nextCircuitTarget(world.currentMapId, world.badges, world.feudTiers);
+    const line = tierWalkHint(rows, {
+      terrain: target.terrain,
+      tier: target.tier,
+      bar: target.bar,
+    });
+    hint.hidden = false;
+    hint.innerHTML =
+      `<span>FOR ${escapeHtml(line.terrain.toUpperCase())} ${escapeHtml(
+        tierLabel(line.tier),
+      )} · ${formatNumber(line.bar)}</span><b>${escapeHtml(line.text)}</b>`;
+  }
 }
 
 function renderRecordsBoard(): void {

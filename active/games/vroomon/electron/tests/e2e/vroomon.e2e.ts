@@ -2649,6 +2649,10 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(wildTable).toContainText("Ranch Yard");
     await expect(wildTable).toContainText("wild gen");
     await expect(wildTable).toContainText("sends");
+    // And the question the table is really answering: does any of it clear the
+    // bar in front of you?
+    await expect(page.locator("[data-wild-hint]")).toContainText("FOR ");
+    await expect(page.locator("[data-wild-hint]")).toContainText(/worth the walk|Nothing met sends|No pack met/);
     // A record is read against the alternative: what that terrain's wild would
     // hand you. Any recorded lap on a met terrain carries the comparison.
     const recordRows = page.locator(".records-row");

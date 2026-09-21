@@ -226,6 +226,7 @@ new entry that is not indexed here fails the suite.
 - [Where this session left the project (2026-09-15) ✅](#where-this-session-left-the-project-2026-09-15)
 - [The last rule with no teacher: what the wild is *for* (2026-09-15) ✅](#the-last-rule-with-no-teacher-what-the-wild-is-for-2026-09-15)
 - [Six wrong assumptions in one test file (2026-09-15) ✅](#six-wrong-assumptions-in-one-test-file-2026-09-15)
+- [The wild table answers the question you came in with (2026-09-15) ✅](#the-wild-table-answers-the-question-you-came-in-with-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -514,6 +515,30 @@ paths end with ".json"           the generation log is ".jsonl"
 Every one was caught by running the test rather than by reading it. The alphabet
 order is the one worth keeping: anybody hand-typing a DNA string depends on
 `0-9A-Za-z` exactly, and I had assumed the other way round.
+
+---
+
+## The wild table answers the question you came in with (2026-09-15) ✅
+
+The table says what each pack would send. That is a fact; the question a player
+opens the barn with is *"does any of it clear the bar in front of me?"* A line
+under the table answers it now, for the circuit you are actually on:
+
+```
+FOR GRASSLAND II · 1220   Nothing met sends 1220 for Grassland II yet; the
+                          best is The Ranch Yard at 247.
+```
+
+Three cases, all unit-tested: a ground that clears the bar (`Drift Perimeter
+sends 1622 — that clears Ice II (1220). Worth the walk.`), grounds met but none
+enough (`Nothing met sends 2400 for Ice V yet; the best is …`), and a terrain
+with no reading at all (`No pack met on Hills yet`).
+
+Two small DRY fixes came out of writing it. My first draft carried a private
+`romanFor` — a second copy of the numerals the circuit already has — and printed
+the tier as a bare `2` in the header while the sentence beside it said `II`.
+Both now use `tierLabel`, so the header and the sentence cannot disagree about
+what tier it is.
 
 ---
 

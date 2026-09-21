@@ -3,6 +3,7 @@ import {
   describeWildGround,
   wildGroundRows,
   wildSendByTerrain,
+  tierWalkHint,
   wildSendNote,
   type PackReading,
 } from "../src/renderer/wild-ledger.js";
@@ -71,5 +72,42 @@ describe("the wild's numbers next to the player's own", () => {
     expect(wildSendNote("Ice", { Ice: 810 })).toBe(" · wild sends 810");
     expect(wildSendNote("Hills", { Ice: 810 })).toBe("");
     expect(wildSendNote("Ice", { Ice: 0 })).toBe("");
+  });
+});
+
+describe("which ground is worth a walk", () => {
+  const rows = wildGroundRows(
+    { ice_map: 12, long_light_depot: 4, ranch_yard: 9 },
+    {
+      ice_map: reading(12, 1622, 2000),
+      long_light_depot: reading(4, 640, 900),
+      ranch_yard: reading(9, 450, 1001),
+    },
+  );
+
+  it("names the ground that clears the bar in front of you", () => {
+    const hint = tierWalkHint(rows, { terrain: "Ice", tier: 2, bar: 1220 });
+    expect(hint.best?.mapId).toBe("ice_map");
+    expect(hint.text).toContain("Drift Perimeter sends 1622");
+    expect(hint.text).toContain("clears Ice II (1220)");
+    expect(hint.text).toContain("Worth the walk");
+  });
+
+  it("says when nothing met is enough, and what the best is", () => {
+    const hint = tierWalkHint(rows, { terrain: "Ice", tier: 5, bar: 2400 });
+    expect(hint.text).toContain("Nothing met sends 2400");
+    expect(hint.text).toContain("Drift Perimeter at 1622");
+  });
+
+  it("says when no pack on that ground has been met at all", () => {
+    const hint = tierWalkHint(rows, { terrain: "Hills", tier: 1, bar: 1150 });
+    expect(hint.best).toBeNull();
+    expect(hint.text).toContain("No pack met on Hills yet");
+  });
+
+  it("takes the strongest ground when two carry the same terrain", () => {
+    // Both ice grounds are met; the stronger one speaks for the terrain.
+    const hint = tierWalkHint(rows, { terrain: "Ice", tier: 1, bar: 1000 });
+    expect(hint.best?.mapId).toBe("ice_map");
   });
 });

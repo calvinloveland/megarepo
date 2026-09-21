@@ -1401,6 +1401,11 @@
       }
       .menu-hall .hall-entry:hover { border-color: var(--gold-deep); }
       .menu-records { width: 100%; text-align: left; }
+      .wild-hint {
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        color: #ffe6a3;
+        font-size: 0.72rem;
+      }
       .records-row {
         display: grid;
         grid-template-columns: 1fr auto auto;
@@ -2289,6 +2294,7 @@
               <div class="menu-hall__list" data-records-list></div>
               <div class="menu-hall__head" style="margin-top:0.7rem;">WILD GROUNDS · what each pack would send</div>
               <div class="menu-hall__list" data-wild-grounds></div>
+              <div class="menu-hall__row wild-hint" data-wild-hint hidden></div>
             </div>
           </div>
         </div>
