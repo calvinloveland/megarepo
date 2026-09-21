@@ -179,20 +179,106 @@ export function feudBriefing(options: {
   tier: number;
   bar: number;
   best: number;
+  /** The car that would answer it, when there is one. */
+  shape?: VehicleShape | null;
 }): string {
-  const { terrain, tier, bar, best } = options;
+  const { terrain, tier, bar, best, shape } = options;
   const label = `${terrain} ${tierLabel(tier)}`;
+  const demand = shapeForTier(tier);
+  const shapeNote = tier > 1 ? ` It also wants ${demand.wants}.` : "";
+  const shapeFail = shape ? shapeShortfall(shape, tier) : null;
+  if (shapeFail) {
+    return `${label}. ${shapeFail}${tier > 1 ? "" : ""} Breed a car that fits the ground.`;
+  }
   const asked = `The bar is ${Math.round(bar)}`;
   if (best <= 0) {
-    return `${label}. ${asked}, and there is nothing in your Record Barn to answer it. Breed one first.`;
+    return `${label}. ${asked}, and there is nothing in your Record Barn to answer it. Breed one first.${shapeNote}`;
   }
   const held = `your barn holds ${Math.round(best)}`;
   if (best >= bar) {
-    return `${label}. ${asked} and ${held}. This one is yours to lose.`;
+    return `${label}. ${asked} and ${held}. This one is yours to lose.${shapeNote}`;
   }
   const short = Math.round(bar - best);
   return (
     `${label}. ${asked}; ${held} — ${short} short. ` +
-    `That is a breeding job, not a racing one.`
+    `That is a breeding job, not a racing one.${shapeNote}`
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// What the ground asks of the car, beyond its time
+// ---------------------------------------------------------------------------
+
+/** The structural facts a tier can be judged on. */
+export interface VehicleShape {
+  plates: number;
+  wheels: number;
+  engines: number;
+  drivenWheels: number;
+}
+
+export interface TierShape {
+  /** What this tier wants, in the player's words. */
+  text: string;
+  meets: (shape: VehicleShape) => boolean;
+  /** The same thing as a requirement, for a failure line. */
+  wants: string;
+}
+
+/**
+ * A score bar alone rewards hunting: one lucky animal off the ground can clear
+ * two tiers at once (measured: a single wild import took a herd from tier I to
+ * tier III in one generation). From tier II the ground also asks what your car
+ * is *made of*, so the climb rewards breeding a shape as well as finding a
+ * number. Tier I asks nothing: that Brand is the lesson.
+ */
+export const TIER_SHAPE: Record<number, TierShape> = {
+  1: {
+    text: "any car that rolls",
+    wants: "any car that rolls",
+    meets: () => true,
+  },
+  2: {
+    text: "two driven wheels",
+    wants: "at least two driven wheels",
+    meets: (shape) => shape.drivenWheels >= 2,
+  },
+  3: {
+    text: "three wheels, two of them driven",
+    wants: "at least three wheels, two of them driven",
+    meets: (shape) => shape.wheels >= 3 && shape.drivenWheels >= 2,
+  },
+  4: {
+    text: "four wheels, three of them driven",
+    wants: "at least four wheels, three of them driven",
+    meets: (shape) => shape.wheels >= 4 && shape.drivenWheels >= 3,
+  },
+  5: {
+    text: "four driven wheels behind three engines",
+    wants: "at least four driven wheels and three engines",
+    meets: (shape) => shape.drivenWheels >= 4 && shape.engines >= 3,
+  },
+};
+
+export function shapeForTier(tier: number): TierShape {
+  return TIER_SHAPE[Math.min(5, Math.max(1, Math.floor(tier)))] ?? TIER_SHAPE[1]!;
+}
+
+/**
+ * Why this car cannot answer this tier, or null when its shape is fine. Said
+ * as a sentence so the feud can hand it straight to the player.
+ */
+export function shapeShortfall(shape: VehicleShape, tier: number): string | null {
+  const demand = shapeForTier(tier);
+  if (demand.meets(shape)) {
+    return null;
+  }
+  // "The ground wants…" rather than naming the tier again: this line is
+  // printed right after "Grassland II.", and reads oddly doubled up.
+  return (
+    `The ground wants ${demand.wants}; this one has ` +
+    `${shape.wheels} wheel${shape.wheels === 1 ? "" : "s"}, ` +
+    `${shape.drivenWheels} driven, ${shape.engines} engine${shape.engines === 1 ? "" : "s"}.`
   );
 }

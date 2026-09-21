@@ -727,24 +727,22 @@ test.describe("vroomon Playwright harness", () => {
     // Read the score out of its own span: chip text also carries the car's id,
     // and ids end in digits ("preview-...-00070"), so stripping non-digits over
     // the whole string invents numbers.
-    // One snapshot of the strip: the panel re-renders as generations land, and
-    // reading chips one by one raced against it.
-    const chipScores = await page.$$eval("[data-select-vehicle]", (nodes) =>
-      nodes.map((node) =>
-        Number((node.querySelector(".focus-chip__score")?.textContent ?? "").replace(/[^0-9.]/g, "")),
-      ),
-    );
-    const chips = page.locator("[data-select-vehicle]");
-    let bestIndex = 0;
-    let bestChip = -1;
-    chipScores.forEach((score, index) => {
-      if (score > bestChip) {
-        bestChip = score;
-        bestIndex = index;
-      }
-    });
-    expect(bestChip).toBeGreaterThanOrEqual(1000);
-    await chips.nth(bestIndex).click();
+    // Record the car the HUD itself calls the leader, by id. The chip strip
+    // shows the racers it has painted, which is not always the same set, and
+    // picking "the highest chip" once saved a 919 car while the HUD read above
+    // the bar - the exact trap the sticky selection sets for a player.
+    const leaderId = ((await page.locator("[data-viewport-leader-value]").textContent()) ?? "")
+      .split("·")[0]!
+      .trim();
+    expect(leaderId.length).toBeGreaterThan(0);
+    const leaderChip = page.locator(`[data-select-vehicle="${leaderId}"]`);
+    if ((await leaderChip.count()) > 0) {
+      await leaderChip.click();
+    } else {
+      // Not painted yet: fall back to the best chip on offer.
+      await page.locator("[data-select-vehicle]").first().click();
+    }
+    await page.waitForTimeout(300);
     await page.waitForTimeout(300);
     // The button names the car and its score, so a stale selection cannot
     // quietly swap your champion for a slower one.
@@ -758,13 +756,17 @@ test.describe("vroomon Playwright harness", () => {
     await page.locator("[data-barn-close]").click();
     await page.waitForTimeout(300);
 
-    // Now settle the Grassland feud on the strength of that herd.
+    // Now settle the Grassland feud on the strength of that herd. The player
+    // cannot start a move while one is in flight, so a pause that is generous
+    // alone loses steps under parallel load and the Elder is not there to talk
+    // to - hence the name assertion below, which says so plainly.
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
       await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(320);
+      await page.waitForTimeout(420);
     }
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Meadow Elder");
     await page.locator("[data-dialogue-option]").nth(2).click();
     await page.waitForTimeout(400);
     await page.keyboard.press("z");
@@ -835,6 +837,54 @@ test.describe("vroomon Playwright harness", () => {
     // The arena remembers: racing again is tier II with a higher bar.
     const tiers = await page.evaluate(async () => (await window.vroomon.loadWorldState())?.feudTiers);
     expect(tiers).toMatchObject({ "Grassland Brand": 2 });
+  });
+
+  test("@smoke a fast car of the wrong shape is refused, and told why", async ({ page }) => {
+    // From tier II the ground judges what the car is MADE of, not only what it
+    // runs: a score bar alone can be bought with one lucky animal off the
+    // grass. 3F3AIOPcZFN is a one-wheeled car that scores well - exactly the
+    // champion a hunting-only player would turn up with.
+    await page.evaluate(async () => {
+      await window.vroomon.saveHallOfFame({
+        version: 1,
+        entries: [
+          {
+            id: "hall-wrong-shape",
+            runId: "r",
+            dna: "3F3AIOPcZFN",
+            name: "Wrong Shape",
+            score: 1900,
+            terrainName: "Grassland",
+            generation: 4,
+            savedAt: new Date().toISOString(),
+            notes: "",
+          },
+        ],
+      });
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({ ...world, feudTiers: { "Grassland Brand": 2 } });
+    });
+    await seedRancher(page);
+    await enterWorld(page);
+    for (const dir of ["down", "down", "left", "left", "left", "left"]) {
+      await page.locator(`[data-dpad="${dir}"]`).click();
+      await page.waitForTimeout(320);
+    }
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-dialogue-option]").nth(2).click();
+    await page.waitForTimeout(400);
+    // The keeper says the terms, including the shape, before you race.
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("wants at least two driven wheels");
+    await page.keyboard.press("z");
+    await expect(page.locator("[data-race-overlay]")).toBeVisible();
+    await expect(page.locator("[data-race-title]")).toContainText("II");
+    await expect(page.locator("[data-race-body]")).toContainText("but the ground wants a shape");
+    await expect(page.locator("[data-race-sub]")).toContainText("two driven wheels");
+    await page.locator("[data-race-close]").click();
+    await page.waitForTimeout(400);
+    await expect(page.locator("[data-status-message]")).toContainText("not the right shape");
+    await expect(page.locator("[data-overworld-badge-list]")).toContainText("No brands");
   });
 
   test("the circuit scales past a champion: tier II turns them away", async ({

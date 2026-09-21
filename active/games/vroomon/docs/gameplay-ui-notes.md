@@ -913,6 +913,47 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## From tier II the ground asks what your car is made of (2026-09-15) ✅
+
+The measured problem: a score bar alone rewards *hunting*. One lucky animal
+off the grass took a herd from tier I to tier III in a single generation, and
+11% of freshly generated cars clear tier IV outright. The climb had no reason
+to touch the blueprint.
+
+So from tier II each tier also demands a **shape**:
+
+```
+I    any car that rolls
+II   at least two driven wheels
+III  at least three wheels, two of them driven
+IV   at least four wheels, three of them driven
+V    at least four driven wheels and three engines
+```
+
+Calibrated against 500 random cars, so each rung is a real filter rather than
+a formality: **53.6%** of random cars fail tier II, 35.4% pass tier III, 11.2%
+tier IV, and only **3.6%** could ever answer tier V. The demand is stated
+before the race (*"It also wants at least three wheels, two of them driven"*)
+and a car that is fast enough but the wrong shape is refused with its own
+words, so the two kinds of failure ask for different work:
+
+> **FEUD RACE · II** — Fast enough at 1900 against a bar of 1220 — but the
+> ground wants a shape.
+> The ground wants at least two driven wheels; this one has 1 wheel, 0 driven,
+> 3 engines. Rival keeps the ground.
+
+Tier I asks nothing at all, on purpose: that Brand is the lesson.
+
+### The arc test's real flake
+
+Chasing the intermittent failure in the opening-arc e2e turned up something
+worth keeping. The test picked "the highest-scoring chip" to record in the
+Record Barn, and occasionally saved a 919 car while the HUD read above the
+bar: **the chip strip is not always the same set of cars as the leaderboard.**
+It now reads the leader's id straight off the HUD and selects *that* chip —
+which is also what the sticky-selection trap means for a player. Two
+consecutive full-suite runs after the change.
+
 ## The ground says what it wants (2026-09-15) ✅
 
 The circuit is a breeding target, and nothing in the game said so. A player

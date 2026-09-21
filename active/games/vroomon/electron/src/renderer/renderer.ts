@@ -20,7 +20,22 @@ import type {
   VroomonParityContract,
 } from "../shared/parity-contract.js";
 import { bestRecord, proposeRecord } from "./records.js";
-import { badgeForMap, feudBar, feudBriefing, nextCircuitTarget, nextTier, rivalScoreFor, terrainForVenue, tierLabel, tierOutcome, venueTitle, VENUE_BADGE } from "./circuit.js";
+import {
+  badgeForMap,
+  feudBar,
+  feudBriefing,
+  nextCircuitTarget,
+  nextTier,
+  rivalScoreFor,
+  shapeForTier,
+  shapeShortfall,
+  terrainForVenue,
+  tierLabel,
+  tierOutcome,
+  venueTitle,
+  VENUE_BADGE,
+  type VehicleShape,
+} from "./circuit.js";
 import {
   buildHeritageGraph,
   describeKin,
@@ -5669,11 +5684,13 @@ function briefForHere(): string {
   const world = overworldController.state;
   const target = nextCircuitTarget(world.currentMapId, world.badges, world.feudTiers);
   const bar = feudBar(target.terrain, target.tier);
+  const champion = bestChampion(target.terrain);
   return feudBriefing({
     terrain: target.terrain,
     tier: target.tier,
     bar,
-    best: bestChampionScore(target.terrain),
+    best: champion?.score ?? 0,
+    shape: champion ? shapeOf(champion.dna) : null,
   });
 }
 
@@ -5802,8 +5819,13 @@ async function startOverworldEncounter(
     const defence = weatherDefence(sky);
     const bar = feudBar(terrain, tier, defence);
     const rivalScore = rivalScoreFor(bar);
-    const championScore = bestChampionScore(terrain);
-    const { won, shortfall } = tierOutcome(championScore, bar);
+    // The tier judges two things: what the car runs, and what it is made of.
+    // A score bar alone can be bought with one lucky animal off the grass.
+    const champion = bestChampion(terrain);
+    const championScore = champion?.score ?? 0;
+    const { won: fastEnough, shortfall } = tierOutcome(championScore, bar);
+    const shapeProblem = champion ? shapeShortfall(shapeOf(champion.dna), tier) : null;
+    const won = fastEnough && shapeProblem === null;
     const title = venueTitle(mapName.replace(/^.*—\s*/, ""), tier);
 
     if (won) {
@@ -5837,15 +5859,25 @@ async function startOverworldEncounter(
       return;
     }
 
+    // Two ways to lose, and they ask for different work: a car that is not
+    // fast enough needs generations, a car of the wrong shape needs a
+    // different build. Say which one it was.
+    const shapeOnlyLoss = fastEnough && shapeProblem !== null;
     showRaceCard(
       `FEUD RACE · ${tierLabel(tier)}${sky.label === "clear" ? "" : ` · ${sky.label.toUpperCase()}`}`,
-      `The bar is ${formatNumber(bar)}${sky.label === "clear" ? "" : ` (raised ${Math.round((defence - 1) * 100)}% by the ${sky.label})`} — your best champion reached ${formatNumber(championScore)}.`,
-      `Short by ${formatNumber(shortfall)}. ${rivalName(trainerName)} keeps the ground. Breed a faster one.`,
+      shapeOnlyLoss
+        ? `Fast enough at ${formatNumber(championScore)} against a bar of ${formatNumber(bar)} — but the ground wants a shape.`
+        : `The bar is ${formatNumber(bar)}${sky.label === "clear" ? "" : ` (raised ${Math.round((defence - 1) * 100)}% by the ${sky.label})`} — your best champion reached ${formatNumber(championScore)}.`,
+      shapeOnlyLoss
+        ? `${shapeProblem} ${rivalName(trainerName)} keeps the ground.`
+        : `Short by ${formatNumber(shortfall)}. ${rivalName(trainerName)} keeps the ground. Breed a faster one.`,
       false,
     );
     rendererState = {
       ...rendererState,
-      statusMessage: `Short by ${formatNumber(shortfall)} at ${title} — the bar is ${formatNumber(bar)} (your champion: ${formatNumber(championScore)}).`,
+      statusMessage: shapeOnlyLoss
+        ? `Fast enough at ${title}, but not the right shape — ${shapeProblem}`
+        : `Short by ${formatNumber(shortfall)} at ${title} — the bar is ${formatNumber(bar)} (your champion: ${formatNumber(championScore)}).`,
     };
     renderApp();
     return;
@@ -5894,14 +5926,39 @@ async function startOverworldEncounter(
 /** The best champion you can put on this terrain: the Record Barn's best
  * for it, else the strongest car in the live herd. */
 function bestChampionScore(terrainName: string): number {
+  return bestChampion(terrainName)?.score ?? 0;
+}
+
+/** The car that will actually answer the feud, with its DNA. */
+function bestChampion(
+  terrainName: string,
+): { score: number; dna: string; id: string } | null {
   const hall = rendererState.hallOfFame.entries
     .filter((entry) => entry.terrainName === terrainName)
-    .reduce((best, entry) => Math.max(best, entry.score), 0);
-  if (hall > 0) {
+    .reduce<{ score: number; dna: string; id: string } | null>(
+      (best, entry) => (best === null || entry.score > best.score ? { score: entry.score, dna: entry.dna, id: entry.name } : best),
+      null,
+    );
+  if (hall) {
     return hall;
   }
   const herd = rendererState.latestGeneration?.evaluatedPopulation ?? [];
-  return herd.reduce((best, entry) => Math.max(best, entry.score), 0);
+  const top = herd.reduce<{ score: number; dna: string; id: string } | null>(
+    (best, entry) => (best === null || entry.score > best.score ? { score: entry.score, dna: entry.dna, id: entry.id } : best),
+    null,
+  );
+  return top;
+}
+
+/** What a DNA string is made of, structurally. */
+function shapeOf(dna: string): VehicleShape {
+  const blueprint = describeVehicle(window.vroomon.decodeDnaV2(dna));
+  return {
+    plates: blueprint.plates,
+    wheels: blueprint.wheels,
+    engines: blueprint.engines,
+    drivenWheels: blueprint.driven.length,
+  };
 }
 
 function rivalName(trainerName: string | null): string {

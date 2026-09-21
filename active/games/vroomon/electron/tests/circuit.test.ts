@@ -11,6 +11,8 @@ import {
   venueTitle,
   TIER_GROWTH,
   feudBriefing,
+  shapeForTier,
+  shapeShortfall,
 } from "../src/renderer/circuit.js";
 
 describe("the feud circuit", () => {
@@ -121,5 +123,61 @@ describe("the briefing before a feud", () => {
   it("says when there is nothing in the barn at all", () => {
     const none = feudBriefing({ terrain: "Hills", tier: 1, bar: 1150, best: 0 });
     expect(none).toContain("nothing in your Record Barn");
+  });
+});
+
+describe("the shape the ground asks for", () => {
+  const car = (wheels: number, drivenWheels: number, engines: number) => ({
+    plates: 1,
+    wheels,
+    drivenWheels,
+    engines,
+  });
+
+  it("asks nothing of a first Brand", () => {
+    expect(shapeForTier(1).meets(car(1, 0, 1))).toBe(true);
+    expect(shapeShortfall(car(1, 0, 1), 1)).toBeNull();
+  });
+
+  it("escalates what a car has to be made of", () => {
+    // Two driven wheels, then three wheels with two driven, then four with
+    // three, then four driven behind three engines.
+    expect(shapeForTier(2).meets(car(2, 2, 1))).toBe(true);
+    expect(shapeForTier(2).meets(car(2, 1, 1))).toBe(false);
+    expect(shapeForTier(3).meets(car(3, 2, 1))).toBe(true);
+    expect(shapeForTier(3).meets(car(2, 2, 1))).toBe(false);
+    expect(shapeForTier(4).meets(car(4, 3, 2))).toBe(true);
+    expect(shapeForTier(4).meets(car(3, 3, 2))).toBe(false);
+    expect(shapeForTier(5).meets(car(4, 4, 3))).toBe(true);
+    expect(shapeForTier(5).meets(car(4, 4, 2))).toBe(false);
+  });
+
+  it("says what the car is instead, when it does not fit", () => {
+    const why = shapeShortfall(car(2, 1, 1), 3)!;
+    expect(why).toContain("The ground wants at least three wheels, two of them driven");
+    expect(why).toContain("this one has 2 wheels, 1 driven, 1 engine");
+    // The tier is named by whoever prints it, so it is not repeated here.
+    expect(why).not.toContain("III");
+  });
+
+  it("tells the keeper about it before the race", () => {
+    const line = feudBriefing({
+      terrain: "Grassland",
+      tier: 3,
+      bar: 1488,
+      best: 1600,
+      shape: car(2, 1, 1),
+    });
+    expect(line).toContain("Breed a car that fits the ground");
+    // And names the demand even when the car is fine.
+    const ready = feudBriefing({
+      terrain: "Grassland",
+      tier: 3,
+      bar: 1488,
+      best: 1600,
+      shape: car(4, 4, 3),
+    });
+    expect(ready).toContain("yours to lose");
+    expect(ready).toContain("at least three wheels, two of them driven");
   });
 });
