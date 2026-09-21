@@ -1922,7 +1922,19 @@ export const MAPS: Record<string, Tilemap> = {
             { label: "Join the Greensprouts", next: "elder-join-faction" },
             { label: "The Reds run faster", next: "elder-decline" },
                       { label: "Race the Rustlers to settle the feud", next: "elder-feud" },
-],
+            { label: "Why does the bar go up?", next: "elder-title" },
+          ],
+        },
+      },
+      {
+        id: "elder-title",
+        name: "Meadow Elder",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Because a Brand is a promise, not a prize. You beat a thousand, so the ground answers twelve hundred — every house that wants it has to come through you, at the number you set. Sweep it again and it climbs again. That is what a title is: a bar somebody else has to clear. The ledger in the Record Barn keeps the count of what it would cost you now.",
         },
       },
       {

@@ -227,6 +227,7 @@ new entry that is not indexed here fails the suite.
 - [The last rule with no teacher: what the wild is *for* (2026-09-15) ✅](#the-last-rule-with-no-teacher-what-the-wild-is-for-2026-09-15)
 - [Six wrong assumptions in one test file (2026-09-15) ✅](#six-wrong-assumptions-in-one-test-file-2026-09-15)
 - [The wild table answers the question you came in with (2026-09-15) ✅](#the-wild-table-answers-the-question-you-came-in-with-2026-09-15)
+- [The ledger said DEFEND, and nobody said why (2026-09-15) ✅](#the-ledger-said-defend-and-nobody-said-why-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -539,6 +540,40 @@ Two small DRY fixes came out of writing it. My first draft carried a private
 the tier as a bare `2` in the header while the sentence beside it said `II`.
 Both now use `tierLabel`, so the header and the sentence cannot disagree about
 what tier it is.
+
+---
+
+## The ledger said DEFEND, and nobody said why (2026-09-15) ✅
+
+The Record Barn's ledger carries the most interesting row in the game:
+
+```
+DEFEND   1 circuit would turn your best away
+```
+
+A title is defended at a raised bar — you beat 1000, so the ground answers 1220
+— and that is the whole shape of the campaign after the first Brand. It was
+*stated* in a row and in the sweep message, and **explained nowhere.**
+
+The Meadow Elder now answers it, as a fourth item on his menu — he is the one
+who hands out feuds, so he is the one who should say what a Brand is:
+
+> **"Why does the bar go up?"** — *"Because a Brand is a promise, not a prize.
+> You beat a thousand, so the ground answers twelve hundred — every house that
+> wants it has to come through you, at the number you set. Sweep it again and it
+> climbs again. That is what a title is: a bar somebody else has to clear. The
+> ledger in the Record Barn keeps the count of what it would cost you now."*
+
+The teaching contract grew a row for it, mutation-verified like the others
+(`nobody explains: a title is defended at a higher bar`).
+
+### And the sweep from two cycles ago paid for itself
+
+Adding a fourth option to a menu that five e2e tests click through **broke
+nothing.** Before the label-based sweep, that edit would have shifted an index
+and taken unrelated tests down — it happened twice, which is why the sweep
+happened. This is the first content edit since where the old failure mode was
+simply absent.
 
 ---
 

@@ -440,6 +440,7 @@ describe("quest contracts", () => {
       "the wild's purpose": ["stops giving you anything", "walk into the grass"],
       "where you hunt matters": ["depends entirely on where you stand", "far grounds"],
       "the tier's shape demand": ["shape the mesa likes", "four wheels planted"],
+      "a title is defended at a higher bar": ["a promise, not a prize", "somebody else has to clear"],
     };
     const untaught = Object.entries(TAUGHT)
       .filter(([, phrases]) => !phrases.some((phrase) => spoken.includes(phrase)))
