@@ -842,6 +842,29 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Night changes who is about (2026-09-15) ✅
+
+The day cycle used to be decoration — a wash over the map and a reason for
+people to stand somewhere else. Now it changes what you can *do*:
+
+- **People can have shifts.** An NPC's `hours` is a phase range that wraps
+  (`from: 0.78, to: 0.12` is dusk through dawn), and someone off shift is
+  simply **not there** — not drawn, not interactable, not in the way. **Pell
+  the watchman** works the waystation street only after dark, and the job he
+  offers (*Work The Dark*: two wild vroomon off the Stretch) can only be
+  taken at night.
+- **Windows light up.** Every building and door tile carries a small warm
+  pane whose brightness follows the same clock as the daylight (on through
+  dusk, out after dawn), so a town at night looks occupied rather than
+  painted.
+
+### And an invariant for buildings
+
+`every building cluster has a door` — a facade with no way in is a promise
+the map doesn't keep (the same family as the dead doors and the door loops).
+It found nothing to fix: the Long Haul's two buildings and the town's two are
+the only ones with doors, and each cluster has one.
+
 ## Beauty pass 3: rooms lit, a square furnished (2026-09-15) ✅
 
 - **Rooms have lamps.** Every interior draws a warm pool of light in the

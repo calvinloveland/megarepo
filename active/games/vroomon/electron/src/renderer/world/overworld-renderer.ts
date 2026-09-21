@@ -22,6 +22,7 @@ import {
   footstepPuffs,
   lampGlow,
   waterPhase,
+  windowLight,
   type Track,
 } from "./ambience-layer.js";
 import { npcPositionAt } from "./routines.js";
@@ -82,10 +83,32 @@ function bakedTileLayer(
 export function invalidateBakedTileLayer(): void {
   bakedLayer = null;
   waterLayer = null;
+  windowLayer = null;
 }
 
 /** Water tiles per map, scanned once (the renderer draws ripples over them). */
 let waterLayer: { key: string; tiles: Array<{ x: number; y: number }> } | null = null;
+
+/** Building and door tiles: the windows that light up after dark. */
+let windowLayer: { key: string; tiles: Array<{ x: number; y: number }> } | null = null;
+
+function windowTiles(map: Tilemap): Array<{ x: number; y: number }> {
+  const key = `${map.id}:${map.width}x${map.height}:${map.tiles.length}`;
+  if (windowLayer && windowLayer.key === key) {
+    return windowLayer.tiles;
+  }
+  const tiles: Array<{ x: number; y: number }> = [];
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) {
+      const tile = map.tiles[y]?.[x];
+      if (tile === "building" || tile === "door") {
+        tiles.push({ x, y });
+      }
+    }
+  }
+  windowLayer = { key, tiles };
+  return tiles;
+}
 
 function waterTiles(map: Tilemap): Array<{ x: number; y: number }> {
   const key = `${map.id}:${map.width}x${map.height}:${map.tiles.length}`;
@@ -202,6 +225,22 @@ export function renderOverworld(
   }
   ctx.globalAlpha = 1;
 
+  // Lit windows: buildings look occupied once it is dark.
+  const lit = windowLight(tick);
+  if (lit > 0.01) {
+    for (const window of windowTiles(map)) {
+      const wx = window.x * TILE_SIZE - cameraX;
+      const wy = window.y * TILE_SIZE - cameraY;
+      if (wx < -TILE_SIZE || wy < -TILE_SIZE || wx > width || wy > height) {
+        continue;
+      }
+      ctx.globalAlpha = lit * 0.75;
+      ctx.fillStyle = "#ffd98a";
+      ctx.fillRect(wx + TILE_SIZE * 0.28, wy + TILE_SIZE * 0.3, TILE_SIZE * 0.44, TILE_SIZE * 0.34);
+      ctx.globalAlpha = 1;
+    }
+  }
+
   // Indoors: a warm pool of lamplight where the room's centre is.
   if (map.interior) {
     const glow = lampGlow(tick, map);
@@ -282,10 +321,9 @@ export function renderOverworld(
   for (const npc of map.npcs) {
     // People with a routine are wherever the day has put them.
     const spot = npcPositionAt(npc, clockPhase);
-    // Dialogue-only stubs sit on impassable tiles (conventionally at 0,0) and
-    // resolve by id, not by position — skip them so no ghost sprites render
-    // in the map corner.
-    if (!isTilePassable(map.tiles[spot.y]?.[spot.x] ?? "grass")) {
+    // Off shift (a night watch at noon), or a dialogue-only stub sitting on an
+    // impassable tile: skip, so no ghost sprites render.
+    if (!spot || !isTilePassable(map.tiles[spot.y]?.[spot.x] ?? "grass")) {
       continue;
     }
     sortedEntities.push({
@@ -532,7 +570,7 @@ export function findAdjacentNpc(
   return (
     map.npcs.find((npc) => {
       const spot = npcPositionAt(npc, phase);
-      return spot.x === world.playerX + dx && spot.y === world.playerY + dy;
+      return spot !== null && spot.x === world.playerX + dx && spot.y === world.playerY + dy;
     }) ?? null
   );
 }
@@ -548,7 +586,7 @@ export function npcOnTile(
   return (
     map.npcs.find((npc) => {
       const spot = npcPositionAt(npc, phase);
-      return spot.x === x && spot.y === y;
+      return spot !== null && spot.x === x && spot.y === y;
     }) ?? null
   );
 }

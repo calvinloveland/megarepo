@@ -314,6 +314,9 @@ describe("world reachability", () => {
             continue;
           }
           const spot = npcPositionAt(npc, phase);
+          if (!spot) {
+            continue; // off shift: nowhere, so nothing to collide with
+          }
           const key = `${spot.x},${spot.y}`;
           const other = seen.get(key);
           expect(

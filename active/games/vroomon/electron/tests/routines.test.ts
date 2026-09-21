@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   greetingFor,
+  isOnShift,
   npcPositionAt,
   slotForPhase,
   standingFor,
@@ -77,5 +78,29 @@ describe("standing and greetings", () => {
     expect(greetingFor(npc, "champion", null)).toBe("The champion of nowhere, is it?");
     expect(greetingFor({ greetings: {} }, "champion", null)).toBeNull();
     expect(greetingFor({}, "new", null)).toBeNull();
+  });
+});
+
+describe("shifts", () => {
+  const watchman = { x: 8, y: 9, facing: "left" as const, hours: { from: 0.78, to: 0.12 } };
+
+  it("is nowhere at noon and out at midnight", () => {
+    expect(npcPositionAt(watchman, 0.25)).toBeNull();
+    expect(npcPositionAt(watchman, 0.5)).toBeNull();
+    expect(npcPositionAt(watchman, 0.9)).toEqual({ x: 8, y: 9, facing: "left" });
+    // The wrap matters: an early-morning hour is still their shift.
+    expect(npcPositionAt(watchman, 0.05)).toEqual({ x: 8, y: 9, facing: "left" });
+    expect(npcPositionAt(watchman, 0.5)).toBeNull();
+  });
+
+  it("wraps a range that crosses midnight", () => {
+    expect(isOnShift({ from: 0.78, to: 0.12 }, 0.95)).toBe(true);
+    expect(isOnShift({ from: 0.78, to: 0.12 }, 0.05)).toBe(true);
+    expect(isOnShift({ from: 0.78, to: 0.12 }, 0.4)).toBe(false);
+    // And an ordinary daytime range is just an interval.
+    expect(isOnShift({ from: 0.1, to: 0.5 }, 0.3)).toBe(true);
+    expect(isOnShift({ from: 0.1, to: 0.5 }, 0.6)).toBe(false);
+    // No hours at all means always about.
+    expect(isOnShift(undefined, 0.3)).toBe(true);
   });
 });

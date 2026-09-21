@@ -43,9 +43,12 @@ export function slotForPhase(phase: number): keyof Routine {
  * where the evening left them) and finally to their own tile.
  */
 export function npcPositionAt(
-  npc: Pick<NpcDefinition, "x" | "y" | "facing" | "routine">,
+  npc: Pick<NpcDefinition, "x" | "y" | "facing" | "routine" | "hours">,
   phase: number,
-): { x: number; y: number; facing: "up" | "down" | "left" | "right" } {
+): { x: number; y: number; facing: "up" | "down" | "left" | "right" } | null {
+  if (!isOnShift(npc.hours, phase)) {
+    return null;
+  }
   const routine = npc.routine;
   if (!routine) {
     return { x: npc.x, y: npc.y, facing: npc.facing };
@@ -67,6 +70,24 @@ export function npcPositionAt(
     }
   }
   return { x: npc.x, y: npc.y, facing: npc.facing };
+}
+
+/**
+ * Is this person about? `hours` is a phase range, and it wraps: a night
+ * watch from 0.78 to 0.12 is out from dusk through dawn. People without
+ * hours are always about.
+ */
+export function isOnShift(
+  hours: { from: number; to: number } | undefined,
+  phase: number,
+): boolean {
+  if (!hours) {
+    return true;
+  }
+  if (hours.from <= hours.to) {
+    return phase >= hours.from && phase <= hours.to;
+  }
+  return phase >= hours.from || phase <= hours.to;
 }
 
 /** How well the world knows this rancher. */

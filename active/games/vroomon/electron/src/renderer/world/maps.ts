@@ -729,6 +729,53 @@ export const MAPS: Record<string, Tilemap> = {
     ambientColor: "#d0b47c",
     npcs: [
       {
+        id: "watchman-pell",
+        name: "Watchman Pell",
+        x: 8,
+        y: 9,
+        facing: "left",
+        sprite: "rider",
+        // Only out between dusk and dawn.
+        hours: { from: 0.78, to: 0.12 },
+        dialogue: {
+          text: "Nobody out here after dark but me and the wild. The wild's quicker at night, if you believe the haulers. I've watched it long enough to believe them.",
+          options: [
+            { label: "What's different at night?", next: "pell-night" },
+            { label: "I'll work the dark", next: "pell-job" },
+            { label: "Keep warm", next: "pell-warm" },
+          ],
+        },
+      },
+      {
+        id: "pell-night",
+        name: "Watchman Pell",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Same pack, same ground, and they run it better when it's cold. Bring a car that holds a line and the dark pays better than the day does.",
+        },
+      },
+      {
+        id: "pell-job",
+        name: "Watchman Pell",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Two off the Stretch, after dark. I'll be here — I'm always here when it's dark.",
+          setFlag: "quest-nightwatch-accepted",
+        },
+      },
+      {
+        id: "pell-warm",
+        name: "Watchman Pell",
+        x: 0, y: 0, facing: "down", sprite: "rider",
+        dialogue: { text: "Warm's a word for people with roofs. I've a lamp and a ledger." },
+      },
+      {
         id: "cook-ada",
         name: "Cook Ada",
         x: 3,

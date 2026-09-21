@@ -41,6 +41,11 @@ export interface NpcDefinition {
   routine?: Partial<
     Record<"dawn" | "morning" | "afternoon" | "dusk" | "night", { x: number; y: number; facing?: Direction }>
   >;
+  /**
+   * When this person is about, as a phase range (0 = dawn, 0.5 = afternoon).
+   * It wraps, so a night watch runs 0.78 to 0.12. Absent means always.
+   */
+  hours?: { from: number; to: number };
   /** Opening lines by standing ("new" / "known" / "champion") and by how the
    * last race with you went ("after:win" / "after:loss"). */
   greetings?: Partial<

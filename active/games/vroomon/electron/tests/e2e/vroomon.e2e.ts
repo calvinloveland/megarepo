@@ -1510,6 +1510,32 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Starter Town");
   });
 
+  test("@smoke night changes who is about: the watchman only works the dark", async ({
+    page,
+  }) => {
+    await seedAndEnterWorld(page);
+
+    // Noon on the waystation street: his spot beside the fence is empty (the
+    // player stands next to it, facing nothing).
+    await enterMapAt(page, "long_haul", 7, 9, "right", 0.5);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("The Long Haul");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toHaveText("");
+
+    // Night: he is standing there, and he has work for the dark.
+    await enterMapAt(page, "long_haul", 7, 9, "right", 0.9);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Watchman Pell");
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("Work The Dark");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("wild beaten on the Stretch");
+  });
+
   test("@smoke people move with the day, and remember you", async ({ page }) => {
     await seedAndEnterWorld(page);
     // Morning: Jess is in the market square where she always is.

@@ -245,6 +245,17 @@ export const SIDE_QUESTS: SideQuest[] = [
       "Names on a chalk board mean nothing without Brands behind them. Bring me three and we'll talk about the Roundup.",
   },
   {
+    id: "nightwatch",
+    title: "Work The Dark",
+    giver: "Watchman Pell",
+    mapId: "long_haul",
+    acceptFlag: "quest-nightwatch-accepted",
+    objective: { kind: "win-wild-on", mapId: "route_2", count: 2, label: "wild beaten on the Stretch" },
+    reward: { wallet: 200, feed: 2, thanks: "Two off the Stretch in the dark. Take the lamp — I've another." },
+    offer:
+      "Two wild vroomon off the Sandy Stretch after dark. The night pays better than the day.",
+  },
+  {
     id: "road-walk",
     title: "Word From The Switchback",
     giver: "Storekeep Bram",

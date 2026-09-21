@@ -212,3 +212,25 @@ export function lampGlow(
     intensity: (options.intensity ?? 0.22) * pulse,
   };
 }
+
+
+// ---- Lit windows -----------------------------------------------------------
+// At night the buildings should look occupied. Each window (a door or building
+// tile) gets a small warm rectangle whose brightness follows the same clock as
+// the daylight.
+
+/** How lit a window is right now: 0 by day, up to 1 in the dark hours. */
+export function windowLight(timeMs: number): number {
+  const phase = dayPhase(timeMs);
+  // Lights come on through dusk and go out after dawn.
+  if (phase < 0.72) {
+    return 0;
+  }
+  if (phase < 0.8) {
+    return (phase - 0.72) / 0.08;
+  }
+  if (phase <= 0.96) {
+    return 1;
+  }
+  return Math.max(0, (1.06 - phase) / 0.1);
+}
