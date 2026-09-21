@@ -7,8 +7,9 @@
 // These tests read the shipped maps and catalogs rather than a fixture, so
 // adding content is what gets checked.
 
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { MAPS } from "../src/renderer/world/maps.js";
+import { MAPS, isTilePassable } from "../src/renderer/world/maps.js";
 import { DECOR_ITEMS, findDecor } from "../src/renderer/world/decor.js";
 import { SIDE_QUESTS, type QuestObjective } from "../src/renderer/world/side-quests.js";
 import { VENUE_ORDER, VENUE_TERRAIN } from "../src/renderer/circuit.js";
@@ -30,6 +31,52 @@ function dialogueFlags(): Set<string> {
     }
   }
   return flags;
+}
+
+/** Every flag the renderer or controller sets in code. */
+function codeFlags(): Set<string> {
+  const flags = new Set<string>();
+  const files = [
+    "src/renderer/renderer.ts",
+    "src/renderer/world/overworld-controller.ts",
+  ];
+  for (const file of files) {
+    const source = readFileSync(file, "utf8");
+    for (const match of source.matchAll(/setFlag\(\s*"([^"]+)"/g)) {
+      flags.add(match[1]!);
+    }
+    for (const match of source.matchAll(/flags\["([^"]+)"\]/g)) {
+      flags.add(match[1]!);
+    }
+  }
+  return flags;
+}
+
+interface DialogueRef {
+  mapId: string;
+  owner: string;
+  id: string;
+  node: {
+    next?: string;
+    options?: Array<{ label: string; next: string }>;
+    onComplete?: string | null;
+  };
+}
+
+/** Every dialogue node in the world, including the story nodes that live on
+ * invisible NPCs parked at 0,0. */
+function allDialogueNodes(): DialogueRef[] {
+  const out: DialogueRef[] = [];
+  for (const map of Object.values(MAPS)) {
+    for (const npc of map.npcs) {
+      const dialogue = npc.dialogue as DialogueRef["node"] | null | undefined;
+      if (!dialogue) {
+        continue;
+      }
+      out.push({ mapId: map.id, owner: npc.id, id: npc.id, node: dialogue });
+    }
+  }
+  return out;
 }
 
 function travelOnFlat(dna: string): number {
@@ -336,6 +383,83 @@ describe("quest contracts", () => {
           break;
       }
     }
+  });
+
+  it("never sends a story beat to a place that is not there", () => {
+    // A `goto:` is the one place content moves the player by hand. The
+    // controller quietly shrugs off a bad destination, which means a typo
+    // silently ends a scene instead of failing: the reveal beat that walks
+    // you into the yard would just... not. So check the destination exists,
+    // that you can stand on it, and that the node it names is really on the
+    // far side.
+    const nodes = allDialogueNodes();
+    const gotos = nodes.filter((ref) => ref.node.onComplete?.startsWith("goto:"));
+    expect(gotos.length).toBeGreaterThan(0);
+
+    for (const ref of gotos) {
+      const [, mapId, rawX, rawY, nodeId] = ref.node.onComplete!.split(":");
+      const map = MAPS[mapId ?? ""];
+      expect(map, `${ref.mapId}:${ref.owner} walks to unknown map ${mapId}`).toBeDefined();
+      const x = Number(rawX);
+      const y = Number(rawY);
+      expect(Number.isFinite(x) && Number.isFinite(y), `${ref.owner}: bad coords`).toBe(true);
+      const tile = map!.tiles[y]?.[x];
+      expect(
+        tile !== undefined && isTilePassable(tile),
+        `${ref.mapId}:${ref.owner} lands on ${tile ?? "nothing"} at ${mapId}:${x},${y}`,
+      ).toBe(true);
+      if (nodeId) {
+        const landing = map!.npcs.find((npc) => npc.id === nodeId);
+        expect(
+          landing?.dialogue,
+          `${ref.mapId}:${ref.owner} hands off to ${nodeId}, which has no dialogue on ${mapId}`,
+        ).toBeTruthy();
+      }
+    }
+  });
+
+  it("never links a dialogue node to a name that is not there", () => {
+    // `next` is resolved by hunting for an NPC with that id on the same map,
+    // and a miss just ends the conversation. A renamed story node would cut a
+    // scene in half with no error anywhere.
+    for (const ref of allDialogueNodes()) {
+      const map = MAPS[ref.mapId]!;
+      const targets = [
+        ...(ref.node.next ? [ref.node.next] : []),
+        ...(ref.node.options ?? []).map((option) => option.next),
+      ];
+      for (const target of targets) {
+        expect(
+          map.npcs.some((npc) => npc.id === target),
+          `${ref.mapId}: ${ref.owner} links to ${target}, which is not on this map`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("only reads flags that something actually sets", () => {
+    // A condition on a flag nobody writes can never fire: the beat is written,
+    // placed, and unreachable. This is exactly how the tutorial's reveal went
+    // missing once, so it is checked at the source level now.
+    const written = new Set([...flags, ...codeFlags()]);
+    const read = new Set<string>();
+    for (const file of [
+      "src/renderer/renderer.ts",
+      "src/renderer/world/quest.ts",
+      "src/renderer/world/overworld-controller.ts",
+      "src/renderer/world/side-quests.ts",
+    ]) {
+      const source = readFileSync(file, "utf8");
+      for (const match of source.matchAll(/(?:requires|flag|flags)[^\n]{0,12}flags\["([^"]+)"\]/g)) {
+        read.add(match[1]!);
+      }
+      for (const match of source.matchAll(/flags\["([^"]+)"\]/g)) {
+        read.add(match[1]!);
+      }
+    }
+    expect(read.size).toBeGreaterThan(0);
+    const orphans = [...read].filter((flag) => !written.has(flag));
+    expect(orphans, `flags read but never set: ${orphans.join(", ")}`).toEqual([]);
   });
 
   it("asks for something a rancher can measure", () => {

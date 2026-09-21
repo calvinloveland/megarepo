@@ -842,6 +842,36 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Three ways a written scene quietly stops working (2026-09-15) ✅
+
+Content that references other content by name is content that can rot. The
+controller degrades gracefully at every one of these — it shrugs, keeps
+running, and the scene simply does not happen — which is exactly why they need
+checking from the outside:
+
+**A `goto:` that lands nowhere.** It names a map, a tile and the story node on
+the far side. A bad tile and the beat drops the player inside scenery; a bad
+node id and the hand-off is silently skipped, so the scene ends without
+picking itself up. The audit resolves every one and requires the map to exist,
+the tile to be passable, and the named node to have dialogue on the far side.
+
+**A `next:` that names nobody.** Dialogue links resolve by hunting for an NPC
+with that id on the same map — story nodes live on invisible NPCs parked at
+0,0 — so renaming one cuts a conversation in half with no error anywhere.
+Every `next` and every option target is now resolved.
+
+**A flag nothing ever sets.** A condition on an unwritten flag can never fire:
+written, placed, unreachable. This is how the tutorial's reveal went missing
+once already, so it is checked at the source level now — every
+`flags["..."]` read anywhere in the renderer, controller, quest chain or side
+quests has to be written by a dialogue or by code.
+
+All three have teeth, verified by mutation — a typo'd flag read reports
+`flags read but never set: met-axl`, and a bad `goto:` reports
+`lands on tree at ranch_yard:0,0`. None of them found a live fault today,
+which is the point of writing them now rather than after the next map is
+reshaped.
+
 ## Where people are, and where the map file says they are (2026-09-15) ✅
 
 Chasing the "can you always talk to this person" question turned up something
