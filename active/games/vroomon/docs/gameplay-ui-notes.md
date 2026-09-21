@@ -230,6 +230,7 @@ new entry that is not indexed here fails the suite.
 - [The ledger said DEFEND, and nobody said why (2026-09-15) ✅](#the-ledger-said-defend-and-nobody-said-why-2026-09-15)
 - [The sprite export had drifted, and nothing could have noticed (2026-09-15) ✅](#the-sprite-export-had-drifted-and-nothing-could-have-noticed-2026-09-15)
 - [Named but never called: seven helpers with rules in them (2026-09-15) ✅](#named-but-never-called-seven-helpers-with-rules-in-them-2026-09-15)
+- [The HUD chips: audited, and already covered (2026-09-15) ✅](#the-hud-chips-audited-and-already-covered-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -641,6 +642,44 @@ carry rules that nothing asserted:
 Seven tests, each placed in the file it belongs to rather than a grab-bag, and
 one of them found the `advanceDialogue` rule was documented in a comment and
 nowhere else.
+
+---
+
+## The HUD chips: audited, and already covered (2026-09-15) ✅
+
+Last of the mechanic audits — does every chip say what it is *for*, or only what
+it *is*? Chip by chip, the rule behind each is already in somebody's mouth:
+
+| chip | who explains it |
+| --- | --- |
+| SEEKING | Robby's first lesson, and the toggle he hands you |
+| HERD / specimens | Axle, on the Herd Book |
+| WILD | Axle's new answer about when to walk into the grass |
+| BRANDS / CIRCUIT | the Meadow Elder, before every feud |
+| WALLET / FEED / RANCH | the fitters' yard, in one breath |
+| HOUSES | the Elders' invitation, and what a house is for |
+
+The economy one is worth quoting, because it was already there and I had
+forgotten it existed:
+
+> *"First time in town? The Ranch fitters' yard is just east of me — wire in
+> pasture for herd room, stalls for barn slots, and a one-shot tonic to calm a
+> nervous breeding night. Every carrier runs on grain: breeding costs a feed a
+> generation, and releasing the slow pays it back. Credits come from every lap
+> the Barn pays out, so race often."*
+
+**Four rules in one paragraph**: what upgrades do, that feed is the breeding
+cost, that releasing returns it, and where credits come from.
+
+So the audit found nothing to fix — and the useful thing to do with a clean
+audit is to make it permanent. Those four rules joined the teaching contract,
+mutation-verified: deleting the sentence fails with `nobody explains: feed costs
+a generation, releasing pays feed back, credits come from racing`.
+
+Three audits this session have now ended in "already covered" (the walk-ons,
+Fitter Aubrey and the Cut's givers, and this one) against five that found real
+gaps. Verifying is cheap; the ratio is worth remembering when a suspicion feels
+urgent.
 
 ---
 

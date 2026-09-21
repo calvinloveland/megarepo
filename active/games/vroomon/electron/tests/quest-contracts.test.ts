@@ -441,6 +441,10 @@ describe("quest contracts", () => {
       "where you hunt matters": ["depends entirely on where you stand", "far grounds"],
       "the tier's shape demand": ["shape the mesa likes", "four wheels planted"],
       "a title is defended at a higher bar": ["a promise, not a prize", "somebody else has to clear"],
+      "feed costs a generation": ["breeding costs a feed a generation"],
+      "releasing pays feed back": ["releasing the slow pays it back"],
+      "credits come from racing": ["credits come from every lap"],
+      "the ranch upgrades": ["wire in pasture for herd room", "stalls for barn slots"],
     };
     const untaught = Object.entries(TAUGHT)
       .filter(([, phrases]) => !phrases.some((phrase) => spoken.includes(phrase)))
