@@ -842,6 +842,24 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The road landmarks have offices (2026-09-15) ✅
+
+Both far-road landmarks now have a roof and a keeper in it:
+
+- **Salt Road Freight** — a bay on the Stretch where **Clerk Nessa** reads
+  herds like ledgers: *"a herd that never turns over is capital sitting
+  still."* She pays for *A Line That Moves* (ten generations on the bench).
+- **The Fuel Shed** at the Long Light Depot, staffed **only after dark** by
+  **Stoker Vane**, who explains why nothing good happens on the ice at night
+  and everything fast does — and pays for *The Night Shift* (one wild beaten
+  on the ice).
+
+Both are reached from their road's own door, and the invariants that have
+been earning their keep all cycle (dead doors, door loops, trigger tiles,
+building clusters, reachability, dialogue links) had to pass on every new
+tile and gate before this shipped — which is why the second one took minutes
+rather than an afternoon.
+
 ## The campaign spine was six generations long (2026-09-15) ✅
 
 A bot rancher with one policy — run generations on a biome until its circuit

@@ -245,6 +245,28 @@ export const SIDE_QUESTS: SideQuest[] = [
       "Names on a chalk board mean nothing without Brands behind them. Bring me three and we'll talk about the Roundup.",
   },
   {
+    id: "freight-ledger",
+    title: "A Line That Moves",
+    giver: "Clerk Nessa",
+    mapId: "salt_road_freight",
+    acceptFlag: "quest-ledger-accepted",
+    objective: { kind: "generations", count: 10, label: "generations on the bench" },
+    reward: { wallet: 260, feed: 3, thanks: "Ten generations. I've written you a rate — the road pays better for stock that moves." },
+    offer:
+      "Ten generations on the bench. Show me a line that moves and I'll write you a rate for it.",
+  },
+  {
+    id: "night-can",
+    title: "The Night Shift",
+    giver: "Stoker Vane",
+    mapId: "long_light_shed",
+    acceptFlag: "quest-shed-accepted",
+    objective: { kind: "win-wild-on", mapId: "ice_map", count: 1, label: "wild beaten on the ice" },
+    reward: { wallet: 220, feed: 2, thanks: "One off the ice in the dark, can full. You've done a shift." },
+    offer:
+      "One off the ice, at night, and bring the can back full. That's the shift.",
+  },
+  {
     id: "nightwatch",
     title: "Work The Dark",
     giver: "Watchman Pell",

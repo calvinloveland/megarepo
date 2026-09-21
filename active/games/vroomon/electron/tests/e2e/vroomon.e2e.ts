@@ -1511,6 +1511,50 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Starter Town");
   });
 
+  test("@smoke the road landmarks have offices, and the shed works nights", async ({
+    page,
+  }) => {
+    await seedAndEnterWorld(page);
+
+    // The Salt Road's freight office: a clerk who reads herds like ledgers.
+    await enterMapAt(page, "salt_road_freight", 3, 4, "up", 0.5);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText(
+      "Salt Road Freight",
+    );
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Clerk Nessa");
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("A Line That Moves");
+
+    // The fuel shed is empty by day...
+    await enterMapAt(page, "long_light_shed", 5, 3, "up", 0.5);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("The Fuel Shed");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toHaveText("");
+
+    // ...and staffed after dark.
+    await enterMapAt(page, "long_light_shed", 5, 3, "up", 0.95);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Stoker Vane");
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("The Night Shift");
+
+    // And you can walk back out to the ice.
+    await enterMapAt(page, "long_light_shed", 5, 4, "down", 0.95);
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Long Light Depot");
+  });
+
   test("@smoke night changes who is about: the watchman only works the dark", async ({
     page,
   }) => {
@@ -1658,10 +1702,11 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
       "on the Perimeter",
     );
 
-    // And you can walk back out of each one.
-    await enterMapAt(page, "long_light_depot", 6, 6, "down");
+    // And you can walk back out of each one (the gate is a tile in from the
+    // south edge, so step onto it).
+    await enterMapAt(page, "long_light_depot", 6, 5, "down");
     await page.keyboard.press("ArrowDown");
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(900);
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Drift Perimeter");
   });
 

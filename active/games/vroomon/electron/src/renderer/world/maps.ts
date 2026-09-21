@@ -159,7 +159,9 @@ const CUT_TILES: TileKind[][] = [
 
 const DEPOT_TILES: TileKind[][] = [
   row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
-  row("tree", "fence", "fence", "grass", "grass", "grass", "path", "path", "grass", "grass", "fence", "fence", "grass", "tree"),
+  // The fuel shed: two bays and a door onto the depot road.
+  row("tree", "building", "building", "building", "grass", "grass", "door", "path", "grass", "grass", "building", "building", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "doormat", "path", "grass", "grass", "grass", "grass", "grass", "tree"),
   row("tree", "grass", "grass", "grass", "vroomgrass", "grass", "path", "path", "grass", "vroomgrass", "grass", "grass", "grass", "tree"),
   row("tree", "grass", "rock", "grass", "vroomgrass", "grass", "path", "path", "grass", "vroomgrass", "grass", "rock", "grass", "tree"),
   row("tree", "grass", "grass", "grass", "grass", "grass", "path", "path", "grass", "grass", "grass", "grass", "grass", "tree"),
@@ -187,7 +189,138 @@ const TOWN_STORE_TILES: TileKind[][] = [
   row("wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall"),
 ];
 
+const FREIGHT_OFFICE_TILES: TileKind[][] = [
+  row("wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"),
+  row("wall", "counter", "counter", "counter", "counter", "indoor-floor", "indoor-floor", "counter", "counter", "counter", "counter", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "counter", "counter", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall"),
+];
+
+const FUEL_SHED_TILES: TileKind[][] = [
+  row("wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall", "wall"),
+  row("wall", "counter", "counter", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "rock", "indoor-floor", "indoor-floor", "rock", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "wall"),
+  row("wall", "indoor-floor", "counter", "counter", "indoor-floor", "indoor-floor", "indoor-floor", "indoor-floor", "counter", "counter", "indoor-floor", "wall"),
+  row("wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall"),
+];
+
 export const MAPS: Record<string, Tilemap> = {
+
+  salt_road_freight: {
+    id: "salt_road_freight",
+    name: "Salt Road Freight",
+    width: 12,
+    height: 6,
+    interior: true,
+    tiles: FREIGHT_OFFICE_TILES,
+    ambientColor: "#c9b183",
+    npcs: [
+      {
+        id: "clerk-nessa",
+        name: "Clerk Nessa",
+        x: 3,
+        y: 3,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Every crate on this road goes through my ledger. I know what a herd is worth by the numbers, not by the noise — and I know when a line has stopped moving.",
+          options: [
+            { label: "What do the numbers say?", next: "nessa-numbers" },
+            { label: "I'll turn a line over for you", next: "nessa-job" },
+            { label: "Just looking", next: "nessa-look" },
+          ],
+        },
+      },
+      {
+        id: "nessa-numbers",
+        name: "Clerk Nessa",
+        x: 0, y: 0, facing: "down", sprite: "villager",
+        dialogue: {
+          text: "A herd that never turns over is capital sitting still. Ten generations and the road starts paying for itself — the carriers' owners know it, and so does the counter in town.",
+        },
+      },
+      {
+        id: "nessa-job",
+        name: "Clerk Nessa",
+        x: 0, y: 0, facing: "down", sprite: "villager",
+        dialogue: {
+          text: "Ten generations on the bench. Show me a line that moves and I'll write you a rate for it.",
+          setFlag: "quest-ledger-accepted",
+        },
+      },
+      {
+        id: "nessa-look",
+        name: "Clerk Nessa",
+        x: 0, y: 0, facing: "down", sprite: "villager",
+        dialogue: { text: "Everything on the shelves has a number. Nothing has a story." },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "5,5": { mapId: "route_2", toX: 4, toY: 2, facing: "down" },
+      "6,5": { mapId: "route_2", toX: 4, toY: 2, facing: "down" },
+    },
+  },
+  long_light_shed: {
+    id: "long_light_shed",
+    name: "The Fuel Shed",
+    width: 12,
+    height: 6,
+    interior: true,
+    tiles: FUEL_SHED_TILES,
+    ambientColor: "#bcc7cf",
+    npcs: [
+      {
+        id: "stoker-vane",
+        name: "Stoker Vane",
+        x: 5,
+        y: 2,
+        facing: "down",
+        sprite: "mechanic",
+        // The shed is only staffed after dark.
+        hours: { from: 0.78, to: 0.12 },
+        dialogue: {
+          text: "I load the cans and I count what comes back. Nights are mine — the haulers sleep and the wild runs, so the depot's mine until morning.",
+          options: [
+            { label: "Why do the haulers sleep?", next: "vane-haulers" },
+            { label: "I'll take the night shift", next: "vane-job" },
+            { label: "Keep the lamp lit", next: "vane-lamp" },
+          ],
+        },
+      },
+      {
+        id: "vane-haulers",
+        name: "Stoker Vane",
+        x: 0, y: 0, facing: "down", sprite: "mechanic",
+        dialogue: {
+          text: "Because nothing good happens on the ice after dark, and everything fast does. Same pack, colder air, and they run it better. Pell up the road will tell you the same.",
+        },
+      },
+      {
+        id: "vane-job",
+        name: "Stoker Vane",
+        x: 0, y: 0, facing: "down", sprite: "mechanic",
+        dialogue: {
+          text: "One off the ice, at night, and bring the can back full. That's the shift.",
+          setFlag: "quest-shed-accepted",
+        },
+      },
+      {
+        id: "vane-lamp",
+        name: "Stoker Vane",
+        x: 0, y: 0, facing: "down", sprite: "mechanic",
+        dialogue: { text: "It's always lit. That's the whole job." },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "5,5": { mapId: "long_light_depot", toX: 6, toY: 3, facing: "down" },
+      "6,5": { mapId: "long_light_depot", toX: 6, toY: 3, facing: "down" },
+    },
+  },
   town_schoolhouse: {
     id: "town_schoolhouse",
     name: "The Schoolhouse",
@@ -574,8 +707,10 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "6,7": { mapId: "ice_map", toX: 5, toY: 7, facing: "down" },
-      "7,7": { mapId: "ice_map", toX: 6, toY: 7, facing: "down" },
+      // The fuel shed's door, and the gate back to the ice.
+      "6,2": { mapId: "long_light_shed", toX: 5, toY: 4, facing: "up" },
+      "6,6": { mapId: "ice_map", toX: 5, toY: 7, facing: "down" },
+      "7,6": { mapId: "ice_map", toX: 6, toY: 7, facing: "down" },
     },
   },
 
@@ -1756,8 +1891,9 @@ export const MAPS: Record<string, Tilemap> = {
     height: 14,
     tiles: [
       row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
-      row("tree", "vroomgrass", "vroomgrass", "grass", "grass", "rock", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "vroomgrass", "grass", "grass", "rock", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "tree"),
-      row("tree", "vroomgrass", "grass", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "vroomgrass", "vroomgrass", "tree"),
+      // A freight bay on the north side of the road.
+      row("tree", "vroomgrass", "vroomgrass", "building", "building", "door", "building", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "vroomgrass", "grass", "grass", "rock", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "tree"),
+      row("tree", "vroomgrass", "grass", "grass", "path", "doormat", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "vroomgrass", "vroomgrass", "tree"),
       row("tree", "grass", "grass", "path", "path", "grass", "grass", "grass", "grass", "grass", "rock", "grass", "grass", "grass", "grass", "rock", "grass", "path", "path", "grass", "vroomgrass", "tree"),
       row("tree", "vroomgrass", "grass", "path", "grass", "vroomgrass", "vroomgrass", "grass", "rock", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "rock", "grass", "vroomgrass", "path", "grass", "vroomgrass", "grass", "tree"),
       row("tree", "vroomgrass", "grass", "path", "grass", "rock", "grass", "vroomgrass", "grass", "vroomgrass", "vroomgrass", "grass", "vroomgrass", "grass", "vroomgrass", "vroomgrass", "grass", "path", "grass", "vroomgrass", "vroomgrass", "tree"),
@@ -1911,6 +2047,8 @@ export const MAPS: Record<string, Tilemap> = {
     encounters: {},
     transitions: {
       "1,7": { mapId: "route_1", toX: 17, toY: 6 },
+      // The freight bay's doorstep.
+      "5,2": { mapId: "salt_road_freight", toX: 5, toY: 4, facing: "up" },
       "19,3": { mapId: "hills_map", toX: 2, toY: 6, facing: "right" },
       "20,5": { mapId: "long_haul", toX: 2, toY: 5, facing: "right" },
       "20,4": { mapId: "gym_2", toX: 6, toY: 8, facing: "up" },
