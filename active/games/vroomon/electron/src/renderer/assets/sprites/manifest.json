@@ -355,6 +355,426 @@
     "source": "drawn"
   },
   {
+    "id": "npc:groom-millie",
+    "file": "npc_groom-millie.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:millie-end",
+    "file": "npc_millie-end.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:millie-job",
+    "file": "npc_millie-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:millie-thanks",
+    "file": "npc_millie-thanks.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:weighmaster-tuck",
+    "file": "npc_weighmaster-tuck.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tuck-stretch",
+    "file": "npc_tuck-stretch.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tuck-job",
+    "file": "npc_tuck-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tuck-board",
+    "file": "npc_tuck-board.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:clerk-nessa",
+    "file": "npc_clerk-nessa.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:nessa-numbers",
+    "file": "npc_nessa-numbers.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:nessa-job",
+    "file": "npc_nessa-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:nessa-look",
+    "file": "npc_nessa-look.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:stoker-vane",
+    "file": "npc_stoker-vane.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:vane-haulers",
+    "file": "npc_vane-haulers.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:vane-job",
+    "file": "npc_vane-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:vane-lamp",
+    "file": "npc_vane-lamp.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:professor-axle",
+    "file": "npc_professor-axle.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:professor-axle-2",
+    "file": "npc_professor-axle-2.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:vroomdex-explain",
+    "file": "npc_vroomdex-explain.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:breed-champion-explain",
+    "file": "npc_breed-champion-explain.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:grass-purpose",
+    "file": "npc_grass-purpose.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:professor-farewell",
+    "file": "npc_professor-farewell.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:pup-tam",
+    "file": "npc_pup-tam.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tam-fast",
+    "file": "npc_tam-fast.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tam-order",
+    "file": "npc_tam-order.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tam-errand",
+    "file": "npc_tam-errand.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:storekeep-bram",
+    "file": "npc_storekeep-bram.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bram-road",
+    "file": "npc_bram-road.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bram-job",
+    "file": "npc_bram-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bram-browse",
+    "file": "npc_bram-browse.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:cable-hand-juno",
+    "file": "npc_cable-hand-juno.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:juno-hills",
+    "file": "npc_juno-hills.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:juno-job",
+    "file": "npc_juno-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:juno-look",
+    "file": "npc_juno-look.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:signal-lorn",
+    "file": "npc_signal-lorn.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:lorn-sky",
+    "file": "npc_lorn-sky.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:lorn-night",
+    "file": "npc_lorn-night.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:lorn-job",
+    "file": "npc_lorn-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:lorn-lamp",
+    "file": "npc_lorn-lamp.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:climber-tez",
+    "file": "npc_climber-tez.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tez-race",
+    "file": "npc_tez-race.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tez-pass",
+    "file": "npc_tez-pass.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:powder-monkey-bex",
+    "file": "npc_powder-monkey-bex.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:night-powder-peg",
+    "file": "npc_night-powder-peg.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:peg-left",
+    "file": "npc_peg-left.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:peg-job",
+    "file": "npc_peg-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:peg-fuse",
+    "file": "npc_peg-fuse.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:face-boss-halg",
+    "file": "npc_face-boss-halg.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:halg-job",
+    "file": "npc_halg-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:halg-ground",
+    "file": "npc_halg-ground.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:halg-later",
+    "file": "npc_halg-later.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:depot-keeper-sable",
+    "file": "npc_depot-keeper-sable.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:sable-ice",
+    "file": "npc_sable-ice.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:sable-job",
+    "file": "npc_sable-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:sable-storage",
+    "file": "npc_sable-storage.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:depot-bowser",
+    "file": "npc_depot-bowser.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:sable-warm",
+    "file": "npc_sable-warm.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:hauler-wren",
+    "file": "npc_hauler-wren.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:nim",
+    "file": "npc_nim.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:nim-scraps",
+    "file": "npc_nim-scraps.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:nim-talk",
+    "file": "npc_nim-talk.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:nim-bye",
+    "file": "npc_nim-bye.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:hauler-quill",
+    "file": "npc_hauler-quill.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:apprentice-cogs",
+    "file": "npc_apprentice-cogs.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:cogs-right",
+    "file": "npc_cogs-right.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:cogs-job",
+    "file": "npc_cogs-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:cogs-later",
+    "file": "npc_cogs-later.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:watchman-pell",
+    "file": "npc_watchman-pell.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:pell-sky",
+    "file": "npc_pell-sky.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:pell-night",
+    "file": "npc_pell-night.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:pell-job",
+    "file": "npc_pell-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:pell-warm",
+    "file": "npc_pell-warm.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:cook-ada",
+    "file": "npc_cook-ada.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:ada-talk",
+    "file": "npc_ada-talk.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:ada-feed",
+    "file": "npc_ada-feed.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:ada-passing",
+    "file": "npc_ada-passing.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:drover-holt",
+    "file": "npc_drover-holt.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:holt-trade",
+    "file": "npc_holt-trade.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:holt-book",
+    "file": "npc_holt-book.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:holt-safe",
+    "file": "npc_holt-safe.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:stoker-raff",
+    "file": "npc_stoker-raff.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:rider-hook",
+    "file": "npc_rider-hook.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:hook-race",
+    "file": "npc_hook-race.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:hook-pass",
+    "file": "npc_hook-pass.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:robby-kitchen",
     "file": "npc_robby-kitchen.png",
     "source": "drawn"
@@ -430,28 +850,83 @@
     "source": "drawn"
   },
   {
-    "id": "npc:professor-axle",
-    "file": "npc_professor-axle.png",
+    "id": "npc:keeper-maren",
+    "file": "npc_keeper-maren.png",
     "source": "drawn"
   },
   {
-    "id": "npc:professor-axle-2",
-    "file": "npc_professor-axle-2.png",
+    "id": "npc:maren-lines",
+    "file": "npc_maren-lines.png",
     "source": "drawn"
   },
   {
-    "id": "npc:vroomdex-explain",
-    "file": "npc_vroomdex-explain.png",
+    "id": "npc:maren-cutting",
+    "file": "npc_maren-cutting.png",
     "source": "drawn"
   },
   {
-    "id": "npc:breed-champion-explain",
-    "file": "npc_breed-champion-explain.png",
+    "id": "npc:maren-clover",
+    "file": "npc_maren-clover.png",
     "source": "drawn"
   },
   {
-    "id": "npc:professor-farewell",
-    "file": "npc_professor-farewell.png",
+    "id": "npc:picker-sprout",
+    "file": "npc_picker-sprout.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:sprout-race",
+    "file": "npc_sprout-race.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:sprout-later",
+    "file": "npc_sprout-later.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:fitter-aubrey",
+    "file": "npc_fitter-aubrey.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:night-picker-sib",
+    "file": "npc_night-picker-sib.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:sib-night",
+    "file": "npc_sib-night.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:sib-job",
+    "file": "npc_sib-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:sib-shade",
+    "file": "npc_sib-shade.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:beekeeper-hollis",
+    "file": "npc_beekeeper-hollis.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:hollis-accept",
+    "file": "npc_hollis-accept.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:hollis-run",
+    "file": "npc_hollis-run.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:hollis-decline",
+    "file": "npc_hollis-decline.png",
     "source": "drawn"
   },
   {
@@ -465,8 +940,33 @@
     "source": "drawn"
   },
   {
+    "id": "npc:fitter-ollan",
+    "file": "npc_fitter-ollan.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:ollan-errand",
+    "file": "npc_ollan-errand.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:ollan-advice",
+    "file": "npc_ollan-advice.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:ollan-later",
+    "file": "npc_ollan-later.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:wrangler-jess",
     "file": "npc_wrangler-jess.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:jess-board",
+    "file": "npc_jess-board.png",
     "source": "drawn"
   },
   {
@@ -487,6 +987,11 @@
   {
     "id": "npc:meadow-elder",
     "file": "npc_meadow-elder.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:elder-title",
+    "file": "npc_elder-title.png",
     "source": "drawn"
   },
   {
@@ -552,6 +1057,11 @@
   {
     "id": "npc:roundup-king",
     "file": "npc_roundup-king.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:king-brands",
+    "file": "npc_king-brands.png",
     "source": "drawn"
   },
   {
@@ -640,6 +1150,11 @@
     "source": "drawn"
   },
   {
+    "id": "npc:wreck-wager",
+    "file": "npc_wreck-wager.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:marshal-join-faction",
     "file": "npc_marshal-join-faction.png",
     "source": "drawn"
@@ -657,6 +1172,11 @@
   {
     "id": "npc:guru-updrafts",
     "file": "npc_guru-updrafts.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:guru-thermals",
+    "file": "npc_guru-thermals.png",
     "source": "drawn"
   },
   {
@@ -700,6 +1220,26 @@
     "source": "drawn"
   },
   {
+    "id": "npc:vent-wants",
+    "file": "npc_vent-wants.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:vent-job",
+    "file": "npc_vent-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:vent-wind",
+    "file": "npc_vent-wind.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:mesa-vane",
+    "file": "npc_mesa-vane.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:lay-foreman",
     "file": "npc_lay-foreman.png",
     "source": "drawn"
@@ -722,6 +1262,11 @@
   {
     "id": "npc:canyon-ringleader",
     "file": "npc_canyon-ringleader.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:canyon-shift",
+    "file": "npc_canyon-shift.png",
     "source": "drawn"
   },
   {
@@ -767,6 +1312,11 @@
   {
     "id": "npc:frost-baron",
     "file": "npc_frost-baron.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:baron-watch",
+    "file": "npc_baron-watch.png",
     "source": "drawn"
   },
   {

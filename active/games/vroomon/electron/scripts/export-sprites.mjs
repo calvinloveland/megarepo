@@ -3,6 +3,7 @@
 // manifest.json the runtime consults. Drop-in replacement for AI art:
 // name your PNG same as the id in the manifest and rebuild — the game
 // prefers the image file over the code drawing.
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -78,6 +79,26 @@ try {
     }
   }
   writeFileSync(join(OUT_DIR, "manifest.json"), JSON.stringify(manifest, null, 2));
+
+  // Stamp the export with a hash of the drawing code that produced it. The
+  // runtime prefers these PNGs over drawing anything itself, so a change to
+  // the art without a re-export is invisible: the game keeps showing the old
+  // pictures. `tests/sprite-export.test.ts` compares this stamp with the
+  // current sources and tells you to re-export.
+  const ART_SOURCES = [
+    "src/renderer/world/sprites.ts",
+    "src/renderer/world/sprites-palette.ts",
+    "src/renderer/portraits.ts",
+  ];
+  const hash = createHash("sha256");
+  for (const file of ART_SOURCES) {
+    hash.update(file);
+    hash.update(readFileSync(resolve(file)));
+  }
+  writeFileSync(
+    join(OUT_DIR, "source-hash.json"),
+    `${JSON.stringify({ hash: hash.digest("hex"), sources: ART_SOURCES }, null, 2)}\n`,
+  );
   console.log(
     `Exported ${drawn} drawn sprites (kept ${kept} generated) to ${OUT_DIR}`,
   );

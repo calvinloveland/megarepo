@@ -228,6 +228,7 @@ new entry that is not indexed here fails the suite.
 - [Six wrong assumptions in one test file (2026-09-15) ✅](#six-wrong-assumptions-in-one-test-file-2026-09-15)
 - [The wild table answers the question you came in with (2026-09-15) ✅](#the-wild-table-answers-the-question-you-came-in-with-2026-09-15)
 - [The ledger said DEFEND, and nobody said why (2026-09-15) ✅](#the-ledger-said-defend-and-nobody-said-why-2026-09-15)
+- [The sprite export had drifted, and nothing could have noticed (2026-09-15) ✅](#the-sprite-export-had-drifted-and-nothing-could-have-noticed-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -574,6 +575,41 @@ nothing.** Before the label-based sweep, that edit would have shifted an index
 and taken unrelated tests down — it happened twice, which is why the sweep
 happened. This is the first content edit since where the old failure mode was
 simply absent.
+
+---
+
+## The sprite export had drifted, and nothing could have noticed (2026-09-15) ✅
+
+The runtime prefers the exported PNGs over drawing anything itself — that is
+what makes them replaceable with real art — and it also means a stale export is
+**invisible**. Change the drawing code, forget to re-export, and the game
+quietly keeps showing the old pictures. The notes said "must re-export after
+changing drawing code" and nothing checked it.
+
+Asked the pipeline the question directly by running it:
+
+```
+committed manifest   158 sprites
+fresh export         268 sprites   (111 new, 63 changed)
+```
+
+**Sixty-three sprites were showing stale art** — same dimensions, different
+bytes, so genuinely different pictures rather than encoding noise — and 111
+more were absent from the manifest entirely, meaning they were being drawn at
+runtime every frame instead of loaded. That is the same class of drift as the
+canvases: a thing that looks fine and is a version behind.
+
+### The fix is a stamp
+
+The exporter now writes `source-hash.json`: a SHA-256 of the art sources
+(`sprites.ts`, `sprites-palette.ts`, `portraits.ts`) alongside the manifest.
+`tests/sprite-export.test.ts` recomputes it and fails with *"the sprite drawing
+code has changed since the last export — run `npm run export:sprites`"*. The
+re-export is committed with it, so the tree is consistent and the drift cannot
+recur silently.
+
+The check also verifies that every `drawn` entry in the manifest has its PNG
+beside it, which is the half that catches the 111.
 
 ---
 
