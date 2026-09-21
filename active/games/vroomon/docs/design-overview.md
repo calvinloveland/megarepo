@@ -178,4 +178,12 @@ npm run test:e2e:smoke   # smoke       (~25s)
 npm run test:e2e         # full        (~1.5m)
 VROOMON_SLOW_TESTS=1 npx vitest run tests/pacing.test.ts   # re-measure the curve
 npm run build && node scripts/web-server.mjs               # local play session
+npm run export:sprites    # redraw every sprite as a PNG (needs a browser)
+npm run verify:sprites    # re-export and prove nothing changed (~30s)
 ```
+
+`verify:sprites` is the determinism check: it re-exports and diffs, then puts
+the committed files back, so it is always safe to run. It exists because the
+runtime prefers the PNGs over drawing anything itself, which makes a stale
+export **invisible** — and because art that reads a clock or `Math.random`
+would otherwise only be noticed by whoever looked at two commits.

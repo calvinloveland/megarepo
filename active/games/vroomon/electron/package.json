@@ -19,7 +19,8 @@
     "test:e2e:smoke": "npm run build && node scripts/run-playwright.mjs -g @smoke",
     "test:e2e:fast": "node scripts/run-playwright.mjs",
     "test:e2e:fast:smoke": "node scripts/run-playwright.mjs -g @smoke",
-    "test:all": "npm test && npm run test:e2e"
+    "test:all": "npm test && npm run test:e2e",
+    "verify:sprites": "node scripts/verify-sprites.mjs"
   },
   "build": {
     "appId": "dev.loveland.vroomon",

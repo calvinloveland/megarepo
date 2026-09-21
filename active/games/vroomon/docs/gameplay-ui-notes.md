@@ -234,6 +234,7 @@ new entry that is not indexed here fails the suite.
 - [The baked tile layer was fine, and one function was dead (2026-09-15) ✅](#the-baked-tile-layer-was-fine-and-one-function-was-dead-2026-09-15)
 - [The design overview had drifted, and the invariants outgrew it (2026-09-15) ✅](#the-design-overview-had-drifted-and-the-invariants-outgrew-it-2026-09-15)
 - [Four buttons that did not say what they do (2026-09-15) ✅](#four-buttons-that-did-not-say-what-they-do-2026-09-15)
+- [A determinism check, because a stamp cannot see randomness (2026-09-15) ✅](#a-determinism-check-because-a-stamp-cannot-see-randomness-2026-09-15)
 - [Three ways a written scene quietly stops working (2026-09-15) ✅](#three-ways-a-written-scene-quietly-stops-working-2026-09-15)
 - [Where people are, and where the map file says they are (2026-09-15) ✅](#where-people-are-and-where-the-map-file-says-they-are-2026-09-15)
 - [The inverse sweep: flavour that could belong to any map (2026-09-15) ✅](#the-inverse-sweep-flavour-that-could-belong-to-any-map-2026-09-15)
@@ -773,6 +774,48 @@ The rain e2e asserted the ledger row contained the literal word `go`, so it
 failed on the rename — which is the assertion doing its job. It checks for
 `Try it` now, which is a claim about the row offering an action rather than
 about a two-letter word.
+
+---
+
+## A determinism check, because a stamp cannot see randomness (2026-09-15) ✅
+
+The sprite stamp catches a *stale* export — it hashes the drawing code, so
+changing the art without re-exporting fails the suite. It cannot catch art that
+is **non-deterministic**: a drawing that reads `Math.random`, a clock or a
+locale would produce different pictures on every export while the source hash
+stays perfectly happy.
+
+That is a check only re-exporting can do, and it needs a browser and about half
+a minute, so it is a script rather than a test:
+
+```
+npm run verify:sprites
+```
+
+It hashes the committed sprites, re-exports, diffs, reports what moved, and
+**puts the committed files back** — so running it is always safe. On a clean
+tree:
+
+```
+Deterministic: 270 files re-exported identically.
+```
+
+### Mutation-checked, because a check that cannot fail is worthless
+
+Adding `ctx.globalAlpha = 0.5 + Math.random() * 0.5` to `drawTile` made it
+report:
+
+```
+The export is NOT reproducible:
+  changed  accessory_bandana-ponytail.png
+  changed  accessory_beanie-wrench.png
+  ...
+```
+
+and the tree came back clean afterwards. (My first attempt at the mutation
+broke the TypeScript build instead — a `@ts-expect-error` with nothing to
+suppress — which is its own small lesson about writing mutations as carefully
+as the checks they test.)
 
 ---
 
