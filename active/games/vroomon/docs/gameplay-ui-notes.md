@@ -842,6 +842,29 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Ambient life, and water that moves (2026-09-15) ✅
+
+A still map reads as a picture. `src/renderer/world/ambience-layer.ts` is a
+pure function of `(mapId, tick, view)` — no draw-time randomness, so a frame
+is reproducible and the whole layer is unit-tested without a canvas — and it
+gives each biome its own weather:
+
+| where | what drifts |
+|---|---|
+| town, ranch yard, Route 1 | pollen motes |
+| Marrow Orchard | petals |
+| Route 2, Rustler Pasture, Highland Mesa | dust |
+| Canyon Quarry | grit |
+| Drift Perimeter | snow |
+| any interior | dust in the air |
+
+Motes have their own drift vector, wobble and pulse, and wrap around the
+window, so the air never thins out. The **pond now moves**: water sits in the
+baked tile layer (static by design), so staggered glints are drawn over it
+each frame at per-tile phases — a couple of short lines per tile, and the pond
+stops being a blue rectangle. Tests cover the weather table, mote determinism
+and in-bounds wrapping, and that the ripple phase differs per tile.
+
 ## Oxide's trade counter: the herd book pays (2026-09-15) ✅
 
 A fifth Pocket Ranch scene (`🧺 Trade`) where specimens become credits and

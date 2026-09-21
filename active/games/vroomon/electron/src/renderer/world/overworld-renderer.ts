@@ -14,6 +14,7 @@ import {
 import { findDecor } from "./decor.js";
 import { HOUSE_ACCENTS, houseAccentForNpc, SPRITE_PALETTE as PAL } from "./sprites-palette.js";
 import { FACTIONS } from "./factions.js";
+import { ambientMotes, waterPhase } from "./ambience-layer.js";
 
 export interface OverworldRenderFrame {
   map: Tilemap;
@@ -68,6 +69,27 @@ function bakedTileLayer(
 
 export function invalidateBakedTileLayer(): void {
   bakedLayer = null;
+  waterLayer = null;
+}
+
+/** Water tiles per map, scanned once (the renderer draws ripples over them). */
+let waterLayer: { key: string; tiles: Array<{ x: number; y: number }> } | null = null;
+
+function waterTiles(map: Tilemap): Array<{ x: number; y: number }> {
+  const key = `${map.id}:${map.width}x${map.height}:${map.tiles.length}`;
+  if (waterLayer && waterLayer.key === key) {
+    return waterLayer.tiles;
+  }
+  const tiles: Array<{ x: number; y: number }> = [];
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) {
+      if (map.tiles[y]?.[x] === "water") {
+        tiles.push({ x, y });
+      }
+    }
+  }
+  waterLayer = { key, tiles };
+  return tiles;
 }
 
 export function renderOverworld(
@@ -98,6 +120,61 @@ export function renderOverworld(
   // tiles (and their PNG assets) as load-once art.
   const baked = bakedTileLayer(map, frame.spriteAssets);
   ctx.drawImage(baked, -cameraX, -cameraY);
+
+  // Water moves. The pond sits in the baked layer (static), so the ripples
+  // are drawn over it each frame — a couple of lines per tile is cheap and
+  // it stops the pond reading as a blue rectangle.
+  for (const water of waterTiles(map)) {
+    const wx = water.x * TILE_SIZE - cameraX;
+    const wy = water.y * TILE_SIZE - cameraY;
+    if (wx < -TILE_SIZE || wy < -TILE_SIZE || wx > width || wy > height) {
+      continue;
+    }
+    const phase = waterPhase(tick, water.x, water.y);
+    ctx.strokeStyle = "rgba(226, 242, 255, 0.22)";
+    ctx.lineWidth = 1;
+    // Two short glints per tile, staggered by the tile's own row so a pond
+    // reads as water rather than a set of stripes.
+    for (let line = 0; line < 2; line += 1) {
+      const drift = (Math.sin(phase + line * 2.1) + 1) / 2;
+      const ly = wy + 7 + line * 11 + ((water.y * 5 + water.x * 3 + line * 4) % 6);
+      const length = TILE_SIZE * (0.34 + drift * 0.3);
+      const lx = wx + 3 + drift * (TILE_SIZE - 6 - length);
+      ctx.beginPath();
+      ctx.moveTo(lx, ly);
+      ctx.lineTo(lx + length, ly);
+      ctx.stroke();
+    }
+  }
+
+  // Ambient life over the ground (and behind whatever is standing on it).
+  const view = {
+    minX: cameraX,
+    minY: cameraY,
+    width,
+    height,
+  };
+  for (const mote of ambientMotes(map.id, tick, view, map.interior ? 10 : 18, Boolean(map.interior))) {
+    ctx.globalAlpha = mote.alpha;
+    ctx.fillStyle =
+      mote.kind === "snow"
+        ? "#f4fbff"
+        : mote.kind === "petal"
+          ? "#ffd9e6"
+          : mote.kind === "grit"
+            ? "#cbb9a4"
+            : mote.kind === "dust"
+              ? "#e8d9b8"
+              : "#fff3c4";
+    if (mote.kind === "snow" || mote.kind === "petal") {
+      ctx.beginPath();
+      ctx.arc(mote.x - cameraX, mote.y - cameraY, mote.size, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillRect(mote.x - cameraX, mote.y - cameraY, mote.size, mote.size);
+    }
+  }
+  ctx.globalAlpha = 1;
 
   // Festive pennant garlands across the feud arenas: the joined house's
   // colors on the home half, the rival's on the far half, neutral gold
