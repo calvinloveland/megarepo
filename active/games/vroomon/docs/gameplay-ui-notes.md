@@ -842,6 +842,51 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## A second pass along the arc (2026-09-15) ✅
+
+Walking the three beats with the most systems stacked around them — the first
+catch, the first Brand, the Grand Roundup — found two things.
+
+### The first catch could be rained off
+
+The lesson was scheduled by the weather. Racing Robby's loaner into the tall
+grass **in an afternoon shower lost by 65px** — and the player has exactly one
+car and no way to know that the sky, not their breeding, decided it. The first
+lesson now waits for a clear spell (`encounterWeather`, unit-tested): the sky
+over an encounter is clear until `tut-caught` is set. Same probe, same car,
+same hour: **won by 607px.**
+
+### The feud was named for the doorway, not the ground
+
+Sweeping the Grassland from the Greensprouts' elder in Starter Town reported
+
+  `Starter Town I swept! The circuit moves to II — bar 1220.`
+
+— but the Grassland Brand is defended at *Rustler Pasture*, and the same race
+accepted at the arena already read that way. The feud now resolves its venue
+through `nextCircuitTarget` before naming anything, so the line reads
+**`Rustler Pasture I swept!`** whichever door you came through. A circuit test
+pins the resolution.
+
+### Two things that looked like bugs and were not
+
+- The feud result panel appeared to be **empty, showing a bare `2`** — it was
+  the 3-2-1 countdown caught mid-beat. The result reads `FEUD RACE · I` /
+  "Rival took second at 940. The ground is yours… for now."
+- The Roundup's HUD read `BRANDS 3/5` while the finale announced five. That
+  was my probe sharing one browser profile across seeded boots; the sequence
+  is already covered by a passing e2e. Recorded because chasing either would
+  have been a wasted afternoon.
+
+### What the late arc looks like now
+
+The wild panel in the grass (`arc-01-catch-rain.png`): two lanes drawn from
+the real parts, `YOURS RWRWWR · 3 plates · 3 wheels · 3 driven`, the ground's
+ceiling ("this ground's best runs 479px"), and the stake in one line. The
+Roundup (`arc-04-roundup.png`): a trophy, "The five Brands are yours, and your
+champion stands in the Record Barn", the champion's name and genome, and the
+King underneath with his portrait.
+
 ## One car, read in the context of its family (2026-09-15) ✅
 
 The Inspector now carries a **PEDIGREE** line beside the parts and stats:

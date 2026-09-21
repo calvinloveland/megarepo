@@ -117,3 +117,20 @@ export function weatherDefence(weather: Weather): number {
       return 1;
   }
 }
+
+
+/**
+ * The sky over an encounter. Robby's first lesson waits for a clear spell:
+ * a tutorial catch that can be rained off teaches the wrong thing (and the
+ * player has exactly one car and no way to know why they lost).
+ */
+export function encounterWeather(options: {
+  timeMs: number;
+  phase: number;
+  tutorial?: boolean;
+}): Weather {
+  if (options.tutorial) {
+    return TABLE.clear;
+  }
+  return weatherAt(options.timeMs, options.phase);
+}

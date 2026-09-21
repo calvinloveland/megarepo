@@ -84,3 +84,18 @@ describe("circuit targets", () => {
     expect(nextCircuitTarget("route_1", all, {}).mapId).toBe("gym_1");
   });
 });
+
+describe("a feud is named for the ground, not the doorway", () => {
+  // The Greensprouts' elder can challenge you in Starter Town, but the
+  // Grassland Brand is defended at Rustler Pasture. The target resolution is
+  // what the renderer uses to name the race, so this is the naming contract.
+  it("resolves to the arena even when accepted in town", () => {
+    const target = nextCircuitTarget("starter_town", [], {});
+    expect(target.mapId).toBe("gym_1");
+    expect(target.terrain).toBe("Grassland");
+  });
+
+  it("resolves to the arena you are standing in", () => {
+    expect(nextCircuitTarget("gym_2", [], {}).mapId).toBe("gym_2");
+  });
+});

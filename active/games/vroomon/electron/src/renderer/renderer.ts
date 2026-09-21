@@ -62,7 +62,7 @@ import { questFor } from "./world/quest.js";
 import { standingFor } from "./world/routines.js";
 import { buildLedger, titlesToDefend, untriedGrounds } from "./ledger.js";
 import { DAY_LENGTH_MS, dayPhase, isNight } from "./world/ambience-layer.js";
-import { weatherAt, weatherDefence } from "./world/weather.js";
+import { encounterWeather, weatherAt, weatherDefence } from "./world/weather.js";
 import type { Track } from "./world/ambience-layer.js";
 import {
   activeSideQuests,
@@ -1840,8 +1840,14 @@ function openWildRace(wildDna: string): void {
   const mapId = rendererState.world.currentMapId;
   const terrain = terrainForVenue(mapId) ?? "Grassland";
   // The sky at the moment of the meeting: a one-off race, so the campaign's
-  // own races stay reproducible under a clear sky.
-  const weather = weatherAt(worldClock(), dayPhase(worldClock()));
+  // own races stay reproducible under a clear sky. The first lesson waits for
+  // a clear spell — a tutorial catch that can be rained off teaches the wrong
+  // thing, since the player has one car and no way to know why they lost.
+  const weather = encounterWeather({
+    timeMs: worldClock(),
+    phase: dayPhase(worldClock()),
+    tutorial: !rendererState.world.flags["tut-caught"],
+  });
   wildRaceState = { ...wildRaceState, weather };
   wildRaceState = {
     open: true,
@@ -5645,11 +5651,21 @@ async function startOverworldEncounter(
 
   if (kind === "gym") {
     const world = overworldController.state;
-    const mapName = getMap(world.currentMapId)?.name ?? "the road";
-    const terrain = terrainForVenue(world.currentMapId);
+    // A feud is fought on the *ground's* arena, not wherever you happen to
+    // accept it: the Greensprouts' elder may challenge you in Starter Town,
+    // but the Grassland Brand is defended at Rustler Pasture. Naming the map
+    // you are standing on would make the same race read differently depending
+    // on who you spoke to.
+    const target = nextCircuitTarget(
+      world.currentMapId,
+      world.badges,
+      world.feudTiers,
+    );
+    const mapName = getMap(target.mapId)?.name ?? "the road";
+    const terrain = target.terrain;
     // The circuit tier is keyed by the Brand: sweeping the Grassland raises
     // the bar everywhere the Grassland circuit is raced.
-    const circuitBadge = badgeForMap(world.currentMapId);
+    const circuitBadge = badgeForMap(target.mapId);
     const tier = world.feudTiers?.[circuitBadge] ?? 1;
     // The ground asks more of you in bad weather; your champion's recorded
     // score was set in the dry and does not move.

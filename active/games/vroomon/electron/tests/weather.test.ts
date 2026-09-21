@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isWet, weatherAt, weatherDefence, weatherOf } from "../src/renderer/world/weather.js";
+import {
+  encounterWeather,
+  isWet,
+  weatherAt,
+  weatherDefence,
+  weatherOf,
+} from "../src/renderer/world/weather.js";
 import { feudBar } from "../src/renderer/circuit.js";
 import { createMatterVehicle, snapshotMatterVehicle, stepMatterVehicle } from "../src/simulation/matter-simulation.js";
 
@@ -101,5 +107,17 @@ describe("weather as a defence modifier", () => {
         );
       }
     }
+  });
+});
+
+describe("the tutorial waits for a clear spell", () => {
+  it("gives the first lesson a dry afternoon", () => {
+    const rainy = weatherAt(0, 0.5);
+    expect(isWet(rainy)).toBe(true);
+    // The same hour, during the tutorial, is clear.
+    expect(encounterWeather({ timeMs: 0, phase: 0.5, tutorial: true }).kind).toBe("clear");
+    // And afterwards the sky is whatever it is.
+    expect(encounterWeather({ timeMs: 0, phase: 0.5 }).kind).toBe(rainy.kind);
+    expect(encounterWeather({ timeMs: 0, phase: 0.25 }).kind).toBe("clear");
   });
 });
