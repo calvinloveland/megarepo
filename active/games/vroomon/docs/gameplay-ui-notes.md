@@ -842,6 +842,43 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Side quests, and the world-save bug they flushed out (2026-09-15) ✅
+
+The world now hands out **jobs**. Five ship today, from three givers:
+
+| Job | Giver | Ask | Pay |
+|---|---|---|---|
+| The Wrangler's Muster | Wrangler Jess (town) | beat 3 wild vroomon | 120 cr + 3 feed |
+| Freight For The Mesa | Wrangler Jess | walk the Highland Mesa | 200 cr |
+| Fitters' Errand | Fitter Ollan (town) | 3 pieces in the meadow | 90 cr + a range sign |
+| Samples From The Grass | Oxide (route 1) | 4 Herd Book samples | 60 cr + a genome |
+| Counting The Road | Oxide | run 5 generations | 140 cr + 4 feed |
+
+`src/renderer/world/side-quests.ts` is pure and unit-tested: a quest is a
+declarative objective (`win-wild`, `catch-wild`, `generations`, `decor`,
+`visit`, `brands`, `champion-score`, `release`), progress is **derived** from
+the world and the run rather than tracked in a dozen places, and accepting one
+is a dialogue `setFlag` — the mechanism NPCs already use — so a new job never
+needs new dialogue plumbing. Rewards pay out once (recorded in the world's
+`tally`, so a save cannot double-pay), are announced with the same banner the
+herd uses for a new outlier, and **earned-only decor** (`meadow-sign`) is
+filtered out of the ranch shop so the only way to own it is to do the work.
+
+New NPCs: **Wrangler Jess** (market square) and **Oxide** (the road), plus the
+world's `tally` — counters for wild races won, maps walked and quests paid —
+which ride along in the save.
+
+### The bug this flushed out
+
+Chasing a flaky e2e turned up a **data-loss bug in the world save**. The
+debounced save refused to write while `activeNpc || currentEncounter` was set
+and — because the debounce had already fired — nothing ever came back for the
+change. A wild catch made during the tutorial's praise beat never reached the
+file: the HUD showed `1 specimen`, the save showed none, and the loss was
+silent. The guard was unnecessary in the first place: `serializeWorldState`
+only writes persistent fields, so a queued dialogue is not in the shape at
+all. It is gone, with a comment explaining why it must not come back.
+
 ## The wild evolves too, with nobody in charge (2026-09-15) ✅
 
 Wild vroomon used to be a random DNA string conjured per step, so once your
