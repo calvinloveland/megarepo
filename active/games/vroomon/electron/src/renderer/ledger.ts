@@ -35,7 +35,7 @@ export interface LedgerInput {
   feudTiers: Record<string, number>;
   /** The sky's effect on every bar (1 = clear). */
   defence?: number;
-  /** The Hall of Fame: champions you could actually put on the line. */
+  /** The Record Barn: champions you could actually put on the line. */
   hallScores: Array<{ terrainName: string; score: number; dna?: string }>;
 }
 

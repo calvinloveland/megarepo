@@ -266,7 +266,7 @@ test.describe("vroomon Playwright harness", () => {
     expect(finalState.generation).toBeLessThanOrEqual(10);
   });
 
-  test("saves a selected vehicle to the Hall of Fame and reloads it in test-drive", async ({
+  test("records a selected vehicle in the Record Barn and reloads it in test-drive", async ({
     page,
   }) => {
     await seedAndEnterWorld(page);
@@ -282,7 +282,7 @@ test.describe("vroomon Playwright harness", () => {
     await vehicleButtons.first().click();
 
     await page.locator("[data-save-selected-to-hall]").click();
-    await expect(page.locator("[data-status-message]")).toContainText("Saved");
+    await expect(page.locator("[data-status-message]")).toContainText("Recorded");
 
     await openPocketRanch(page, "drive");
     const hallEntry = page.locator("[data-hall-of-fame-test-drive] [data-hall-entry]").first();
@@ -1758,7 +1758,7 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     }
     await closePocketRanch(page);
 
-    // 5. Save a car to the Hall of Fame and buy a ranch upgrade: three more
+    // 5. Record a car in the Record Barn and buy a ranch upgrade: three more
     //    stores that persist separately from the world and the herd.
     //    (Close the ranch store first: it covers the Barn chip.)
     if (await page.locator("[data-ranch-overlay]").isVisible()) {

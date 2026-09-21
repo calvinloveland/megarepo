@@ -529,8 +529,22 @@ describe("quest contracts", () => {
       .map((npc) => JSON.stringify(npc.dialogue ?? {}))
       .join(" ");
 
-    // The old name for the Record Barn is gone for good.
-    expect(dialogue.includes("Hall of Fame"), 'the old "Hall of Fame" name is back').toBe(false);
+    // The old name for the Record Barn is gone for good - in dialogue AND in
+    // the shell's own copy. Checking only dialogue let six player-facing
+    // strings ("Saved ... to Hall of Fame") survive the rename.
+    const uiStrings = [
+      readFileSync("src/renderer/renderer.ts", "utf8"),
+      readFileSync("src/renderer/ledger.ts", "utf8"),
+      readFileSync("src/renderer/index.html", "utf8"),
+    ].join("\n");
+    expect(dialogue.includes("Hall of Fame"), 'the old "Hall of Fame" name is back in dialogue').toBe(false);
+    // Internal identifiers keep the old spelling (HallOfFame, hall-of-fame.json);
+    // player-facing prose does not.
+    const prose = uiStrings
+      .split("\n")
+      .filter((line) => !/HallOfFame|hallOfFame|hall-of-fame|Hall of Fame:/.test(line))
+      .join("\n");
+    expect(prose.includes("Hall of Fame"), 'the old "Hall of Fame" name is back in the UI').toBe(false);
     // And no single line uses "paddock" as if it were the bench.
     const lines = dialogue.split(/(?<=[.!?])\s+/);
     const mixed = lines.filter(

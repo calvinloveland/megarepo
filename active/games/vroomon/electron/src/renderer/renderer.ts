@@ -1324,6 +1324,24 @@ function registerModal(
   return element;
 }
 
+const hubModal = (() => {
+  const element = document.querySelector<HTMLElement>("[data-barn-overlay]");
+  if (!element) {
+    return null;
+  }
+  overlays.register({
+    id: "hub",
+    // Not modal: the hub *is* the screen, and it uses the same chip column
+    // that `modal-open` hides for the panels that sit on top of it.
+    modal: false,
+    setVisible: (visible) => {
+      element.hidden = !visible;
+    },
+  });
+  return element;
+})();
+void hubModal;
+
 const settingsModal = registerModal("settings", "[data-settings-overlay]");
 const ranchModal = registerModal("ranch", "[data-ranch-overlay]");
 const roundupModal = registerModal("roundup", "[data-grand-roundup-overlay]");
@@ -3241,7 +3259,7 @@ function labelHallSaveButton(): void {
 
   if (!summary) {
     button.textContent = "🏆 SAVE";
-    button.title = "Save the selected vehicle to the Hall of Fame";
+    button.title = "Save the selected vehicle to the Record Barn";
     button.dataset.best = "false";
     return;
   }
@@ -4717,7 +4735,7 @@ function loadHallEntryIntoTestDrive(entryId: string): void {
   rendererState = selectHallEntry(rendererState, found.id);
   rendererState = {
     ...rendererState,
-    statusMessage: `Loaded ${found.name} from Hall of Fame (${found.terrainName}, score ${formatNumber(found.score)}).`,
+    statusMessage: `Loaded ${found.name} from the Record Barn (${found.terrainName}, score ${formatNumber(found.score)}).`,
   };
   renderApp();
 }
@@ -5216,8 +5234,8 @@ function renderMenuConsoleStats(): void {
 
 function renderHallOfFame(): void {
   const entries = rendererState.hallOfFame.entries;
-  const emptyMarkup = `<p class="muted">No vehicles in the Hall of Fame yet. Save top cars from evolution mode.</p>`;
-  const testDriveEmptyMarkup = `<p class="muted">No vehicles in the Hall of Fame yet.</p>`;
+  const emptyMarkup = `<p class="muted">The Record Barn is empty. Save your best cars from the herd bench.</p>`;
+  const testDriveEmptyMarkup = `<p class="muted">The Record Barn is empty.</p>`;
 
   // Floating HoF summary card (bottom-right overlay in test-drive mode).
   if (hofCount) {
@@ -5534,7 +5552,7 @@ async function loadHallOfFame(): Promise<void> {
   } catch {
     rendererState = {
       ...rendererState,
-      statusMessage: "Could not load Hall of Fame.",
+      statusMessage: "Could not load the Record Barn.",
     };
     renderApp();
   }
@@ -5668,7 +5686,7 @@ async function saveSelectedToHall(): Promise<void> {
   if (!summary) {
     rendererState = {
       ...rendererState,
-      statusMessage: "Select a vehicle first, then save it to the Hall of Fame.",
+      statusMessage: "Select a vehicle first, then record it in the Record Barn.",
     };
     renderApp();
     return;
@@ -5691,7 +5709,7 @@ async function saveSelectedToHall(): Promise<void> {
   await window.vroomon.saveHallOfFame(rendererState.hallOfFame);
   rendererState = {
     ...rendererState,
-    statusMessage: `Saved ${entry.name} to Hall of Fame (${formatNumber(entry.score)} points).`,
+    statusMessage: `Recorded ${entry.name} in the Record Barn (${formatNumber(entry.score)} points).`,
   };
   renderApp();
 }
@@ -6848,6 +6866,7 @@ function openPocketRanch(scene: BarnScene): void {
   renderHallOfFame();
   renderRecordsBoard();
   renderHerdBook();
+  overlays.open_("hub");
   renderApp();
   sfx.click();
 }
@@ -6860,6 +6879,7 @@ function closePocketRanch(): void {
     barnScene: "herd",
     statusMessage: "Back on the road, carrier on your hip.",
   };
+  overlays.close("hub");
   renderApp();
   sfx.click();
 }
@@ -7372,8 +7392,18 @@ document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") {
     return;
   }
-  if (inspectorState.open) {
-    closeInspector();
+  // The stack knows what is on top. Two independent handlers used to close the
+  // Inspector AND the hub on one press, so backing out of a car threw away the
+  // bench you were working on.
+  if (overlays.topId() !== null) {
+    event.preventDefault();
+    if (inspectorState.open) {
+      closeInspector();
+    } else if (rendererState.barnOpen) {
+      closePocketRanch();
+    } else {
+      overlays.closeTop();
+    }
     return;
   }
   // Esc lets the wild one go, which also breeds its pack on.
@@ -7461,14 +7491,6 @@ for (const button of Array.from(
     }
   });
 }
-
-// Escape leaves the Pocket Ranch back to the road.
-window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && rendererState.barnOpen) {
-    event.preventDefault();
-    closePocketRanch();
-  }
-});
 
 // Tap the card (or Z/Enter) to advance the beats; Esc backs out of
 // the overwrite confirm. The name step resolves via its own button.
