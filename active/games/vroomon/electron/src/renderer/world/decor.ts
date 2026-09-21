@@ -12,6 +12,11 @@ export interface DecorItem {
   anchor: { x: number; y: number };
   /** Extra meadow spots by mapId (the anchor always shows in Starter Town). */
   spots?: Record<string, { x: number; y: number }>;
+  /**
+   * Earned, not bought: a quest reward. Kept out of the ranch shop so the
+   * only way to own it is to do the work.
+   */
+  earnedOnly?: boolean;
 }
 
 export const DECOR_ITEMS: DecorItem[] = [
@@ -92,6 +97,15 @@ export const DECOR_ITEMS: DecorItem[] = [
     flavor: "A spare post that still points every way at once.",
     anchor: { x: 5, y: 10 },
     spots: { route_2: { x: 13, y: 8 } },
+  },
+  {
+    id: "meadow-sign",
+    earnedOnly: true,
+    name: "Painted Range Sign",
+    emoji: "🪧",
+    cost: 0,
+    flavor: "A hand-painted board for the gate. Earned off a fitter's errand, not bought.",
+    anchor: { x: 8, y: 8 },
   },
   {
     id: "meadow-lanterns",

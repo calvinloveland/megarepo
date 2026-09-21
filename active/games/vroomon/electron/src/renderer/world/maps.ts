@@ -384,6 +384,55 @@ export const MAPS: Record<string, Tilemap> = {
         dialogue: { text: "The yard's always open. Bring credits, bring a car or two." },
       },
       {
+        id: "wrangler-jess",
+        name: "Wrangler Jess",
+        x: 6,
+        y: 6,
+        facing: "up",
+        sprite: "rival",
+        dialogue: {
+          text: "You're the new hand off the shoddy ranch. Nobody wrangles vroomon without proving they can catch one — beat three of them in a race and I'll believe you.",
+          options: [
+            { label: "Three races. Easy.", next: "jess-muster" },
+            { label: "I'll walk the Mesa road for you", next: "jess-freight" },
+            { label: "Not today", next: "jess-brushoff" },
+          ],
+        },
+      },
+      {
+        id: "jess-muster",
+        name: "Wrangler Jess",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rival",
+        dialogue: {
+          text: "Three wild vroomon beaten in honest races. Bring me the count, not the stories.",
+          setFlag: "quest-muster-accepted",
+        },
+      },
+      {
+        id: "jess-freight",
+        name: "Wrangler Jess",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rival",
+        dialogue: {
+          text: "I've a crate that needs eyes on the Highlands road. Walk the mesa and the fee's yours.",
+          setFlag: "quest-freight-accepted",
+        },
+      },
+      {
+        id: "jess-brushoff",
+        name: "Wrangler Jess",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rival",
+        dialogue: { text: "Suit yourself. The grass will still be shaking when you're ready." },
+      },
+      {
         id: "meadow-elder",
         name: "Meadow Elder",
         x: 2,
@@ -463,6 +512,57 @@ export const MAPS: Record<string, Tilemap> = {
     tiles: ROUTE_1_TILES,
     ambientColor: "#a8c879",
     npcs: [
+      {
+        id: "oxide-trader",
+        name: "Oxide",
+        x: 5,
+        y: 3,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Oxide. I move stock up and down this road — genomes, grain, the odd gearset. Two things I pay for: samples off the wild, and a herd that actually turns over.",
+          options: [
+            { label: "I'll bring you samples", next: "oxide-samples" },
+            { label: "My herd turns over plenty", next: "oxide-count" },
+            { label: "Just passing", next: "oxide-passing" },
+          ],
+        },
+      },
+      {
+        id: "oxide-samples",
+        name: "Oxide",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Four Herd Book samples off the wild. Race them first — I don't buy anything you couldn't catch.",
+          setFlag: "quest-samples-accepted",
+        },
+      },
+      {
+        id: "oxide-count",
+        name: "Oxide",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Then prove it. Five generations on the bench and I'll know you're serious.",
+          setFlag: "quest-count-accepted",
+        },
+      },
+      {
+        id: "oxide-passing",
+        name: "Oxide",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Everyone's just passing until the feed runs dry. I'll be here.",
+        },
+      },
       {
         id: "rival-vicky",
         name: "Rider Vicky",

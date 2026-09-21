@@ -57,6 +57,12 @@ import { getMap, safeSpawn } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
 import { DECOR_ITEMS, findDecor } from "./world/decor.js";
 import { questFor } from "./world/quest.js";
+import {
+  activeSideQuests,
+  claimableQuests,
+  sideQuestLog,
+  type QuestRun,
+} from "./world/side-quests.js";
 import { SPRITE_PALETTE as PAL } from "./world/sprites-palette.js";
 import { sfx } from "./audio.js";
 import { Ambience, loadAmbienceSettings, type AmbienceScene } from "./ambience.js";
@@ -79,7 +85,12 @@ import {
   type UpgradeId,
   type SupplyId,
 } from "../core/economy.js";
-import { createInitialWorldState, recordEncounterDna } from "./world/world-state.js";
+import {
+  addTally,
+  createInitialWorldState,
+  markVisited,
+  recordEncounterDna,
+} from "./world/world-state.js";
 import { advanceWildPack, scoreWildPack, seedWildPack, type WildPack } from "../core/wild.js";
 import { serializeWorldState } from "./world/types.js";
 import type { Direction, PersistedWorldState, WorldState } from "./world/types.js";
@@ -693,6 +704,11 @@ const overworldController = createOverworldInputs(rendererState.world, {
     scheduleWorldSave();
   },
   onMapTransition: () => {
+    // Walking somewhere new is a quest objective (and the world remembers).
+    overworldController._setState(
+      markVisited(overworldController.state, overworldController.state.currentMapId),
+    );
+    settleSideQuests();
     rendererState = setWorldState(rendererState, overworldController.state);
     renderOverworldUi();
     // The HUD chips carry the map name — walking between the house and the
@@ -1221,6 +1237,12 @@ void loadWorldStateFromDisk();
 // (rancher, map, brands, Herd Book) but the herd did not, so a reload lost
 // the animals Robby lent you — restore it quietly, without touching the
 // welcome status the rest of the boot sets up.
+// Jobs can be finished while the game is closed (or by an action that does
+// not touch the world): settle them as soon as the world is loaded.
+void window.vroomon.loadWorldState().then(() => {
+  settleSideQuests();
+});
+
 void window.vroomon.loadRunState().then((restoredRun) => {
   // Tolerate an old or partial save: a missing config used to throw here and
   // take the boot with it.
@@ -1762,6 +1784,13 @@ function finishWildRace(): void {
     catchWildVroomon(wildRaceState.wildDna);
     wildRaceState = { ...wildRaceState, caught: true };
   }
+  // A wild race is a job objective for the town's wranglers, win or lose
+  // (they count the ones you beat).
+  if (result.won) {
+    overworldController._setState(addTally(overworldController.state, "wildWins"));
+    rendererState = setWorldState(rendererState, overworldController.state);
+    settleSideQuests();
+  }
   renderWildRace();
 }
 
@@ -1772,6 +1801,9 @@ function catchWildVroomon(dna: string): void {
     ...rendererState,
     statusMessage: "Beaten fair — its genome goes in your Herd Book.",
   };
+  // The HUD counts specimens: repaint it so the Herd Book reads right the
+  // moment you take one home.
+  renderStatsHud();
   scheduleWorldSave();
   // The intro beat: the first catch on the ranch leads into Robby's praise.
   if (
@@ -3073,6 +3105,8 @@ async function runGeneration(): Promise<void> {
     };
   }
   await renderGenerationLog();
+  // "Run five generations" is a job someone pays for.
+  settleSideQuests();
   renderApp();
 }
 
@@ -4046,6 +4080,99 @@ function loadHallEntryIntoTestDrive(entryId: string): void {
   renderApp();
 }
 
+// ---------------------------------------------------------------------------
+// Side quests: what the world has to say about the jobs you took on.
+// ---------------------------------------------------------------------------
+
+/** Everything a quest needs to judge progress. */
+function questRunState(): QuestRun {
+  const generation = rendererState.runState.generation;
+  const bestScore = rendererState.hallOfFame.entries.reduce(
+    (best, entry) => Math.max(best, entry.score),
+    rendererState.latestGeneration
+      ? Math.max(...(rendererState.latestGeneration.evaluation.results.map((r) => r.score)), 0)
+      : 0,
+  );
+  const released = overworldController.state.tally?.["released"] ?? 0;
+  return {
+    generation,
+    populationSize: rendererState.runState.population.length,
+    bestScore,
+    released,
+  };
+}
+
+/**
+ * Pay anything the rancher has finished and not been paid for. Runs whenever
+ * the world is rendered or saved, so a job completed mid-race settles as soon
+ * as you are back on the road.
+ */
+function settleSideQuests(): void {
+  const run = questRunState();
+  const ready = claimableQuests(overworldController.state, run);
+  if (ready.length === 0) {
+    return;
+  }
+
+  let world = overworldController.state;
+  let runState = rendererState.runState;
+  const paid: string[] = [];
+
+  for (const entry of ready) {
+    const { reward } = entry.quest;
+    if (reward.wallet) {
+      runState = { ...runState, wallet: runState.wallet + reward.wallet };
+    }
+    if (reward.feed) {
+      runState = { ...runState, feed: (runState.feed ?? 8) + reward.feed };
+    }
+    if (reward.decor && !world.decor.includes(reward.decor)) {
+      world = { ...world, decor: [...world.decor, reward.decor] };
+    }
+    if (reward.dna) {
+      runState = { ...runState, population: plantSeedDna(runState.population, reward.dna) };
+    }
+    world = addTally(world, `paid:${entry.quest.id}`);
+    paid.push(entry.quest.title);
+  }
+
+  overworldController._setState(world);
+  rendererState = setWorldState(rendererState, world);
+  rendererState = {
+    ...rendererState,
+    runState,
+    statusMessage: `Job done — ${paid.join(", ")}. The giver paid up.`,
+  };
+  // A status line gets overwritten by whatever happens next; a payout is
+  // worth the same banner the herd uses for a new outlier.
+  showCallout(`JOB DONE · ${paid.join(" · ")}`);
+  sfx.coin();
+  void window.vroomon.saveRunState(runState);
+  scheduleWorldSave();
+  renderRanch();
+  renderDecor();
+}
+
+/** The side-quest lines under the main objective. */
+function sideQuestCardHtml(): string {
+  const run = questRunState();
+  const active = activeSideQuests(overworldController.state, run).slice(0, 3);
+  if (active.length === 0) {
+    return "";
+  }
+  return (
+    `<div class="stats-quest__side" data-stats-quest-side>` +
+    active
+      .map(
+        (entry) =>
+          `<div class="stats-quest__side-row"><span>${escapeHtml(entry.quest.title)}</span>` +
+          `<b>${escapeHtml(entry.progressText)}</b></div>`,
+      )
+      .join("") +
+    `</div>`
+  );
+}
+
 function renderStatsHud(): void {
   // Player-facing stat chips, top-left under the top bar. Content is
   // mode-scoped; the menu has its own start screen and shows nothing.
@@ -4129,6 +4256,7 @@ function renderStatsHud(): void {
       <div class="stats-quest" data-stats-quest>
         <div class="stats-quest__line" data-stats-quest-line>${escapeHtml(quest.main)}</div>
         <div class="stats-quest__hint" data-stats-quest-hint>${escapeHtml(quest.hint)}</div>
+        ${sideQuestCardHtml()}
       </div>`;
     chips.push({
       label: "HOUSES",
@@ -4553,7 +4681,7 @@ function applyPersistedWorldToRenderer(persisted: PersistedWorldState): void {
 
 function applyPersistedWorld(
   world: WorldState,
-  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; hunting?: boolean; wildPacks?: Record<string, string[]>; wildGenerations?: Record<string, number>; flags: Record<string, boolean> },
+  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; hunting?: boolean; tally?: Record<string, number>; wildPacks?: Record<string, string[]>; wildGenerations?: Record<string, number>; flags: Record<string, boolean> },
 ): WorldState {
   // A save can predate a map change (the ranch used to be one map): put the
   // rancher somewhere they can actually stand rather than in the void.
@@ -4579,6 +4707,10 @@ function applyPersistedWorld(
         : world.feudTiers,
     // Old saves predate the hunt toggle; absent means "looking".
     hunting: typeof persisted.hunting === "boolean" ? persisted.hunting : world.hunting,
+    tally:
+      persisted.tally && typeof persisted.tally === "object"
+        ? persisted.tally
+        : world.tally,
     wildPacks:
       persisted.wildPacks && typeof persisted.wildPacks === "object"
         ? persisted.wildPacks
@@ -4614,10 +4746,14 @@ async function persistWorldState(): Promise<void> {
   // Serialize the renderer's world (kept in sync with the controller on
   // every change) — this also carries decor purchases, which live only in
   // renderer state.
+  //
+  // There is deliberately NO guard for "an NPC is talking": the serializer
+  // only writes persistent fields (a queued dialogue is transient and not in
+  // the shape at all), so saving mid-conversation is safe. The old guard
+  // bailed out of the save and simply dropped the change — a wild catch made
+  // during the tutorial's praise beat never reached the file, and because
+  // the debounce had already fired, nothing came back for it.
   const world = rendererState.world;
-  if (world.activeNpc || world.currentEncounter) {
-    return;
-  }
   // Use the shared serializer rather than hand-listing fields here: a
   // hand-rolled copy silently dropped new state (circuit tiers) once.
   const persisted = serializeWorldState(world);
@@ -6444,7 +6580,7 @@ function renderDecor(): void {
   }
   const wallet = rendererState.runState.wallet;
   if (ranchWallet) ranchWallet.textContent = String(wallet);
-  ranchDecorList.innerHTML = DECOR_ITEMS.map((item) => {
+  ranchDecorList.innerHTML = DECOR_ITEMS.filter((item) => !item.earnedOnly).map((item) => {
     const owned = rendererState.world.decor.includes(item.id);
     const afford = !owned && wallet >= item.cost;
     return `

@@ -1291,6 +1291,57 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-wild-race-overlay]")).toBeHidden();
   });
 
+  test("@smoke a side quest is offered, tracked, and paid on completion", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    await enterMapAt(page, "starter_town", 6, 7);
+
+    // Wrangler Jess is one tile up: take her muster.
+    await page.keyboard.press("ArrowUp");
+    await page.waitForTimeout(300);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Wrangler Jess");
+    await page.locator("[data-dialogue-option]").first().click();
+    await page.waitForTimeout(600);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+
+    // The job shows up in the HUD with its progress.
+    await expect(page.locator("[data-stats-quest-side]")).toContainText(
+      "The Wrangler's Muster",
+    );
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("0/3");
+
+    // Do the work (three wild races won is a tally the world keeps), then
+    // reload: the boot settles anything finished while away.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        tally: { ...(world?.tally ?? {}), wildWins: 3 },
+      });
+    });
+    await page.reload();
+    await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
+    await page.locator('[data-menu-action="continue"]').click();
+    await page.waitForTimeout(1200);
+
+    const settled = await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      const run = await window.vroomon.loadRunState();
+      return {
+        paid: world?.tally?.["paid:wranglers-muster"] ?? 0,
+        wallet: run?.wallet ?? 0,
+        feed: run?.feed ?? 0,
+      };
+    });
+    expect(settled.paid).toBe(1);
+    expect(settled.wallet).toBeGreaterThanOrEqual(120);
+    expect(settled.feed).toBeGreaterThanOrEqual(3);
+    // A finished job leaves the nag list.
+    await expect(page.locator("[data-stats-quest-side]")).toHaveCount(0);
+  });
+
   test("@smoke the wild pack evolves on its own between meetings", async ({ page }) => {
     await seedAndEnterWorld(page);
     await enterMapAt(page, "ranch_yard", 6, 3);
@@ -1354,8 +1405,8 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.waitForTimeout(4500);
     await expect(page.locator("[data-wild-race-verdict]")).toContainText("Beaten by");
     await page.locator("[data-wild-race-leave]").click();
-    await page.waitForTimeout(300);
-    expect(await vroomdexCount(page)).toBe(1);
+    await page.waitForTimeout(2000);
+    await expect.poll(async () => vroomdexCount(page), { timeout: 8000 }).toBe(1);
   });
 
   test("a wild vroomon that outruns you gets away", async ({ page }) => {
@@ -1373,7 +1424,7 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.waitForTimeout(4500);
     await expect(page.locator("[data-wild-race-verdict]")).toContainText("got away");
     await page.locator("[data-wild-race-leave]").click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(900);
     expect(await vroomdexCount(page)).toBe(0);
   });
 

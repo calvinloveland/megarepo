@@ -1,0 +1,236 @@
+// Side quests: the jobs people hand you when you wander their ground.
+//
+// The main line (see quest.ts) always says what to do next for the campaign.
+// These are the detours: a wager at the fair, a wrangler who wants proof, a
+// trader who pays in genomes. Every one is a pure function of the world and
+// the run, so progress is derived rather than tracked in a dozen places —
+// and a save that predates a quest simply reads as "not started".
+//
+// Accepting one is a dialogue `setFlag` (the same mechanism NPCs already
+// use), so adding a quest never needs new dialogue plumbing.
+
+export type QuestObjective =
+  | { kind: "catch-wild"; count: number; label: string }
+  | { kind: "win-wild"; count: number; label: string }
+  | { kind: "generations"; count: number; label: string }
+  | { kind: "decor"; count: number; label: string }
+  | { kind: "visit"; mapId: string; label: string }
+  | { kind: "brands"; count: number; label: string }
+  | { kind: "champion-score"; score: number; label: string }
+  | { kind: "release"; count: number; label: string };
+
+export interface QuestReward {
+  wallet?: number;
+  feed?: number;
+  /** A genome planted straight into the herd. */
+  dna?: string;
+  /** A cosmetic parked in the meadow. */
+  decor?: string;
+  /** What the giver says when they pay up. */
+  thanks: string;
+}
+
+export interface SideQuest {
+  id: string;
+  title: string;
+  giver: string;
+  mapId: string;
+  /** The flag a dialogue node sets to accept this job. */
+  acceptFlag: string;
+  objective: QuestObjective;
+  reward: QuestReward;
+  /** What the giver says when offering it. */
+  offer: string;
+}
+
+/** Everything a quest needs to judge progress. */
+export interface QuestWorld {
+  badges: string[];
+  decor: string[];
+  vroomdex: string[];
+  currentMapId?: string | null;
+  /** flag -> true; quests are accepted through these. */
+  flags: Record<string, boolean>;
+  /** People and their tallies live here. */
+  tally?: Record<string, number>;
+}
+
+export interface QuestRun {
+  generation: number;
+  populationSize: number;
+  bestScore: number;
+  released: number;
+}
+
+export interface QuestProgress {
+  quest: SideQuest;
+  accepted: boolean;
+  done: boolean;
+  have: number;
+  need: number;
+  /** "2/3 wild vroomon raced" */
+  progressText: string;
+}
+
+export const SIDE_QUESTS: SideQuest[] = [
+  {
+    id: "wranglers-muster",
+    title: "The Wrangler's Muster",
+    giver: "Wrangler Jess",
+    mapId: "starter_town",
+    acceptFlag: "quest-muster-accepted",
+    objective: { kind: "win-wild", count: 3, label: "raced wild vroomon" },
+    reward: { wallet: 120, feed: 3, thanks: "Three races won off the rough. That's a wrangler." },
+    offer:
+      "Nobody wrangles vroomon without proving they can catch one. Beat three of them in a race and I'll believe you.",
+  },
+  {
+    id: "meadow-fitters",
+    title: "Fitters' Errand",
+    giver: "Fitter Ollan",
+    mapId: "starter_town",
+    acceptFlag: "quest-fitters-accepted",
+    objective: { kind: "decor", count: 3, label: "pieces placed in the meadow" },
+    reward: { wallet: 90, decor: "meadow-sign", thanks: "Three pieces! The meadow's starting to look like a ranch." },
+    offer:
+      "A ranch with nothing in the yard is just a field. Put three pieces in the meadow and come back a customer.",
+  },
+  {
+    id: "oxide-samples",
+    title: "Samples From The Grass",
+    giver: "Oxide, the road trader",
+    mapId: "route_1",
+    acceptFlag: "quest-samples-accepted",
+    objective: { kind: "catch-wild", count: 4, label: "genomes in the Herd Book" },
+    reward: {
+      wallet: 60,
+      dna: "vcG5pzmORWqC",
+      thanks: "Four samples. Here — a spare from my own line. It runs true.",
+    },
+    offer:
+      "I buy genomes, not stories. Bring me four Herd Book samples off the wild and I'll pay in stock.",
+  },
+  {
+    id: "long-road-count",
+    title: "Counting The Road",
+    giver: "Oxide, the road trader",
+    mapId: "route_1",
+    acceptFlag: "quest-count-accepted",
+    objective: { kind: "generations", count: 5, label: "generations run" },
+    reward: { wallet: 140, feed: 4, thanks: "Five generations. Your line's moving. That's worth paying for." },
+    offer:
+      "A herd that never turns over is a museum. Run five generations and I'll know you're serious.",
+  },
+  {
+    id: "hill-freight",
+    title: "Freight For The Mesa",
+    giver: "Wrangler Jess",
+    mapId: "starter_town",
+    acceptFlag: "quest-freight-accepted",
+    objective: { kind: "visit", mapId: "hills_map", label: "walk the Highland Mesa" },
+    reward: { wallet: 200, thanks: "You made the Mesa road. That's the long haul done." },
+    offer:
+      "I've a crate that needs eyes on the Highlands road. Walk it and the fee's yours.",
+  },
+];
+
+export function findSideQuest(id: string): SideQuest | undefined {
+  return SIDE_QUESTS.find((quest) => quest.id === id);
+}
+
+function tallyOf(world: QuestWorld, key: string): number {
+  return world.tally?.[key] ?? 0;
+}
+
+/** How far along an objective is, in its own units. */
+export function objectiveProgress(
+  objective: QuestObjective,
+  world: QuestWorld,
+  run: QuestRun,
+): number {
+  switch (objective.kind) {
+    case "catch-wild":
+      return world.vroomdex.length;
+    case "win-wild":
+      return tallyOf(world, "wildWins");
+    case "generations":
+      return run.generation;
+    case "decor":
+      return world.decor.length;
+    case "visit":
+      return tallyOf(world, `visited:${objective.mapId}`) > 0 ? 1 : 0;
+    case "brands":
+      return world.badges.length;
+    case "champion-score":
+      return run.bestScore;
+    case "release":
+      return run.released;
+    default:
+      return 0;
+  }
+}
+
+function objectiveNeed(objective: QuestObjective): number {
+  switch (objective.kind) {
+    case "visit":
+      return 1;
+    case "champion-score":
+      return objective.score;
+    default:
+      return objective.count;
+  }
+}
+
+export function questProgress(
+  quest: SideQuest,
+  world: QuestWorld,
+  run: QuestRun,
+): QuestProgress {
+  const accepted = Boolean(world.flags[quest.acceptFlag]);
+  const have = objectiveProgress(quest.objective, world, run);
+  const need = objectiveNeed(quest.objective);
+  const done = accepted && have >= need;
+  const progressText =
+    quest.objective.kind === "champion-score"
+      ? `${Math.round(have)}/${need} pts`
+      : `${Math.min(have, need)}/${need} ${quest.objective.label}`;
+
+  return { quest, accepted, done, have, need, progressText };
+}
+
+/**
+ * Every quest with its standing, in a stable order: taken jobs first (undone
+ * before done), then the ones still waiting to be offered.
+ */
+export function sideQuestLog(world: QuestWorld, run: QuestRun): QuestProgress[] {
+  return SIDE_QUESTS.map((quest) => questProgress(quest, world, run)).sort(
+    (left, right) => {
+      const rank = (entry: QuestProgress): number =>
+        entry.done ? 2 : entry.accepted ? 0 : 1;
+      return rank(left) - rank(right);
+    },
+  );
+}
+
+/** The jobs you have taken and not yet finished — what the HUD nags about. */
+export function activeSideQuests(
+  world: QuestWorld,
+  run: QuestRun,
+): QuestProgress[] {
+  return sideQuestLog(world, run).filter(
+    (entry) => entry.accepted && !entry.done,
+  );
+}
+
+/**
+ * Quests that are finished and not yet paid. The caller applies the reward
+ * and records the id in `tally` so a save cannot pay twice.
+ */
+export function claimableQuests(
+  world: QuestWorld,
+  run: QuestRun,
+): QuestProgress[] {
+  return sideQuestLog(world, run).filter(
+    (entry) => entry.done && tallyOf(world, `paid:${entry.quest.id}`) === 0,
+  );
+}

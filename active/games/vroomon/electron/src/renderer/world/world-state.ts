@@ -18,6 +18,7 @@ export function createInitialWorldState(): WorldState {
     rancherCap: "navy",
     vroomdex: [],
     hunting: true,
+    tally: {},
     wildPacks: {},
     wildGenerations: {},
     flags: {},
@@ -182,4 +183,18 @@ export function setFlag(
     ...state,
     flags: { ...state.flags, [flag]: value },
   };
+}
+
+/** Bump a world counter (wild races won, maps walked, quests paid). */
+export function addTally(state: WorldState, key: string, amount = 1): WorldState {
+  const next = (state.tally?.[key] ?? 0) + amount;
+  return { ...state, tally: { ...(state.tally ?? {}), [key]: next } };
+}
+
+/** Note that a map has been walked on, once. */
+export function markVisited(state: WorldState, mapId: string): WorldState {
+  if ((state.tally?.[`visited:${mapId}`] ?? 0) > 0) {
+    return state;
+  }
+  return addTally(state, `visited:${mapId}`);
 }
