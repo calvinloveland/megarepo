@@ -312,3 +312,129 @@ export function describeLine(report: LineReport): string {
   const score = here.score !== null ? ` · ${here.score.toFixed(2)} pts` : " · released";
   return `gen ${here.depth}${score} · line: ${chain}`;
 }
+
+
+// ---------------------------------------------------------------------------
+// The pedigree note: one car, read in the context of its family.
+// ---------------------------------------------------------------------------
+
+export interface KinLink {
+  id: string;
+  label: string;
+  score: number | null;
+  champion: boolean;
+}
+
+export interface PedigreeNote {
+  generation: number;
+  /** Its two parents, when the herd book still names them. */
+  parents: KinLink[];
+  /** Cars bred from the same pair, best first. */
+  siblings: KinLink[];
+  /** Everything descended from it, best first. */
+  descendants: KinLink[];
+  /** The strongest of its siblings, if it has any. */
+  bestSibling: KinLink | null;
+  /** The strongest of its descendants, if it has any. */
+  bestDescendant: KinLink | null;
+}
+
+/**
+ * Read one car's family around it: who made it, who it was raised beside, and
+ * what it produced. Scores are only known for the generation the herd last
+ * raced, so older kin read as unknown rather than as zero.
+ */
+export function pedigreeNote(
+  graph: HeritageGraph,
+  id: string,
+  options: {
+    /**
+     * The car's own parent ids, when the caller has them. The graph also
+     * unions ancestry edges out of the genealogy map, which is what the tree
+     * canvas needs to draw connective tissue — but a pedigree wants the two
+     * animals it was actually bred from.
+     */
+    parents?: string[];
+  } = {},
+): PedigreeNote | null {
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+  const node = byId.get(id);
+  if (!node) {
+    return null;
+  }
+  const champions = new Set(graph.champions);
+  const link = (otherId: string): KinLink | null => {
+    const other = byId.get(otherId);
+    if (!other) {
+      return null;
+    }
+    return {
+      id: other.id,
+      label: other.label,
+      score: other.score,
+      champion: champions.has(other.id),
+    };
+  };
+  const byScore = (left: KinLink, right: KinLink): number =>
+    (right.score ?? -1) - (left.score ?? -1);
+
+  const parentIds = options.parents ?? node.parents;
+  const parents = parentIds
+    .map(link)
+    .filter((entry): entry is KinLink => entry !== null)
+    .slice(0, 2);
+
+  // Siblings: anyone sharing a parent, excluding the car itself.
+  const siblingIds = new Set<string>();
+  for (const parent of node.parents) {
+    const parentNode = byId.get(parent);
+    for (const child of parentNode?.children ?? []) {
+      if (child !== id) {
+        siblingIds.add(child);
+      }
+    }
+  }
+  const siblings = [...siblingIds]
+    .map(link)
+    .filter((entry): entry is KinLink => entry !== null)
+    .sort(byScore);
+
+  const descendants = node.children
+    .map(link)
+    .filter((entry): entry is KinLink => entry !== null)
+    .sort(byScore);
+
+  return {
+    generation: node.depth,
+    parents,
+    siblings,
+    descendants,
+    bestSibling: siblings[0] ?? null,
+    bestDescendant: descendants[0] ?? null,
+  };
+}
+
+/** "by #12 + #30 · 3 siblings (best #41, 902.10) · 2 descendants" */
+export function describeKin(note: PedigreeNote): string {
+  const parts: string[] = [];
+  parts.push(
+    note.parents.length > 0
+      ? `by ${note.parents.map((parent) => `#${parent.label}`).join(" + ")}`
+      : "founder stock",
+  );
+  if (note.siblings.length > 0) {
+    const best = note.bestSibling;
+    parts.push(
+      `${note.siblings.length} sibling${note.siblings.length === 1 ? "" : "s"}` +
+        (best?.score !== null && best !== null ? ` (best #${best.label}, ${best.score.toFixed(2)})` : ""),
+    );
+  }
+  if (note.descendants.length > 0) {
+    const best = note.bestDescendant;
+    parts.push(
+      `${note.descendants.length} descendant${note.descendants.length === 1 ? "" : "s"}` +
+        (best?.score !== null && best !== null ? ` (best #${best.label}, ${best.score.toFixed(2)})` : ""),
+    );
+  }
+  return parts.join(" · ");
+}

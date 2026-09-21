@@ -82,13 +82,14 @@ describe("breeding improves the herd", () => {
     // Selection has to accumulate: the herd must end up clearly better than
     // it started. (A frozen trajectory is what a non-local decoder produces.)
     expect(late).toBeGreaterThan(early * 1.15);
-  });
+  }, 60_000);
 
   it("beats re-rolling random populations with the same budget", () => {
     // Like for like: the same number of evaluated cars, either bred or
     // freshly rolled. Each car is raced on its own, so scores are stable and
     // a herd's elite survives to be improved on.
-    const seeds = ["evo-a", "evo-b", "evo-c"];
+    // Five seeds: the claim is about the method, not about one lucky run.
+    const seeds = ["evo-a", "evo-b", "evo-c", "evo-d", "evo-e"];
     const generations = 12;
     const evolved: number[] = [];
     const random: number[] = [];
@@ -130,7 +131,7 @@ describe("breeding improves the herd", () => {
     // in the same budget, because every car's score depended on its slot in
     // the shared race and mutations re-rolled whole cars.
     expect(mean(evolved)).toBeGreaterThan(mean(random) * 1.1);
-  });
+  }, 60_000);
 
   it("reads every character of the genome", () => {
     // A fixed stride left the tail of a long genome unread: mutating those

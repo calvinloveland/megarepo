@@ -452,6 +452,25 @@
         font-size: 0.75rem;
         color: var(--muted);
       }
+      .inspector__pedigree {
+        display: flex;
+        gap: 0.45rem;
+        align-items: baseline;
+        margin: 0.35rem 0;
+        padding: 0.35rem 0.5rem;
+        border-radius: 8px;
+        background: rgba(138, 180, 255, 0.08);
+        font-family: var(--font-screen);
+        font-size: 0.75rem;
+        color: #dce8ff;
+      }
+      .inspector__pedigree span {
+        font-family: var(--font-pixel);
+        font-size: 0.45rem;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+      }
+      .inspector__pedigree strong { font-weight: 500; }
       .inspector__parts {
         display: flex;
         flex-direction: column;
@@ -2236,6 +2255,10 @@
                 <div class="inspector__legend">
                   <span><b>C</b> cylinder · <b>D</b> driveshaft · <b>G</b> gearset</span>
                   <span><b>R</b> plate · <b>W</b> wheel — slots run front to back</span>
+                </div>
+                <div class="inspector__pedigree" data-inspector-pedigree hidden>
+                  <span>PEDIGREE</span>
+                  <strong data-inspector-kin>—</strong>
                 </div>
                 <div class="inspector__parts" data-inspector-parts></div>
               </section>

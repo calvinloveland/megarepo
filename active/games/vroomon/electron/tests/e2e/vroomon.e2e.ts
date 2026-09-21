@@ -1511,6 +1511,36 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Starter Town");
   });
 
+  test("@smoke the Inspector reads a car in the context of its family", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
+    await page.locator("[data-generate-population]").click();
+    await page.waitForTimeout(500);
+    for (let generation = 0; generation < 5; generation += 1) {
+      await page.locator("[data-run-generation]").click();
+      await page.waitForTimeout(480);
+    }
+
+    await page.locator("[data-inspect-selected]").click();
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-inspector-pedigree]")).toBeVisible();
+    const kin = (await page.locator("[data-inspector-kin]").textContent()) ?? "";
+    // A founder reads as founder stock; anyone else names its pair. Either
+    // way the family around it is stated.
+    expect(kin).toMatch(/by #|founder stock/);
+    expect(kin).toMatch(/siblings|descendants|founder stock/);
+    const parents = kin.match(/by ([^·]+)/);
+    if (parents) {
+      // At most the biological pair, never every ancestry edge.
+      expect(parents[1]!.split("+").length).toBeLessThanOrEqual(2);
+    }
+
+    // The stats read as English: one plate, not "1 plates".
+    const stats = (await page.locator("[data-inspector-stats]").textContent()) ?? "";
+    expect(stats).not.toContain("1 plates");
+    expect(stats).not.toContain("1 wheels");
+  });
+
   test("@smoke rain raises the bar and can turn a champion away", async ({ page }) => {
     // The same car, the same circuit, two skies: the bar moves, the champion
     // does not.

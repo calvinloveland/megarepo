@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHeritageGraph,
+  describeKin,
   describeLine,
   lineReport,
+  pedigreeNote,
   shortLabel,
   traceHeritage,
 } from "../src/renderer/heritage.js";
@@ -136,5 +138,57 @@ describe("the line report", () => {
     expect(describeLine(lineReport(graph, { ancestors: [], descendants: [], chain: [] }))).toBe(
       "no line recorded",
     );
+  });
+});
+
+describe("the pedigree note", () => {
+  const population = [
+    { id: "p-1", dna: "a", parents: [] as string[], score: 300 },
+    { id: "p-2", dna: "b", parents: [] as string[], score: 420 },
+    { id: "p-3", dna: "c", parents: ["p-1", "p-2"], score: 700 },
+    { id: "p-4", dna: "d", parents: ["p-1", "p-2"], score: 980 },
+    { id: "p-5", dna: "e", parents: ["p-3"], score: 1200 },
+    { id: "p-6", dna: "f", parents: ["p-3"], score: 400 },
+  ];
+  const graph = buildHeritageGraph({
+    population,
+    genealogy: { "p-1": ["p-3", "p-4"], "p-2": ["p-3", "p-4"], "p-3": ["p-5", "p-6"] },
+  });
+
+  it("names the parents, the siblings and what it produced", () => {
+    const note = pedigreeNote(graph, "p-3")!;
+    expect(note.parents.map((parent) => parent.id)).toEqual(["p-1", "p-2"]);
+    // Sibling is the other child of the same pair, and it is named as the best.
+    expect(note.siblings.map((sibling) => sibling.id)).toEqual(["p-4"]);
+    expect(note.bestSibling).toMatchObject({ id: "p-4", score: 980 });
+    // Descendants, best first.
+    expect(note.descendants.map((child) => child.id)).toEqual(["p-5", "p-6"]);
+    expect(note.bestDescendant).toMatchObject({ id: "p-5", score: 1200 });
+  });
+
+  it("names the pair it was bred from, not every ancestry edge", () => {
+    // The genealogy map carries extra edges for the tree canvas; a pedigree
+    // wants the two animals it was actually bred from.
+    const note = pedigreeNote(graph, "p-3", { parents: ["p-1", "p-2"] })!;
+    expect(note.parents.map((parent) => parent.id)).toEqual(["p-1", "p-2"]);
+    const crowded = pedigreeNote(graph, "p-5", {
+      parents: ["p-3", "p-1", "p-2"],
+    })!;
+    expect(crowded.parents).toHaveLength(2);
+  });
+
+  it("says founder stock for a car with no parents", () => {
+    const note = pedigreeNote(graph, "p-1")!;
+    expect(note.parents).toEqual([]);
+    expect(describeKin(note)).toContain("founder stock");
+    expect(note.bestSibling).toBeNull();
+  });
+
+  it("describes a family in one breath", () => {
+    const line = describeKin(pedigreeNote(graph, "p-3")!);
+    expect(line).toContain("by #1 + #2");
+    expect(line).toContain("sibling");
+    expect(line).toContain("descendant");
+    expect(pedigreeNote(graph, "not-a-car")).toBeNull();
   });
 });

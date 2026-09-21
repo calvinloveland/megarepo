@@ -842,6 +842,34 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## One car, read in the context of its family (2026-09-15) ✅
+
+The Inspector now carries a **PEDIGREE** line beside the parts and stats:
+
+```
+PEDIGREE   by #102 + #116 · 37 siblings (best #123, 1177.36)
+           · 9 descendants (best #110, 1233.99)
+```
+
+Its two parents, how many siblings it was raised beside (with the best one
+named and scored), and what it went on to produce. A founder honestly reads as
+`founder stock`.
+
+### Two things this caught
+
+- **The kin line first read `by #146 + #148 + #65 + #74 + #75 + #80 + …`** —
+  nine parents. The graph unions ancestry edges out of the genealogy map,
+  which is exactly what the *tree canvas* needs, but a pedigree wants the two
+  animals it was actually bred from. The caller now passes the car's own
+  parent pair, and a unit test pins it.
+- **The evolution guards were failing the suite on a 5-second default
+  timeout** — they measure a herd over five seeds, which is deliberately heavy.
+  They now declare their own timeouts. (Worth noting because I nearly
+  mis-diagnosed it as a statistical flake and "fixed" a claim that was fine.)
+
+Also: the Inspector's stat rows now pluralise (`1 plate · 5 wheels`, not
+`1 plates`).
+
 ## A fresh-playthrough pass (2026-09-15) ✅
 
 With this much added *around* the opening, it was worth walking it again from a

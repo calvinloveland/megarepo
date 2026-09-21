@@ -23,8 +23,10 @@ import { bestRecord, proposeRecord } from "./records.js";
 import { badgeForMap, feudBar, nextCircuitTarget, nextTier, rivalScoreFor, terrainForVenue, tierLabel, tierOutcome, venueTitle, VENUE_BADGE } from "./circuit.js";
 import {
   buildHeritageGraph,
+  describeKin,
   describeLine,
   lineReport,
+  pedigreeNote,
   shortLabel,
   traceHeritage,
   type HeritageGraph,
@@ -2511,8 +2513,17 @@ function renderInspector(): void {
   const stats = document.querySelector<HTMLElement>("[data-inspector-stats]");
   if (stats) {
     const rows: Array<[string, string]> = [
-      ["Structure", `${inspection.plates} plates · ${inspection.wheels} wheels`],
-      ["Power", `${inspection.engines} engines · ${inspection.shafts} shafts · ${inspection.gears} gears`],
+      [
+        "Structure",
+        `${inspection.plates} plate${inspection.plates === 1 ? "" : "s"} · ` +
+          `${inspection.wheels} wheel${inspection.wheels === 1 ? "" : "s"}`,
+      ],
+      [
+        "Power",
+        `${inspection.engines} engine${inspection.engines === 1 ? "" : "s"} · ` +
+          `${inspection.shafts} shaft${inspection.shafts === 1 ? "" : "s"} · ` +
+          `${inspection.gears} gear${inspection.gears === 1 ? "" : "s"}`,
+      ],
       ["Driven wheels", `${inspection.drivenCount}/${inspection.wheels}`],
       ["Power at the wheels", `${inspection.totalPower}`],
       ["Torque", `${inspection.totalTorque}`],
@@ -2526,6 +2537,8 @@ function renderInspector(): void {
       .map(([label, value]) => `<span>${escapeHtml(label)}</span><span>${escapeHtml(value)}</span>`)
       .join("");
   }
+
+  renderInspectorPedigree(inspectorState.dna);
 
   const parts = document.querySelector<HTMLElement>("[data-inspector-parts]");
   if (parts) {
@@ -2584,6 +2597,42 @@ function renderInspector(): void {
   }
 
   drawInspection(inspection, frames?.[index]?.snapshot ?? null);
+}
+
+/**
+ * The family around one vroomon, read from the herd's own book. Built on
+ * demand from the same inputs the Heritage scene uses, so the inspector can
+ * say where a car sits without depending on that scene having been opened.
+ */
+function renderInspectorPedigree(dna: string): void {
+  const panel = document.querySelector<HTMLElement>("[data-inspector-pedigree]");
+  const kin = document.querySelector<HTMLElement>("[data-inspector-kin]");
+  if (!panel || !kin) {
+    return;
+  }
+  // The book is keyed by herd id, and the inspector opens with a DNA string:
+  // find the best-scoring car that carries it. Clones share a genome, so the
+  // strongest one is the one worth reading the family of.
+  const population =
+    rendererState.latestGeneration?.evaluatedPopulation ?? rendererState.runState.population;
+  const entry = population
+    .filter((candidate) => candidate.dna === dna)
+    .sort((left, right) => right.score - left.score)[0];
+  if (!entry) {
+    panel.hidden = true;
+    return;
+  }
+  const graph = buildHeritageGraph({
+    population,
+    genealogy: rendererState.runState.genealogy ?? {},
+  });
+  const note = pedigreeNote(graph, entry.id, { parents: entry.parents });
+  if (!note) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  kin.textContent = describeKin(note);
 }
 
 function renderBlueprint(decoded: DecodedDnaV2): void {
