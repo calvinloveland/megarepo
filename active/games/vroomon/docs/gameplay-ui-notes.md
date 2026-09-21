@@ -842,6 +842,23 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Jobs have to be possible where they are handed out (2026-09-15) ✅
+
+Two more invariants, aimed at content that is *possible to ask for* but
+impossible to do:
+
+- **Every objective points at ground that can provide it.** A job to beat wild
+  vroomon on a map with no tall grass cannot be completed, so each
+  `win-wild-on` objective must name a map that actually has vroomgrass.
+- **The giver stands where the work is.** Same bug one step removed: a giver
+  on a map with no grass asking for wild wins has to be at least one gate from
+  some. Both pass today — which is the point of asking, not the proof that
+  they always will.
+
+And decor is now checked for **reachability**, not just walkability: a piece
+parked in a sealed pocket is a piece nobody will ever see. Same flood-fill the
+NPC check uses, run from each map's own entrances.
+
 ## The ledger: bars against bests (2026-09-15) ✅
 
 The Record Barn held per-terrain bests and the circuit held a rising bar per

@@ -413,6 +413,22 @@ describe("world reachability", () => {
         check(item, mapId, spot);
       }
     }
+
+    // Walkable is not enough: decor parked in a sealed pocket is decor nobody
+    // will ever see. It has to be in the ground the player can actually reach.
+    for (const item of DECOR_ITEMS) {
+      const entries = [
+        ["starter_town", item.anchor] as const,
+        ...Object.entries(item.spots ?? {}),
+      ];
+      for (const [mapId, spot] of entries) {
+        const reachable = reachableFrom(mapId, entriesFor(mapId));
+        expect(
+          reachable.has(`${spot.x},${spot.y}`),
+          `${item.id} sits at ${mapId} ${spot.x},${spot.y}, which nobody can walk to`,
+        ).toBe(true);
+      }
+    }
   });
 
   it("never paints a door that leads nowhere", () => {

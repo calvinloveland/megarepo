@@ -152,6 +152,63 @@ describe("quest contracts", () => {
     }
   });
 
+  it("asks for things the ground it names can actually provide", () => {
+    // A job to beat wild vroomon on a map with no wild grass is impossible.
+    // Every objective that names a ground has to find that ground capable.
+    const wildGrassMaps = new Set(
+      Object.values(MAPS)
+        .filter((map) => map.tiles.flat().includes("vroomgrass"))
+        .map((map) => map.id),
+    );
+    expect(wildGrassMaps.size).toBeGreaterThan(3);
+
+    for (const quest of SIDE_QUESTS) {
+      const objective = quest.objective;
+      if (objective.kind === "win-wild-on") {
+        expect(
+          wildGrassMaps.has(objective.mapId),
+          `${quest.id}: asked to beat wild vroomon on ${objective.mapId}, which has no tall grass`,
+        ).toBe(true);
+      }
+      if (objective.kind === "catch-wild") {
+        // Catching needs grass somewhere reachable from the giver's world.
+        expect(wildGrassMaps.size).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("hands out work where the work can be done", () => {
+    // A giver standing on ground with no wild grass, asking for wild wins on
+    // that same ground, is the same bug one step removed. Check the fiction's
+    // own claim: the giver's map either has grass or is one gate from it.
+    const grassMaps = new Set(
+      Object.values(MAPS)
+        .filter((map) => map.tiles.flat().includes("vroomgrass"))
+        .map((map) => map.id),
+    );
+    const neighbours = (mapId: string): string[] => {
+      const map = MAPS[mapId];
+      if (!map) {
+        return [];
+      }
+      return Object.values(map.transitions).map((transition) => transition.mapId);
+    };
+
+    for (const quest of SIDE_QUESTS) {
+      if (quest.objective.kind !== "win-wild-on") {
+        continue;
+      }
+      const giversGround = quest.mapId;
+      const canReachGrass =
+        grassMaps.has(giversGround) ||
+        neighbours(giversGround).some((mapId) => grassMaps.has(mapId));
+      expect(
+        canReachGrass,
+        `${quest.id}: ${quest.giver} on ${giversGround} is nowhere near wild ground`,
+      ).toBe(true);
+    }
+  });
+
   it("asks for something a rancher can measure", () => {
     for (const quest of SIDE_QUESTS) {
       if (quest.objective.kind === "win-wild-on") {
