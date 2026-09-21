@@ -47,6 +47,12 @@ export function createOverworldInputs(
     onVroomdexTick: (dna: string) => void;
     /** Robby lends a starter vroomon so the first catch can be a race. */
     onStarterVroomon?: () => void;
+    /**
+     * The wild vroomon that lives on this ground. The renderer owns it
+     * because the pack evolves by racing, which needs the simulation; the
+     * controller only asks who is out there.
+     */
+    nextWildDna?: (mapId: string) => string;
     onBadgeAwarded: (badge: string) => void;
     onFactionJoined?: (faction: Faction | null) => void;
     onMapTransition?: () => void;
@@ -182,7 +188,9 @@ export function createOverworldInputs(
     commit(endDialogue(state, onComplete, flag));
 
     if (onComplete === "wild") {
-      const wildDna = "wild" + Math.random().toString(36).slice(2, 12);
+      const wildDna =
+        dependencies.nextWildDna?.(state.currentMapId) ??
+        `wild${Math.random().toString(36).slice(2, 12)}`;
       dependencies.onEncounterStart("wild", wildDna, null);
       return state;
     }
@@ -258,7 +266,9 @@ export function createOverworldInputs(
       // in peace, which is how you get across your own paddock without a
       // race every three steps.
       if (finalState.hunting && isOnWildEncounterTile(finalState)) {
-        const wildDna = "wild" + Math.random().toString(36).slice(2, 12);
+        const wildDna =
+          dependencies.nextWildDna?.(finalState.currentMapId) ??
+          `wild${Math.random().toString(36).slice(2, 12)}`;
         // NOTE: nothing is recorded here. A wild genome is only yours if you
         // beat the thing in a race — the renderer owns that verdict.
         commit({

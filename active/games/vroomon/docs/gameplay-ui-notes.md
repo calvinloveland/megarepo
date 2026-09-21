@@ -842,6 +842,38 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The wild evolves too, with nobody in charge (2026-09-15) ✅
+
+Wild vroomon used to be a random DNA string conjured per step, so once your
+own herd was any good, every encounter was a formality and the Herd Book
+filled with junk. The wild now **evolves on its own**, the way a ranch herd
+does but with nobody steering:
+
+- **Each biome keeps a pack** of 24 vroomon (`src/core/wild.ts`), founded
+  deterministically the first time you walk that biome's grass, so the same
+  ground always starts with the same animals. Packs live in the save with a
+  generation count.
+- **The ground is the only selector.** The pack is raced on its own biome's
+  terrain — Grassland packs are selected on Grassland, Ice packs on Ice — so
+  each biome breeds its own kind of fast.
+- **Every meeting turns the pack over a generation.** The fastest half breed,
+  four wanderers drift in from elsewhere, and the pack's best are still out
+  there (without carrying the champions over, the wild's score *wandered* —
+  measured 804, 1143, 1386, then 1153, 1028, 599 — because the pool was
+  rebuilt from scratch each generation).
+- **You meet a specimen, not the alpha.** The encounter hands you the pack's
+  middle animal. Meeting the champion made the wild a wall — and made the
+  tutorial's first catch *unwinnable*, since Robby's loaner (~460px) is
+  slower than a selected pack's best.
+
+Measured on the home paddock: founder stock has a representative at **112px**
+and a champion at 479px; after eight generations the representative is at
+**858px** and the champion at **1744px**. Robby's loaner (460px) therefore
+wins the first catch comfortably and is out-classed by generation three —
+which is the point: the wild improves at roughly half the rate of a tended
+herd, so *breeding* is how you stay ahead, and a catch is only worth making
+when you can beat the ground it came off.
+
 ## Indoors and outdoors are separate places (2026-09-15) ✅
 
 The ranch used to be one map with a house drawn in the top-left corner of the

@@ -80,6 +80,7 @@ import {
   type SupplyId,
 } from "../core/economy.js";
 import { createInitialWorldState, recordEncounterDna } from "./world/world-state.js";
+import { advanceWildPack, scoreWildPack, seedWildPack } from "../core/wild.js";
 import { serializeWorldState } from "./world/types.js";
 import type { Direction, PersistedWorldState, WorldState } from "./world/types.js";
 import { advanceDialogue as advanceWorldDialogue, endDialogue as endWorldDialogue } from "./world/world-state.js";
@@ -670,6 +671,7 @@ const overworldController = createOverworldInputs(rendererState.world, {
   onStarterVroomon: () => {
     plantStarterVroomon();
   },
+  nextWildDna: (mapId) => nextWildDna(mapId),
   onBadgeAwarded: (badge) => {
     rendererState = setWorldState(rendererState, overworldController.state);
     rendererState = {
@@ -1487,6 +1489,70 @@ function renderEvolutionStage(
 }
 
 // ---------------------------------------------------------------------------
+// The wild pack behind an encounter. Each biome keeps its own evolving pack
+// (src/core/wild.ts): nobody steers it, the ground selects it, and every
+// meeting breeds it one generation forward.
+// ---------------------------------------------------------------------------
+
+/** The vroomon you meet on this ground: a middling member of the pack, not
+ * its champion (see WildPack.representative). Seeded the first time you walk
+ * a biome's grass, then evolved by its own races. */
+function nextWildDna(mapId: string): string {
+  const pack = rendererState.world.wildPacks[mapId] ?? seedWildPack(mapId);
+  const scored = scoreWildPack(mapId, pack);
+  const encountered = scored.representative.dna;
+  const generation = rendererState.world.wildGenerations[mapId] ?? 0;
+  rendererState = setWorldState(rendererState, {
+    ...rendererState.world,
+    wildPacks: { ...rendererState.world.wildPacks, [mapId]: pack },
+    wildGenerations: { ...rendererState.world.wildGenerations, [mapId]: generation },
+  });
+  // Persist the founder pack immediately: the encounter is about to happen,
+  // and a reload mid-race should not found a different pack.
+  overworldController._setState({
+    ...overworldController.state,
+    wildPacks: { ...overworldController.state.wildPacks, [mapId]: pack },
+    wildGenerations: {
+      ...overworldController.state.wildGenerations,
+      [mapId]: generation,
+    },
+  });
+  scheduleWorldSave();
+  return encountered;
+}
+
+/** One turn of the wild's wheel for that biome, after a meeting. */
+function advanceWildForMap(mapId: string): void {
+  const pack = overworldController.state.wildPacks[mapId] ?? seedWildPack(mapId);
+  const random = mulberryFor(`wild:${mapId}:${overworldController.state.wildGenerations[mapId] ?? 0}`);
+  const step = advanceWildPack(mapId, pack, random);
+  const generation = (overworldController.state.wildGenerations[mapId] ?? 0) + 1;
+
+  overworldController._setState({
+    ...overworldController.state,
+    wildPacks: { ...overworldController.state.wildPacks, [mapId]: step.pack },
+    wildGenerations: { ...overworldController.state.wildGenerations, [mapId]: generation },
+  });
+  rendererState = setWorldState(rendererState, overworldController.state);
+  scheduleWorldSave();
+}
+
+/** A deterministic generator, so a pack's history is reproducible. */
+function mulberryFor(seed: string): () => number {
+  let state = 0;
+  for (const char of seed) {
+    state = (state * 31 + char.charCodeAt(0)) % 4294967296;
+  }
+  return () => {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Wild races: you catch a wild vroomon by beating it, never by finding it.
 // A herd of hand-me-downs is not a herd — the good ones have to be bred.
 // ---------------------------------------------------------------------------
@@ -1584,6 +1650,8 @@ function openWildRace(wildDna: string): void {
 
 function closeWildRace(): void {
   stopWildRacePlayback();
+  // Either way the meeting happened: the pack breeds on without you.
+  advanceWildForMap(overworldController.state.currentMapId);
   wildRaceState = { ...wildRaceState, open: false, frames: null, playing: false };
   renderWildRace();
   // A win queues Robby's praise beat while the overlay is up, so the world
@@ -1808,7 +1876,13 @@ function renderWildRace(): void {
   }
   const sub = document.querySelector<HTMLElement>("[data-wild-race-sub]");
   if (sub) {
-    sub.textContent = `${wildRaceState.terrain} · win the race and it joins your Herd Book`;
+    // The wild evolves on its own, so say how far this ground's pack has
+    // come — a wild one that licked you last week has been breeding since.
+    const mapId = overworldController.state.currentMapId;
+    const generation = overworldController.state.wildGenerations[mapId] ?? 0;
+    const packLine =
+      generation > 0 ? ` · wild gen ${generation + 1}` : " · founder stock";
+    sub.textContent = `${wildRaceState.terrain}${packLine} · win the race and it joins your Herd Book`;
   }
   const lanes = document.querySelector<HTMLElement>("[data-wild-race-lanes]");
   if (lanes) {
@@ -4398,7 +4472,7 @@ function applyPersistedWorldToRenderer(persisted: PersistedWorldState): void {
 
 function applyPersistedWorld(
   world: WorldState,
-  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; hunting?: boolean; flags: Record<string, boolean> },
+  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; hunting?: boolean; wildPacks?: Record<string, string[]>; wildGenerations?: Record<string, number>; flags: Record<string, boolean> },
 ): WorldState {
   // A save can predate a map change (the ranch used to be one map): put the
   // rancher somewhere they can actually stand rather than in the void.
@@ -4424,6 +4498,14 @@ function applyPersistedWorld(
         : world.feudTiers,
     // Old saves predate the hunt toggle; absent means "looking".
     hunting: typeof persisted.hunting === "boolean" ? persisted.hunting : world.hunting,
+    wildPacks:
+      persisted.wildPacks && typeof persisted.wildPacks === "object"
+        ? persisted.wildPacks
+        : world.wildPacks,
+    wildGenerations:
+      persisted.wildGenerations && typeof persisted.wildGenerations === "object"
+        ? persisted.wildGenerations
+        : world.wildGenerations,
     decor: Array.isArray(persisted.decor) ? persisted.decor : world.decor,
     rancherName: typeof persisted.rancherName === "string" ? persisted.rancherName : world.rancherName,
     rancherCap: persisted.rancherCap === "rust" || persisted.rancherCap === "green"

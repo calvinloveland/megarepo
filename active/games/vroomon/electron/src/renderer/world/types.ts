@@ -98,6 +98,13 @@ export interface WorldState {
    * own paddock.
    */
   hunting: boolean;
+  /**
+   * mapId -> the wild pack living on that ground, and how many generations
+   * it has turned over. The wild evolves while nobody is watching: every
+   * encounter breeds it forward one step.
+   */
+  wildPacks: Record<string, string[]>;
+  wildGenerations: Record<string, number>;
   flags: Record<string, boolean>;
   dialogueQueue: DialogueNode[];
   activeNpc: string | null;
@@ -130,6 +137,9 @@ export interface PersistedWorldState {
   feudTiers?: Record<string, number>;
   /** Optional for old saves: an absent flag means "hunting". */
   hunting?: boolean;
+  /** Optional: wild packs appear the first time you walk a biome's grass. */
+  wildPacks?: Record<string, string[]>;
+  wildGenerations?: Record<string, number>;
   flags: Record<string, boolean>;
   lastSavedAt: string;
 }
@@ -151,6 +161,8 @@ export const EMPTY_PERSISTED_WORLD: PersistedWorldState = {
   vroomdex: [],
   feudTiers: {},
   hunting: true,
+  wildPacks: {},
+  wildGenerations: {},
   flags: {},
   lastSavedAt: "",
 };
@@ -170,6 +182,8 @@ export function serializeWorldState(world: WorldState): PersistedWorldState {
     vroomdex: [...world.vroomdex],
     feudTiers: { ...world.feudTiers },
     hunting: world.hunting,
+    wildPacks: { ...world.wildPacks },
+    wildGenerations: { ...world.wildGenerations },
     flags: { ...world.flags },
     lastSavedAt: new Date().toISOString(),
   };

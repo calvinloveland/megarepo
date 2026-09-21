@@ -525,10 +525,6 @@ test.describe("vroomon Playwright harness", () => {
   test("@smoke the opening story: trip, new name, wake, wild catch, and town", async ({
     page,
   }) => {
-    // Pin the wild car's DNA so the catch race is winnable every run.
-    await page.addInitScript(() => {
-      Math.random = () => 0.1;
-    });
     // Title screen: a fresh road offers only NEW GAME (CONTINUE appears
     // once a rancher exists).
     await expect(page.locator('[data-menu-action="new-game"]')).toHaveCount(1);
@@ -621,10 +617,15 @@ test.describe("vroomon Playwright harness", () => {
     }
     const doneQuest = await page.locator("[data-stats-quest-line]").textContent();
     expect(doneQuest).toContain("garden gate");
-    // The Herd Book carries the wild genome, viewable in the Barn panel.
+    // The Herd Book carries the wild genome (an evolved pack member now, so
+    // it is an ordinary DNA string rather than one marked "wild"), viewable
+    // in the Barn panel.
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("1 specimen");
     await page.locator("[data-open-barn]").click();
     await page.waitForTimeout(500);
-    await expect(page.locator("[data-herdbook-list]")).toContainText("wild");
+    await expect(page.locator("[data-herdbook-list]")).not.toContainText(
+      "No genomes recorded yet",
+    );
     await closePocketRanch(page);
 
     // The carrier bench in the yard is the diegetic way into the hub.
@@ -1290,12 +1291,49 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-wild-race-overlay]")).toBeHidden();
   });
 
-  test("@smoke a wild vroomon only joins the herd if you beat it", async ({ page }) => {
-    // A fixed Math.random pins the wild car's DNA, so win and loss are both
-    // deterministic. 0.1 -> "wild3lllllllll" (slow), 0.75 -> "wildr" (quick).
-    await page.addInitScript(() => {
-      Math.random = () => 0.1;
+  test("@smoke the wild pack evolves on its own between meetings", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    await enterMapAt(page, "ranch_yard", 6, 3);
+    await seedHerdDna(page, "Lhn4yi8zKRd2");
+
+    const meetWild = async (): Promise<{ generation: string; wild: string }> => {
+      // Step off the grass and back on, so the tile triggers again.
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(350);
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForTimeout(350);
+      await page.keyboard.press("ArrowLeft");
+      await page.waitForTimeout(900);
+      await expect(page.locator("[data-wild-race-overlay]")).toBeVisible();
+      const sub = (await page.locator("[data-wild-race-sub]").textContent()) ?? "";
+      const lanes = (await page.locator("[data-wild-race-lanes]").textContent()) ?? "";
+      return { generation: sub.split("·")[1]?.trim() ?? "", wild: lanes.split("WILD")[1]?.slice(0, 32) ?? "" };
+    };
+
+    const first = await meetWild();
+    expect(first.generation).toContain("founder stock");
+    await page.locator("[data-wild-race-leave]").click();
+    await page.waitForTimeout(400);
+
+    const second = await meetWild();
+    // Nobody is steering it: the pack turned over one generation, and the
+    // vroomon out there now is one the ground selected for.
+    expect(second.generation).toContain("wild gen 2");
+    expect(second.wild).not.toBe(first.wild);
+    await page.locator("[data-wild-race-leave]").click();
+    await page.waitForTimeout(600);
+
+    // The pack and its generation count ride along in the save.
+    const generations = await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      return world?.wildGenerations ?? {};
     });
+    expect(generations.ranch_yard).toBeGreaterThanOrEqual(1);
+  });
+
+  test("@smoke a wild vroomon only joins the herd if you beat it", async ({ page }) => {
+    // The wild is deterministic now: every biome founds the same pack, so
+    // these runs are reproducible without touching Math.random.
     await seedAndEnterWorld(page);
     await enterMapAt(page, "ranch_yard", 7, 3);
     await seedHerdDna(page, "vcG5pzmORWqC");
@@ -1317,12 +1355,10 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
   });
 
   test("a wild vroomon that outruns you gets away", async ({ page }) => {
-    await page.addInitScript(() => {
-      Math.random = () => 0.75;
-    });
     await seedAndEnterWorld(page);
     await enterMapAt(page, "ranch_yard", 7, 3);
-    await seedHerdDna(page, "vcG5pzmORWqC");
+    // A car that cannot move: whatever the wild is, it loses.
+    await seedHerdDna(page, "000000000000");
 
     await page.keyboard.press("ArrowLeft");
     await page.waitForTimeout(400);

@@ -252,6 +252,26 @@ describe("world reachability", () => {
     }
   });
 
+  it("carries the wild packs through persistence", () => {
+    const world = {
+      ...createInitialWorldState(),
+      wildPacks: { ranch_yard: ["aaaa", "bbbb"] },
+      wildGenerations: { ranch_yard: 3 },
+    };
+    const saved = serializeWorldState(world);
+    expect(saved.wildPacks).toEqual({ ranch_yard: ["aaaa", "bbbb"] });
+    expect(saved.wildGenerations).toEqual({ ranch_yard: 3 });
+
+    // A save from before the wild existed loads with empty packs (they are
+    // founded the first time that biome's grass is walked).
+    const legacy = { ...EMPTY_PERSISTED_WORLD } as Record<string, unknown>;
+    delete legacy.wildPacks;
+    delete legacy.wildGenerations;
+    const parsed = parsePersistedWorld(JSON.stringify(legacy));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.wildPacks).toBeUndefined();
+  });
+
   it("carries the hunt toggle through persistence, defaulting to on", () => {
     const hunting = { ...createInitialWorldState(), hunting: true };
     expect(serializeWorldState(hunting).hunting).toBe(true);

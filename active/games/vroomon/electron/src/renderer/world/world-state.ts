@@ -18,6 +18,8 @@ export function createInitialWorldState(): WorldState {
     rancherCap: "navy",
     vroomdex: [],
     hunting: true,
+    wildPacks: {},
+    wildGenerations: {},
     flags: {},
     dialogueQueue: [],
     activeNpc: null,
