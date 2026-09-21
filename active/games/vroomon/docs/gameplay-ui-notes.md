@@ -913,6 +913,39 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## A correction: where the ladder actually starts asking (2026-09-15) ✅
+
+Two cycles ago I wrote that "the first trophy is about breeding rather than
+about the gift", on the strength of a measurement showing the loaner's line
+crossing the tier I bar at generation 2. That measurement was of **one slot**,
+not of the herd — and the sentence built on it was wrong in the way that
+matters.
+
+The number that decides whether the bars mean anything is what a *random* herd
+can already do. Over 400 freshly generated cars on Grassland:
+
+```
+median 160   p90 481   max 1145
+2% clear tier I (1000)   0% clear tier II (1220)
+```
+
+So the best of a new herd is already near tier I, and a first-sitting Brand can
+be won by finding that car and putting it in the Record Barn. **Tier I is a
+formality; the ladder starts asking at tier II, which luck never reaches.**
+That is a defensible design — the first Brand teaches the loop, the second
+teaches breeding — but it is not what I claimed, and the difference is now
+pinned by a test that measures the distribution rather than a curve.
+
+Two related corrections in the same pass:
+
+- `tests/early-game.test.ts` now says out loud that it tracks `slot 0` (the
+  planted loaner, and what `advanceRunState` keeps at the front) rather than
+  "the herd's best". Those are different questions and I had been reading one
+  answer as the other — twice, in two different files.
+- A new e2e plays the whole opening arc with nothing seeded: the loaner,
+  generations at the bench, then the Grassland feud won at tier I with no
+  champion waiting in the Record Barn. It ends on the badge, not on a curse.
+
 ## The middle of the circuit, measured (2026-09-15) ✅
 
 Two questions: does the climb (x1.22 a tier: 1000 / 1220 / 1488 / 1816 / 2215)

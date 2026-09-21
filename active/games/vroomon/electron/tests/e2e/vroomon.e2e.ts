@@ -664,6 +664,66 @@ test.describe("vroomon Playwright harness", () => {
   });
 
 
+  test("@smoke the opening arc ends with a Brand on the barn wall", async ({ page }) => {
+    // The whole opening arc in one run: the loaner Robby lends, generations
+    // at the bench, then a Brand won against the tier I bar with nothing
+    // seeded and no champion in the Record Barn to fall back on.
+    await seedRancher(page);
+    await enterWorld(page);
+
+    // Robby's loaner, as the tutorial plants it.
+    await page.locator("[data-open-barn]").click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-barn-pill="herd"]').click();
+    await page.waitForTimeout(300);
+    await page.locator("[data-import-dna]").fill("vcG5pzmORWqC");
+    await page.locator("[data-seed-import-dna]").click();
+    await page.waitForTimeout(400);
+
+    // The world HUD names the herd's leader and its score, which is the only
+    // place the evaluated numbers surface (the saved run holds the NEXT
+    // generation, whose scores are not in yet).
+    const bestScore = async (): Promise<number> => {
+      const text = (await page.locator("[data-viewport-leader-value]").textContent()) ?? "";
+      return Number(text.replace(/[^0-9.]/g, ""));
+    };
+
+    // The circuit chip tells you what you are breeding against.
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("CIRCUIT");
+
+    // The ladder's first rung is meant to be reachable in a first sitting:
+    // the best of a fresh herd already scores near it (measured: random cars
+    // run median 160, p90 481, and the best of 100 reaches ~1100), and two
+    // generations of the loaner's line clears it outright.
+    for (let generation = 1; generation <= 3; generation += 1) {
+      await page.locator("[data-run-generation]").click();
+      await page.waitForTimeout(900);
+      if ((await bestScore()) >= 1000) {
+        break;
+      }
+    }
+    expect(await bestScore()).toBeGreaterThanOrEqual(1000);
+    await page.locator("[data-barn-close]").click();
+    await page.waitForTimeout(300);
+
+    // Now settle the Grassland feud on the strength of that herd.
+    for (const dir of ["down", "down", "left", "left", "left", "left"]) {
+      await page.locator(`[data-dpad="${dir}"]`).click();
+      await page.waitForTimeout(320);
+    }
+    await page.locator('[data-dpad="interact"]').click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-dialogue-option]").nth(2).click();
+    await page.waitForTimeout(400);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(2400);
+    await expect(page.locator("[data-race-title]")).toContainText("FEUD RACE · I");
+    await page.locator("[data-race-close]").click();
+    await page.waitForTimeout(400);
+    await expect(page.locator("[data-status-message]")).toContainText("Rustler Pasture I swept!");
+    await expect(page.locator("[data-overworld-badge-list]")).toContainText("Grassland Brand");
+  });
+
   test("@smoke settles the Grassland feud, then the circuit scales up", async ({
     page,
   }) => {
