@@ -842,6 +842,41 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The early game, measured (2026-09-15) ✅
+
+The first Brand is reachable in a first sitting, and the second one is not —
+which turns out to be the hinge the whole circuit hangs on. Measured from a
+fresh save with Robby's loaner planted as the top seed of a new herd, clear
+sky, Grassland bar 1000:
+
+```
+best per generation   463  1118  1118  1118  1118  1119  1141  1141  1141 …
+crossed tier I at     generation 2
+plateau (12 gens)     1205
+tier II bar           1220
+```
+
+The loaner alone (463) does **not** clear the bar, so the first trophy is
+about breeding rather than about the gift — but two generations gets there
+with room to spare. Then the line flattens at 1205, just under tier II's
+1220: **one good import closes that gap, and nothing in the barn does.**
+That is the moment the game wants a player to go and find genetics that are
+not already theirs — a wild pack above founder stock, Oxide's road stock, or
+a Champion string out of the herd book.
+
+`tests/early-game.test.ts` asserts the whole shape: `best[0] < bar`,
+`crossed` between 2 and 3, and the plateaus stay under tier II while staying
+within 15% of it (a gulf would be a wall, not an invitation).
+
+### What a generation actually costs
+
+Measured in the browser, `Run Gen` at the real bench, timing from click to the
+generation pill changing: **287, 309, 289, 294, 290, 276 — median 290ms.**
+The on-screen race is a playback of the headless evaluation, so the wait is
+three-tenths of a second, not three seconds. Scoring a generation is ~0.11s
+of arithmetic in isolation, and that is guarded separately so ranch upgrades
+that grow the herd can never quietly make the bench the slow part.
+
 ## A car's family, one tap from its parts (2026-09-15) ✅
 
 The pedigree line in the Inspector now ends in a **🌳 Trace line** action:
