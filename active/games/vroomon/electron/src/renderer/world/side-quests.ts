@@ -105,7 +105,7 @@ export const SIDE_QUESTS: SideQuest[] = [
   {
     id: "oxide-samples",
     title: "Samples From The Grass",
-    giver: "Oxide, the road trader",
+    giver: "Oxide",
     mapId: "route_1",
     acceptFlag: "quest-samples-accepted",
     objective: { kind: "catch-wild", count: 4, label: "genomes in the Herd Book" },
@@ -120,7 +120,7 @@ export const SIDE_QUESTS: SideQuest[] = [
   {
     id: "long-road-count",
     title: "Counting The Road",
-    giver: "Oxide, the road trader",
+    giver: "Oxide",
     mapId: "route_1",
     acceptFlag: "quest-count-accepted",
     objective: { kind: "generations", count: 5, label: "generations run" },
@@ -160,7 +160,7 @@ export const SIDE_QUESTS: SideQuest[] = [
     requires: "wranglers-muster",
     acceptFlag: "quest-quarry-accepted",
     objective: { kind: "win-wild-on", mapId: "rocky_map", count: 2, label: "wild beaten in the Quarry" },
-    reward: { wallet: 260, dna: "UoZzJLj1FOFC", thanks: "Rough ground, quick car. Here's a Quarry line to prove it." },
+    reward: { wallet: 260, dna: "A9gpwYaIPmdg", thanks: "Rough ground, quick car. Here's a Quarry line to prove it." },
     offer:
       "Nothing survives the Quarry unless its frame holds. Beat two wild ones in here and I'll cut you in.",
   },

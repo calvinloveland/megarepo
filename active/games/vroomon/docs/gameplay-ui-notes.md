@@ -842,6 +842,35 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Quest contracts: the content is now checked, not trusted (2026-09-15) ✅
+
+Writing jobs is easy; breaking them is easier. `tests/quest-contracts.test.ts`
+reads the **shipped maps and catalogs** rather than a fixture and asserts that
+every job can actually be played:
+
+- **Some dialogue sets every accept flag** — a quest nobody offers is dead
+  content.
+- **Every giver is standing on the map their job names.**
+- **Chains only reference jobs that exist**, and no chain loops.
+- **Every genome a job pays in can actually drive** (a short race on the flat).
+- **Every decor a job pays in exists, and is `earnedOnly`** — a reward the
+  shop also sells is not a reward.
+- Every per-biome objective names a real map, and every errand names ground
+  something actually leads to.
+
+It found four real content bugs the moment it ran:
+
+1. **Fitters' Errand was offered by nobody** — the quest existed, the giver
+   never did. Fitter Ollan now stands in the town square with the offer (and
+   a line explaining the ranch shop).
+2. **A giver name didn't match its NPC** ("Oxide, the road trader" vs
+   "Oxide"), so the job looked unmatchable.
+3. **The Quarry prize was a dud.** `UoZzJLj1FOFC` was a good car when it was
+   chosen, but the decoder has changed twice since and it now manages 128px in
+   a three-second race. It pays `A9gpwYaIPmdg` (1433px) instead.
+4. **The beekeeper's skeps were for sale in the shop**, which defeats paying
+   them as a reward. They are `earnedOnly` now, like the range sign.
+
 ## Jobs that chain, and a reason to ride out (2026-09-15) ✅
 
 Eleven jobs now, and the far biomes finally have work on them:

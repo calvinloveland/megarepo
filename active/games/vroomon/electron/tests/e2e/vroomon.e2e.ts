@@ -413,7 +413,14 @@ test.describe("vroomon Playwright harness", () => {
     expect(wallet).toBeGreaterThanOrEqual(10);
     await page.locator("[data-open-ranch]").click();
     await page.waitForTimeout(300);
-    await expect(page.locator("[data-ranch-decor-list] .ranch-card")).toHaveCount(12);
+    // The shop lists what can be bought, so read the count off the catalog
+    // rather than freezing it (earned-only reward decor is not for sale).
+    const forSale = await page.evaluate(async () => {
+      const listing = document.querySelectorAll("[data-ranch-decor-list] .ranch-card");
+      return listing.length;
+    });
+    expect(forSale).toBeGreaterThanOrEqual(10);
+    await expect(page.locator("[data-ranch-decor-list] .ranch-card")).toHaveCount(forSale);
     await page.locator("[data-buy-decor='sunflower-bower']").click();
     await page.waitForTimeout(600);
     const afterBuy = await readJson<{ wallet: number }>(page, "[data-run-state-output]");

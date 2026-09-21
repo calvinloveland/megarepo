@@ -49,6 +49,7 @@ export const DECOR_ITEMS: DecorItem[] = [
   },
   {
     id: "bee-skeps",
+    earnedOnly: true,
     name: "Bee Skeps",
     emoji: "🐝",
     cost: 20,
