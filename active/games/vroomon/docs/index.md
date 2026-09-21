@@ -20,47 +20,59 @@ being rewritten as a standalone Electron + TypeScript app inside this project.
 
 ## Current status
 
-The rewrite covers the parity contract capabilities declared in
-`electron/src/shared/parity-contract.ts`:
+Vroomon is an **evolution simulator** first: you are a rancher and breeder
+tuning a system, and individual selection (cull or release) stays an optional
+power tool. The rewrite covers the parity contract's capabilities — DNA v2
+decoding, population evaluation, six terrain presets, lineage tracking,
+persistence — and has grown well past it:
 
-- DNA v2 decoding (base62, locality-preserving)
-- Multi-car racing with concurrent population evaluation
-- Six terrain presets (Grassland, Flat, Sand, Hills, Rocky, Ice) with visual
-  texture overlays
-- Lineage tracking (parent IDs, mutation flags, genealogy)
-- Persistence (run state, generation log, Hall of Fame) — cross-reload via
-  localStorage in the web build, disk in the desktop build
-- Lineage/faction worldbuilding: two rival households per biome with
-  persisted choices
-- The Python prototype remains available for behavioral reference (suite
-  restored to green)
+- **A world, not a menu.** Starter Town, two roads, three arenas, the Highland
+  Mesa, the Canyon Quarry, the Drift Perimeter, the Long Haul waystation, the
+  Marrow Orchard, and the ranch itself (a house and a yard). Twelve trading
+  houses across six biomes, each with its own rivals and its own story.
+- **The circuit.** Five Brands (Grassland → Salt Road → Highland → Canyon →
+  Perimeter), each defended at its own arena against a bar that climbs ×1.22 a
+  tier, then the **Grand Roundup**. From tier II the ground also demands a
+  *shape* — driven wheels, properly built — not just a time.
+- **Wild populations that evolve on their own.** Every biome keeps a pack of
+  24 that breeds, mutates and takes immigrants between your visits, scored on
+  that biome's ground. Encounters send the median animal, so the ground gets
+  harder as the years pass.
+- **A breeding bench worth reading.** The Inspector shows every plate, wheel,
+  engine, shaft and gear in the chain, runs the real 3-second race on five
+  surfaces with playback, traces a car's line in the Heritage tree, and reads
+  its pedigree — parents, siblings, descendants.
+- **Work to do.** Eight-plus side quests with derived objectives and paid
+  rewards, a trade counter, a herd book with provenance, a ledger of titles to
+  defend, per-biome records, and a ranch to furnish.
+- **Weather, daylight and routines.** People move through their day, keepers
+  work nights, rain defends a Brand, and the clock is yours to pin.
+
+`docs/gameplay-ui-notes.md` is the running log of what was built and what it
+cost — including the bugs each addition caught. The Python prototype in
+`src/vroomon/` remains the behavioural reference.
 
 ## Modes
 
-The app shell ships with four modes:
+The world is the hub. The top bar no longer carries mode tabs — you walk, and
+the **Barn button** (or a carrier bench in the yard) opens the Pocket Ranch,
+whose scenes follow the work:
 
-- **Menu** — overview, parity contract summary, and the persistent
-  Hall of Fame. Click any saved vehicle to load its DNA into test-drive.
-- **Overworld** — a 2D tile-based world spanning all six biomes
-  (Starter Town → Route 1 → Rustler Pasture, Route 2 → Salt Road Post,
-  then Highland Mesa → Canyon Quarry → Drift Perimeter) where you walk
-  your rancher, talk to the locals, encounter loose vroomon DNA in the
-  Vroomgrass, and join one of the rival households of each biome — each
-  biome is its own mini-story with a faction choice (Grasslands: Meadow
-  Elder's Greensprouts vs Roundup King's Reds; Sand: Trail Boss of the
-  Salt Road vs Wreck Marshal; Highlands: Guru of the Updrafts vs Guru of
-  the Stone Path; Canyon: Lay Foreman vs Ringleader; Perimeter: Keeper
-  of the Long Light vs Frost Baron). Arrow keys (or the on-screen D-pad)
-  move, Z / Enter interacts. State persists between sessions (faction
-  choices, position, Herd Book), locally in the browser for the web
-  build and on disk for the desktop build.
-- **Evolution** — generate a population, run generations, watch the
-  viewport race them, and (optionally) save top cars to the Hall of Fame.
-  Supports batch generation, "Stop on plateau" auto-convergence, and a
-  running score history chart.
-- **Test Drive** — preview a single car. Type a DNA string, randomize,
-  load a Hall of Fame entry, or watch the 11,000-step flat-track
-  regression replay for the canonical simple car.
+- **The road** — a tile-based overworld where you walk your rancher, talk to
+  the locals, stand at tall grass to meet wild vroomon, and settle each
+  biome's feud. Arrow keys or the on-screen pad move; Z / Enter interacts;
+  H toggles whether the grass is dangerous.
+- **Herd** — the breeding bench: generate a population, run generations, watch
+  the viewport, inspect a car, save a champion to the Record Barn, and batch or
+  auto-run to a plateau.
+- **Test Drive** — drive one car on a road and record the lap.
+- **Barn, Heritage, Trade, Dex** — the Record Barn (champions, ledger, records),
+  the Heritage tree (family lines traced from the founders), Oxide's counter,
+  and the Herd Book.
+
+State persists between sessions — position, factions, brands, the herd book,
+wild packs and the world clock — locally in the browser for the web build and
+on disk for the desktop build.
 
 ## Batch generation
 
@@ -70,13 +82,14 @@ the last three best-score entries to auto-stop evolution when scores
 plateau. Batch work runs in a module worker (`evolution.worker.ts`) so
 the viewport stays responsive.
 
-## Hall of Fame
+## The Record Barn
 
-The Hall of Fame is a persistent, per-user vehicle library. Save the
-currently-selected evolution car from the evolution panel (`Save to
-Hall of Fame`); browse and load saved vehicles from the menu and
-test-drive panels. The library is capped at 50 entries and stored in
-`userData/vroomon/hall-of-fame.json`.
+The Record Barn is the persistent, per-user car library, and it is what the
+circuit actually races: a feud is settled by your best *recorded* champion on
+that ground, so "find your best, record it, defend the ground with it" is the
+loop. Save the selected car from the herd panel; browse and load entries from
+the barn and test-drive panels. The library is capped at 50 entries and stored
+in `userData/vroomon/hall-of-fame.json`.
 
 ## Electron development
 
@@ -93,8 +106,12 @@ when no display is available.
 From `active/games/vroomon/electron/`:
 
 - `npm install`
-- `npm test` — Vitest unit tests (50+ tests)
-- `npm run test:e2e` — Playwright e2e tests
+- `npm test` — Vitest unit tests (376 at the time of writing)
+- `npm run test:e2e` — Playwright e2e tests (53), run through
+  `node scripts/run-playwright.mjs`; set
+  `VROOMON_BROWSER_EXECUTABLE=/run/current-system/sw/bin/google-chrome-stable`
+  on NixOS, where Playwright must not fetch its own Chromium. `test:e2e:smoke`
+  runs the `@smoke` subset, and `tests/e2e/vroomon.e2e.ts` documents the rest
 - `npm run test:smoke` — boots Electron headless and reports the
   `VROOMON_SMOKE_SUCCESS` payload
 - `npm run build` — `tsc` + static copy
@@ -113,8 +130,10 @@ From `active/games/vroomon/electron/`:
 | `↑ ↓ ← →` / `WASD` | Walk the rider (overworld mode) |
 | `Z` / `Enter` / `Space` | Interact / advance dialogue (overworld mode) |
 | `1` / `m` | Switch to menu mode |
-| `2` / `o` | Switch to overworld mode |
-| `3` / `e` | Switch to evolution mode |
+| `2` / `o` | Switch to overworld mode (the hub) |
+| `3` / `e` | Switch to the herd bench |
 | `4` / `t` | Switch to test-drive mode |
+| `h` | Toggle whether the tall grass is dangerous (overworld mode) |
+| `Esc` | Close the Pocket Ranch, the Inspector or an open panel |
 | `s` | Save run state |
 | `l` | Load run state |

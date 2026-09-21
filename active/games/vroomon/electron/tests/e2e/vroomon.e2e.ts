@@ -703,17 +703,7 @@ test.describe("vroomon Playwright harness", () => {
     // 8 was flaky precisely because it sat inside the herd's noise band.
     let generations = 0;
     for (let attempt = 1; attempt <= 25; attempt += 1) {
-      // Wait for the generation pill to actually move rather than guessing at
-      // a sleep: four workers share this machine, and a fixed wait that is
-      // generous alone is marginal in parallel.
-      const before = (await page.locator("[data-viewport-gen-value]").textContent()) ?? "";
-      await page.locator("[data-run-generation]").click();
-      await page.waitForFunction(
-        (previous) =>
-          (document.querySelector("[data-viewport-gen-value]")?.textContent ?? "") !== previous,
-        before,
-        { timeout: 30000 },
-      );
+      await runOneGeneration(page);
       generations = attempt;
       if ((await bestScore()) >= 1000) {
         break;
@@ -2631,6 +2621,34 @@ async function enterMapAt(
 }
 
 /** Put one known genome in the herd so there is a car to race with. */
+/**
+ * Press Run Gen and wait for the generation to actually land.
+ *
+ * The herd panel repaints as a generation finishes, which replaces the button
+ * node — so a click dispatched at the wrong moment goes to a detached element
+ * and is simply lost. Retry until the pill moves, rather than assuming one
+ * click is enough.
+ */
+async function runOneGeneration(page: import("@playwright/test").Page): Promise<void> {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const before = (await page.locator("[data-viewport-gen-value]").textContent()) ?? "";
+    await page.locator("[data-run-generation]").click({ force: true });
+    const advanced = await page
+      .waitForFunction(
+        (previous) =>
+          (document.querySelector("[data-viewport-gen-value]")?.textContent ?? "") !== previous,
+        before,
+        { timeout: 4000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    if (advanced) {
+      return;
+    }
+  }
+  throw new Error("Run Gen never advanced the generation");
+}
+
 async function seedHerdDna(page: import("@playwright/test").Page, dna: string): Promise<void> {
   await openPocketRanch(page, "herd");
   await page.locator("[data-import-dna]").fill(dna);
