@@ -1511,6 +1511,41 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Starter Town");
   });
 
+  test("@smoke the ledger names what a swept circuit now asks for", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    // Two laps on the board, and the Grassland already swept twice.
+    await page.evaluate(async () => {
+      await window.vroomon.saveRecords({
+        version: 1,
+        entries: [
+          { terrainName: "Grassland", dna: "Lhn4yi8zKRd2", score: 1400, savedAt: new Date().toISOString() },
+          { terrainName: "Sand", dna: "RuAp2owjBaqK", score: 400, savedAt: new Date().toISOString() },
+        ],
+      });
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({ ...world, feudTiers: { "Grassland Brand": 3 } });
+    });
+    await page.reload();
+    await page.locator('[data-menu-action="continue"]').waitFor({ state: "visible", timeout: 20000 });
+    await page.locator('[data-menu-action="continue"]').click();
+    await page.waitForTimeout(700);
+    await page.locator("[data-open-barn]").click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-barn-pill="barn"]').click();
+    await page.waitForTimeout(700);
+
+    const ledger = page.locator("[data-ledger-list] .ledger-row");
+    await expect(ledger).not.toHaveCount(0);
+    // The swept circuit reads as tier III, with the car that set the best and
+    // how far short it now falls.
+    await expect(page.locator("[data-ledger-list]")).toContainText("Grassland III");
+    await expect(page.locator("[data-ledger-list]")).toContainText("Lhn4yi8zKRd2");
+    await expect(page.locator("[data-ledger-list]")).toContainText("short by");
+    // And the board sums up the work: defend, and ground never run.
+    await expect(page.locator("[data-ledger-list]")).toContainText("DEFEND");
+    await expect(page.locator("[data-ledger-list]")).toContainText("no run yet");
+  });
+
   test("@smoke the road landmarks have offices, and the shed works nights", async ({
     page,
   }) => {

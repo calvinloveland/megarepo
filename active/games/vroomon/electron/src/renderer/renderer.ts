@@ -66,6 +66,7 @@ import {
 } from "./world/specimens.js";
 import { questFor } from "./world/quest.js";
 import { standingFor } from "./world/routines.js";
+import { buildLedger, titlesToDefend, untriedGrounds } from "./ledger.js";
 import { DAY_LENGTH_MS, isNight } from "./world/ambience-layer.js";
 import type { Track } from "./world/ambience-layer.js";
 import {
@@ -804,7 +805,72 @@ void window.vroomon.loadRecords().then((board) => {
   renderRecordsBoard();
 });
 
+/**
+ * The ledger: every circuit's bar against the best this herd has run there,
+ * with the car that set it. The rows that matter are the ones you would be
+ * turned away from — a swept circuit's higher bar against an old champion.
+ */
+function renderLedger(): void {
+  const list = document.querySelector<HTMLElement>("[data-ledger-list]");
+  if (!list) {
+    return;
+  }
+  const rows = buildLedger({
+    records: recordsBoard.entries,
+    feudTiers: rendererState.world.feudTiers ?? {},
+    hallScores: rendererState.hallOfFame.entries.map((entry) => ({
+      terrainName: entry.terrainName,
+      score: entry.score,
+    })),
+  });
+
+  const count = document.querySelector<HTMLElement>("[data-ledger-count]");
+  if (count) {
+    count.textContent = String(rows.length);
+  }
+
+  const defend = titlesToDefend(rows).length;
+  const untried = untriedGrounds(rows).length;
+
+  list.innerHTML =
+    rows
+      .map((row) => {
+        const verdict =
+          row.status === "untried"
+            ? `no run yet — bar ${formatNumber(row.bar)}`
+            : row.status === "clears"
+              ? `clears ${formatNumber(row.bar)} by ${formatNumber(row.margin)}`
+              : `short by ${formatNumber(-row.margin)} · bar ${formatNumber(row.bar)}`;
+        const detail =
+          row.best > 0
+            ? `you: ${formatNumber(row.best)}${row.dna ? ` (${escapeHtml(row.dna)})` : ""}`
+            : "you: —";
+        return (
+          `<div class="ledger-row ledger-row--${row.status}">` +
+          `<span class="ledger-row__terrain">${escapeHtml(row.terrain)} ${tierLabel(row.tier)}</span>` +
+          `<span class="ledger-row__detail">${detail}</span>` +
+          `<span class="ledger-row__verdict">${verdict}</span>` +
+          `</div>`
+        );
+      })
+      .join("") +
+    (defend > 0
+      ? `<div class="ledger-row ledger-row--short"><span class="ledger-row__terrain">DEFEND</span>` +
+        `<span class="ledger-row__detail">${defend} circuit${defend === 1 ? "" : "s"} would turn your best away</span>` +
+        `<span class="ledger-row__verdict">breed faster</span></div>`
+      : "") +
+    (untried > 0
+      ? `<div class="ledger-row ledger-row--untried"><span class="ledger-row__terrain">UNRUN</span>` +
+        `<span class="ledger-row__detail">${untried} circuit${untried === 1 ? "" : "s"} never raced</span>` +
+        `<span class="ledger-row__verdict">—</span></div>`
+      : "");
+}
+
 function renderRecordsBoard(): void {
+  // The ledger is the other half of the board: bars against bests. Rendering
+  // it here means every path that paints the board refreshes it too.
+  renderLedger();
+
   const entries = recordsBoard.entries;
   const terrainCount = new Set(entries.map((entry) => entry.terrainName)).size;
   for (const count of Array.from(

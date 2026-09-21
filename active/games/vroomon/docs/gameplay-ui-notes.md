@@ -842,6 +842,32 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The ledger: bars against bests (2026-09-15) ✅
+
+The Record Barn held per-terrain bests and the circuit held a rising bar per
+biome, but nothing put them side by side — so a rancher could not tell whether
+their champion still cleared the ground they were about to race. The Barn now
+opens on a **LEDGER**:
+
+```
+Grassland III   you: 1400 (Lhn4yi8zKRd2)   short by 88 · bar 1488
+Sand I          you:  400 (RuAp2owjBaqK)   short by 900 · bar 1300
+Hills I         you: —                     no run yet — bar 1150
+DEFEND          2 circuits would turn your best away        breed faster
+UNRUN           3 circuits never raced
+```
+
+Every row states the tier you would face, the score that asks for, your best
+and the car that set it — and the margin, green when you clear it and red when
+you do not. `src/renderer/ledger.ts` is pure and unit-tested, and it reads
+both sources honestly: a lap board entry *and* an enshrined champion count as
+cars you could still send.
+
+**Found while building it:** the ledger first rendered with a default world
+and never refreshed, because it was wired to the *boot* path rather than the
+Barn's own paint. It now renders from inside the records board, so every path
+that paints the barn refreshes both halves together.
+
 ## The watchman was right about the dark (2026-09-15) ✅
 
 Two NPCs claim the wild runs better after dark — Pell (*"the wild's quicker at
