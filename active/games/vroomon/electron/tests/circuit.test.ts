@@ -31,13 +31,13 @@ describe("the feud circuit", () => {
     const first = feudBar("Grassland", 1);
     const second = feudBar("Grassland", 2);
     const third = feudBar("Grassland", 3);
-    expect(first).toBe(600);
-    expect(second).toBe(Math.round(600 * TIER_GROWTH));
+    expect(first).toBe(1000);
+    expect(second).toBe(Math.round(1000 * TIER_GROWTH));
     expect(third).toBeGreaterThan(second);
     // After five sweeps the bar has clearly outgrown a starter herd — but it
     // still has to be a bar a real herd can clear, which is what keeps the
     // circuit winnable (see tests/pacing.test.ts).
-    expect(feudBar("Grassland", 5)).toBeGreaterThan(1200);
+    expect(feudBar("Grassland", 5)).toBeGreaterThan(1900);
   });
 
   it("gives rougher ground a higher bar", () => {

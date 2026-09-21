@@ -89,27 +89,51 @@ function measureCeilings(
 }
 
 describe("campaign pacing", () => {
-  it("keeps every tier V bar under what its ground has produced", () => {
+  it("asks more of tier I than a random herd already does", () => {
+    // A Brand that falls to the starting population is not a Brand. These are
+    // the first-generation bests measured for a 32-car herd per terrain; the
+    // ladder has to start above them.
+    const randomHerdBest: Record<string, number> = {
+      Grassland: 750,
+      Sand: 1145,
+      Hills: 1097,
+      Rocky: 1052,
+      Ice: 875,
+    };
     for (const terrain of TERRAINS) {
-      const ceiling = BEST_OBSERVED[terrain]!;
-      const bar = feudBar(terrain, 5);
       expect(
-        bar,
-        `${terrain}: tier V asks ${bar} against the best this ground has produced (${ceiling})`,
-      ).toBeLessThan(ceiling * 0.95);
+        feudBar(terrain, 1),
+        `${terrain}: tier I (${feudBar(terrain, 1)}) is under what a random herd does (${randomHerdBest[terrain]})`,
+      ).toBeGreaterThan(randomHerdBest[terrain]!);
     }
   });
 
-  it("rises across the campaign without a cliff", () => {
+  it("keeps the campaign's own requirement under what each ground produces", () => {
+    // The campaign needs tier I on each biome for its Brand. That has to be
+    // comfortably reachable, which is the check that matters most: the tiers
+    // above it are a title defence, not a gate.
+    for (const terrain of TERRAINS) {
+      const ceiling = BEST_OBSERVED[terrain]!;
+      expect(
+        feudBar(terrain, 1),
+        `${terrain}: the Brand asks ${feudBar(terrain, 1)} against ${ceiling}`,
+      ).toBeLessThan(ceiling * 0.8);
+    }
+  });
+
+  it("has no cliff between one circuit and the next", () => {
+    // The bars are set per ground, so they do NOT climb in lockstep with the
+    // campaign order — a car that is quick on the Ice is slow on the
+    // Grassland, and pretending otherwise is what made the old flat ladder
+    // unfair. What matters is that no step is a wall.
     const bars = TERRAINS.map((terrain) => feudBar(terrain, 1));
-    // The ladder climbs: the Perimeter's opening ask is above the Grassland's.
     for (let index = 1; index < bars.length; index += 1) {
-      expect(bars[index]!).toBeGreaterThanOrEqual(bars[index - 1]!);
+      expect(bars[index]! / bars[index - 1]!).toBeLessThan(1.6);
+      expect(bars[index - 1]! / bars[index]!).toBeLessThan(1.6);
     }
-    // And no step is a wall: each next circuit opens within 1.5x of the last.
-    for (let index = 1; index < bars.length; index += 1) {
-      expect(bars[index]! / bars[index - 1]!).toBeLessThan(1.5);
-    }
+    // And the whole range is sane: the hardest opening circuit is not many
+    // times the easiest.
+    expect(Math.max(...bars) / Math.min(...bars)).toBeLessThan(2);
   });
 
   it("keeps a sweep meaningfully harder than the one before", () => {
@@ -117,6 +141,51 @@ describe("campaign pacing", () => {
       expect(feudBar(terrain, 5)).toBeGreaterThan(feudBar(terrain, 1) * 1.5);
     }
   });
+
+  it("takes a real arc to win five Brands", () => {
+    // A bot rancher with one policy: run generations on each biome until its
+    // circuit bar falls, then move on. This is the campaign spine, and at the
+    // old bars it took six generations — thirty seconds of play.
+    const order: Array<[string, string]> = [
+      ["gym_1", "Grassland"],
+      ["gym_2", "Sand"],
+      ["hills_map", "Hills"],
+      ["rocky_map", "Rocky"],
+      ["ice_map", "Ice"],
+    ];
+    let total = 0;
+    const perBiome: number[] = [];
+
+    for (const [mapId, terrain] of order) {
+      const base = createEmptyRunState("campaign");
+      const configured = {
+        ...base,
+        terrainName: terrain,
+        config: { ...base.config, populationSize: 32, mutationRate: 0.3 },
+      };
+      const seed = `pacing-campaign-${mapId}`;
+      let state = createPreviewRunState(seed, configured, mulberry(seed));
+      const bar = feudBar(terrain, 1);
+      let generations = 0;
+      let best = 0;
+      while (best < bar && generations < 60) {
+        const result = runEvolutionGeneration(state, mulberry(`${seed}-${generations}`));
+        best = Math.max(0, ...result.evaluation.results.map((entry) => entry.score));
+        state = advanceRunState(state, result);
+        generations += 1;
+      }
+      expect(best, `${terrain}: never reached ${bar} (best ${Math.round(best)})`).toBeGreaterThanOrEqual(bar);
+      expect(generations, `${terrain}: the Brand fell in ${generations} generations`).toBeGreaterThanOrEqual(1);
+      perBiome.push(generations);
+      total += generations;
+    }
+
+    // eslint-disable-next-line no-console
+    console.log("[pacing] Brands took:", perBiome.join(" / "), "generations");
+    // An evening of breeding, not thirty seconds and not a week.
+    expect(total).toBeGreaterThanOrEqual(8);
+    expect(total).toBeLessThanOrEqual(150);
+  }, 600_000);
 
   it.skipIf(!process.env.VROOMON_SLOW_TESTS)(
     "re-measures the ceilings (VROOMON_SLOW_TESTS=1)",

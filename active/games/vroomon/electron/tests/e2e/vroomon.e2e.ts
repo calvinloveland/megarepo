@@ -679,7 +679,8 @@ test.describe("vroomon Playwright harness", () => {
             runId: "r",
             dna: "3F3AIOPcZFN",
             name: "Feud Champ",
-            score: 900,
+            // Above the tier I bar (1000) so the feud is won.
+            score: 1400,
             terrainName: "Grassland",
             generation: 9,
             savedAt: new Date().toISOString(),
@@ -693,7 +694,7 @@ test.describe("vroomon Playwright harness", () => {
     await enterWorld(page);
     await openPocketRanch(page, "herd");
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("CIRCUIT");
-    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("600");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("1000");
     await closePocketRanch(page);
 
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
@@ -756,11 +757,11 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(400);
     await page.keyboard.press("z");
     await expect(page.locator("[data-race-overlay]")).toBeVisible();
-    // 700 against a 732 bar (600 x 1.22): short, and no Brand for it.
+    // 700 against a 1220 bar (1000 x 1.22): short, and no Brand for it.
     await expect(page.locator("[data-race-title]")).toContainText("II");
     await page.locator("[data-race-close]").click();
     await page.waitForTimeout(400);
-    await expect(page.locator("[data-status-message]")).toContainText("Short by 32");
+    await expect(page.locator("[data-status-message]")).toContainText("Short by 520");
     await expect(page.locator("[data-overworld-badge-list]")).toContainText("No brands");
   });
 

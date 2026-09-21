@@ -14,21 +14,27 @@ export const VENUE_TERRAIN: Record<string, string> = {
 /**
  * Terrain -> the score a champion must beat at tier 1.
  *
- * This ladder rises with the campaign (the Grassland opens the circuit, the
- * Perimeter closes it). What it must NOT do is outrun the ground it sits on:
- * measured over 120 generations of 60 cars, the ceilings are roughly 2,170
- * (Grassland), 3,140 (Sand), 3,200 (Hills), 2,070 (Rocky) and 3,530 (Ice),
- * and every tier V bar below sits under its own terrain's ceiling. At the
- * old growth of 1.28 the Quarry's did not (2,094 against 2,068) — see
- * tests/pacing.test.ts, which enforces the relationship.
+ * Each base sits above what a RANDOM 32-car herd already manages on that
+ * ground (measured: 750 / 1,145 / 1,097 / 1,052 / 875 on Grassland / Sand /
+ * Hills / Rocky / Ice) — because a Brand that falls to the starting
+ * population is not a Brand, and a bot clearing all five took six generations
+ * at the old bars — and below what a herd reaches even on a poor seed
+ * (measured low water marks: 1,271 / 1,673 / 1,519 / 2,068 / 3,239). Between
+ * those two bounds the opening circuit is a real ask that is never a wall.
+ *
+ * The bar is set per terrain because the ground decides what a herd can do:
+ * the same car is quick on the Ice and slow on the Grassland. Later tiers are
+ * a title defence rather than the campaign's requirement — you need tier I on
+ * each biome for its Brand, and the ladder beyond that is for the record
+ * books. See tests/pacing.test.ts, which measures the shape.
  */
 const TIER_BASE: Record<string, number> = {
-  Flat: 540,
-  Grassland: 600,
-  Sand: 660,
-  Hills: 720,
-  Rocky: 780,
-  Ice: 840,
+  Flat: 1000,
+  Grassland: 1000,
+  Sand: 1300,
+  Hills: 1150,
+  Rocky: 1470,
+  Ice: 1225,
 };
 
 /** How much harder each sweep makes the same ground. */

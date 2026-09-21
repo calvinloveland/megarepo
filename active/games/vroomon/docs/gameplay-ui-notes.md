@@ -842,6 +842,36 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The campaign spine was six generations long (2026-09-15) ✅
+
+A bot rancher with one policy — run generations on a biome until its circuit
+bar falls, then move to the next — cleared **all five Brands in six
+generations**, about thirty seconds of play. The whole spine of the game was a
+formality, because the tier I bars (600–840) sat *below* what a random 32-car
+herd already scores on those grounds (750 / 1,145 / 1,097 / 1,052 / 875).
+
+The bars are now set between two measured bounds:
+
+- **above** what a random herd manages on that ground, so a Brand falls to
+  breeding rather than to the starting population, and
+- **below** what a herd reaches even on a *poor* seed (measured low-water
+  marks of 1,271 / 1,673 / 1,519 / 2,068 / 3,239), so the opening circuit is
+  a real ask and never a wall.
+
+The bot now takes **94 generations** for the five Brands (9 / 20 / 25 / 38 /
+2), which is an evening of breeding. `tests/pacing.test.ts` keeps both bounds:
+the bars must beat a random herd and stay under what the ground produces, and
+a bot campaign must take more than a handful of generations and less than a
+week.
+
+### What this means for the ladder
+
+Tier I is the campaign's requirement — one Brand per biome — so it is
+calibrated to be reachable on any seed. The tiers above it are a **title
+defence**: the bar rises 1.22× per sweep, the record books keep the scores,
+and a wall there is a challenge rather than a dead end. The guard says so
+explicitly rather than pretending every tier is a promise.
+
 ## Three invariants that reached across systems (2026-09-15) ✅
 
 The bugs worth hunting now live *between* features, so these three look for
