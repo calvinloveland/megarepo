@@ -913,6 +913,35 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## A sweep for scenery, and the pupil who teaches (2026-09-15) ✅
+
+The intended job was to round out the Salt Road's Long Haul, which a stale
+reading said had no interior — it has had Ada's Cookhouse and Raff's Workshop
+for a while. So instead of building, I swept every map for **people who might
+as well be furniture**: on-map NPCs with no menu, no job and no joint.
+
+Most interiors have one or two interactive people and some flavour, which is
+right. Two stood out. `town_schoolhouse` reported two people and *nothing*
+interactive, and `Pup Tam` — a student at (2,4) with a single line about the
+bench — turned out to be the only genuine scenery on the map.
+
+She is the best possible person to give the lesson to. A pupil learning out
+loud is NPC-led teaching from the other side of the desk:
+
+- **"What makes a car fast, then?"** — *"Two paths, Axle says. Plates and
+  wheels make the body… Cylinders and shafts and gears make the power, and
+  power only counts if it reaches a wheel."*
+- **"Why does the order matter?"** — *"Because the chain runs one way! An
+  engine behind a wheel can't turn it — that's the mistake everybody makes."*
+  That is the sim's actual rule, taught by a child who had to draw it forty
+  times.
+- **"Seen anything worth seeing?"** — a child's errand: walk the Highland Mesa
+  and come back and tell her what you can see, paid out of her sweeping money.
+  The cheapest way to point a new player at the Highlands is somebody who has
+  never left town asking what is up there.
+
+The schoolhouse e2e walks all three, and the errand lands on the quest card.
+
 ## Where you hunt matters, on a screen (2026-09-15) ✅
 
 The encounter panel says which ground an animal came from. That knowledge died

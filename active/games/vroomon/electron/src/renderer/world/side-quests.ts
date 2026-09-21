@@ -187,6 +187,24 @@ export const SIDE_QUESTS: SideQuest[] = [
       "The vents eat light cars whole. Bring me a champion that runs twenty-six hundred on my Mesa and I will show you how the fast ones are laid out.",
   },
   {
+    // A schoolchild with an errand: the cheapest way to point a new player at
+    // the Highlands is to have somebody who has never left town ask what is
+    // up there.
+    id: "tam-errand",
+    title: "What You Can See From Up There",
+    giver: "Pup Tam",
+    mapId: "town_schoolhouse",
+    acceptFlag: "quest-tam-errand-accepted",
+    objective: { kind: "visit", mapId: "hills_map", label: "walk the Highland Mesa" },
+    reward: {
+      wallet: 80,
+      feed: 1,
+      thanks: "You went! Was it cold? Was the whole valley under you? I'm going to draw it on the wall.",
+    },
+    offer:
+      "I've never been past the town gate. Climb the Highland Mesa and come back and tell me what you can see — I'll pay you out of my sweeping money.",
+  },
+  {
     id: "cold-storage",
     title: "Cold Storage",
     giver: "Depot Keeper Sable",

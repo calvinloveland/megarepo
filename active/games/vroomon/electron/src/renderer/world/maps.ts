@@ -520,6 +520,45 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "villager",
         dialogue: {
           text: "Axle lets me sit in on the lessons if I sweep up. I know the important one already: the bench doesn't care how fast your car is, only how fast the next one is.",
+          options: [
+            { label: "What makes a car fast, then?", next: "tam-fast" },
+            { label: "Why does the order matter?", next: "tam-order" },
+            { label: "Seen anything worth seeing?", next: "tam-errand" },
+          ],
+        },
+      },
+      {
+        id: "tam-fast",
+        name: "Pup Tam",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Two paths, Axle says. Plates and wheels make the body — how much it weighs, how much tilt it drags around. Cylinders and shafts and gears make the power, and power only counts if it reaches a wheel. A fast car is a short heavy thing that pushes where it stands.",
+        },
+      },
+      {
+        id: "tam-order",
+        name: "Pup Tam",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Because the chain runs one way! An engine behind a wheel can't turn it — that's the mistake everybody makes. Put the cylinder first, then the wheels it has to reach. Axle made me draw it forty times.",
+        },
+      },
+      {
+        id: "tam-errand",
+        name: "Pup Tam",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "I've never been past the town gate. If you climb the Highland Mesa, come back and tell me what you can see from up there — I'll pay you out of my sweeping money.",
+          setFlag: "quest-tam-errand-accepted",
         },
       },
     ],

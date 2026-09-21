@@ -1723,6 +1723,26 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await page.waitForTimeout(400);
 
     // The store has a keeper with a job about walking the new landmarks.
+    // The Schoolhouse's pupil teaches the sim's own rule from the other side
+    // of the desk, and sets a child's errand that points at the Highlands.
+    await enterMapAt(page, "town_schoolhouse", 3, 4, "left");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Pup Tam");
+    await expect(page.locator("[data-dialogue-option]")).toHaveCount(3);
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("the chain runs one way");
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(400);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(500);
+    await page.locator("[data-dialogue-option]").nth(2).click();
+    await page.waitForTimeout(500);
+    await page.keyboard.press("z");
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("What You Can See From Up There");
+
     await enterMapAt(page, "town_store", 5, 4, "up");
     await page.keyboard.press("z");
     await page.waitForTimeout(700);
