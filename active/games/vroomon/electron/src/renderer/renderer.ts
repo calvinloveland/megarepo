@@ -5824,6 +5824,7 @@ function completeDialogueTyping(): boolean {
     overworldDialogueText.textContent = typingDialogue.text;
     typingDialogue = null;
   }
+  overworldDialogueText.dataset.typing = "false";
   return hadOptions;
 }
 
@@ -5852,6 +5853,7 @@ function renderOverworldUi(): void {
       typingDialogue = currentDialogue;
       typingLineText = currentDialogue.text;
       dialogueTyping = true;
+      overworldDialogueText.dataset.typing = "true";
       revealedChars = 0;
       overworldDialogueText.textContent = "";
       // Options render right away so interaction never waits on the
@@ -5862,6 +5864,7 @@ function renderOverworldUi(): void {
         if (!typingDialogue || revealedChars >= typingDialogue.text.length) {
           dialogueTyping = false;
           typingDialogue = null;
+          overworldDialogueText.dataset.typing = "false";
           return;
         }
         revealedChars = Math.min(

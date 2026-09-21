@@ -372,8 +372,7 @@ test.describe("vroomon Playwright harness", () => {
     await expectModeState(page, "world");
     // Elder is at (2,9) facing right; stand at (3,9) facing left.
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
-      await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(320);
+      await stepTo(page, dir as "up" | "down" | "left" | "right");
     }
     await page.locator('[data-dpad="interact"]').click();
     await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Meadow Elder");
@@ -589,20 +588,24 @@ test.describe("vroomon Playwright harness", () => {
     await page.waitForTimeout(600);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("nothing so tall on Speid");
     // Click through the reveal and yard-lesson beats (one sentence each).
-    for (let i = 0; i < 7; i += 1) {
-      await page.locator("[data-overworld-dialogue-text]").click();
-      await page.waitForTimeout(300);
-    }
+    await advanceDialogue(page, 7);
 
     // The other option answers with its own line, not the same one again.
+    // The story flags are cleared first: this checks a first conversation, and
+    // the run above has already been through the reveal.
     await page.evaluate(async () => {
       const world = await window.vroomon.loadWorldState();
+      const flags = { ...(world?.flags ?? {}) };
+      for (const key of ["tut-revealed", "tut-caught", "tut-done"]) {
+        delete flags[key];
+      }
       await window.vroomon.saveWorldState({
         ...world,
         currentMapId: "home_ranch",
         playerX: 6,
         playerY: 3,
         playerFacing: "right",
+        flags,
       });
     });
     await page.reload();
@@ -614,13 +617,7 @@ test.describe("vroomon Playwright harness", () => {
     await clickDialogueOption(page, /how do I start/i);
     await page.waitForTimeout(500);
     await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Straight to it");
-    for (let i = 0; i < 8; i += 1) {
-      if (!(await page.locator("[data-overworld-dialogue-text]").isVisible())) {
-        break;
-      }
-      await page.locator("[data-overworld-dialogue-text]").click();
-      await page.waitForTimeout(280);
-    }
+    await advanceDialogue(page, 8);
 
     // The catch lesson: tall grass -> wild vroomon -> RACE it for the herd.
     await page.evaluate(async () => {
@@ -655,10 +652,7 @@ test.describe("vroomon Playwright harness", () => {
     // The praise plays out one sentence per box (including the new
     // breeding-and-release lesson); the Barn button pulses until the
     // final farewell.
-    for (let i = 0; i < 5; i += 1) {
-      await page.locator("[data-overworld-dialogue-text]").click();
-      await page.waitForTimeout(300);
-    }
+    await advanceDialogue(page, 5);
     const doneQuest = await page.locator("[data-stats-quest-line]").textContent();
     expect(doneQuest).toContain("garden gate");
     // The Herd Book carries the wild genome (an evolved pack member now, so
@@ -808,8 +802,7 @@ test.describe("vroomon Playwright harness", () => {
     // alone loses steps under parallel load and the Elder is not there to talk
     // to - hence the name assertion below, which says so plainly.
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
-      await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(420);
+      await stepTo(page, dir as "up" | "down" | "left" | "right");
     }
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
@@ -859,8 +852,7 @@ test.describe("vroomon Playwright harness", () => {
     await closePocketRanch(page);
 
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
-      await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(320);
+      await stepTo(page, dir as "up" | "down" | "left" | "right");
     }
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
@@ -914,8 +906,7 @@ test.describe("vroomon Playwright harness", () => {
     await seedRancher(page);
     await enterWorld(page);
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
-      await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(320);
+      await stepTo(page, dir as "up" | "down" | "left" | "right");
     }
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
@@ -962,8 +953,7 @@ test.describe("vroomon Playwright harness", () => {
     await seedRancher(page);
     await enterWorld(page);
     for (const dir of ["down", "down", "left", "left", "left", "left"]) {
-      await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(320);
+      await stepTo(page, dir as "up" | "down" | "left" | "right");
     }
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
@@ -1262,8 +1252,7 @@ test.describe("vroomon Playwright harness", () => {
     // Axle teaches breeding through the story — from inside the schoolhouse
     // he keeps now.
     for (const dir of ["up", "up", "up", "up", "left", "up", "right", "right", "right", "up"]) {
-      await page.locator(`[data-dpad="${dir}"]`).click();
-      await page.waitForTimeout(260);
+      await stepTo(page, dir as "up" | "down" | "left" | "right");
     }
     await page.locator('[data-dpad="interact"]').click();
     await page.waitForTimeout(500);
@@ -1464,6 +1453,75 @@ async function enterWorld(page: import("@playwright/test").Page): Promise<void> 
 const FEUD_OPTION = /race.*feud|settle the feud/i;
 /** The Roundup King's finale, likewise. */
 const ROUNDUP_OPTION = /run the grand roundup/i;
+
+/**
+ * Advance the dialogue one beat, waiting for the text to actually change
+ * rather than sleeping through the typewriter.
+ *
+ * The suite had 280 fixed waits totalling 172 seconds of literal sleep, most of
+ * them 300-700ms "let the box catch up" pauses. A beat is done when the line
+ * differs, which is usually a few frames.
+ */
+async function advanceDialogue(
+  page: import("@playwright/test").Page,
+  times = 1,
+): Promise<void> {
+  const box = page.locator("[data-overworld-dialogue-text]");
+  const typing = (): Promise<string> =>
+    page.evaluate(() => {
+      const element = document.querySelector("[data-overworld-dialogue-text]");
+      if (!element || element.offsetParent === null) {
+        return "hidden";
+      }
+      return element.getAttribute("data-typing") ?? "false";
+    });
+
+  for (let beat = 0; beat < times; beat += 1) {
+    if (!(await box.isVisible())) {
+      return;
+    }
+    const before = (await box.textContent()) ?? "";
+    await box.click();
+    // Wait for the typewriter to settle. This throws rather than swallowing:
+    // a silent timeout here under-advances the story, and the failure surfaces
+    // much later as something unrelated being missing.
+    await expect
+      .poll(typing, { timeout: 10_000, message: "the dialogue box never settled" })
+      .not.toBe("true");
+    if ((await box.isVisible()) && ((await box.textContent()) ?? "") === before) {
+      // That click only finished the typewriter. Click again for the beat.
+      await box.click();
+      await expect
+        .poll(typing, { timeout: 10_000, message: "the dialogue box never settled" })
+        .not.toBe("true");
+    }
+  }
+}
+
+/**
+ * Walk one step and wait for the player to actually arrive, by reading the
+ * saved tile rather than sleeping through the animation.
+ */
+async function stepTo(
+  page: import("@playwright/test").Page,
+  direction: "up" | "down" | "left" | "right",
+): Promise<void> {
+  const before = await page.evaluate(async () => {
+    const world = await window.vroomon.loadWorldState();
+    return `${world?.playerX},${world?.playerY},${world?.currentMapId}`;
+  });
+  await page.locator(`[data-dpad="${direction}"]`).click();
+  await page
+    .waitForFunction(
+      async (previous) => {
+        const world = await window.vroomon.loadWorldState();
+        return `${world?.playerX},${world?.playerY},${world?.currentMapId}` !== previous;
+      },
+      before,
+      { timeout: 8000 },
+    )
+    .catch(() => {});
+}
 
 /**
  * Two boxes on screen must not intersect — both axes, measured.
