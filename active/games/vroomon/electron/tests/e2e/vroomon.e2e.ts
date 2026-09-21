@@ -1511,6 +1511,40 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Starter Town");
   });
 
+  test("@smoke the heritage line report reads a branch as a pedigree", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    await openPocketRanch(page, "herd");
+    await page.locator("[data-generate-population]").click();
+    await page.waitForTimeout(500);
+    for (let generation = 0; generation < 4; generation += 1) {
+      await page.locator("[data-run-generation]").click();
+      await page.waitForTimeout(500);
+    }
+    await page.locator('[data-barn-pill="heritage"]').click();
+    await page.waitForTimeout(900);
+
+    // Tap along the fabric until a car is picked (founders and champions both
+    // exist, and any of them traces a line).
+    const canvas = page.locator("[data-heritage-canvas]");
+    const box = await canvas.boundingBox();
+    let picked = false;
+    for (let gy = 0.1; gy <= 0.9 && !picked; gy += 0.1) {
+      for (let gx = 0.05; gx <= 0.95 && !picked; gx += 0.04) {
+        await page.mouse.click(box.x + box.width * gx, box.y + box.height * gy);
+        if (await page.locator("[data-heritage-line]").isVisible()) {
+          picked = true;
+        }
+      }
+    }
+    expect(picked).toBe(true);
+
+    // The report names its links, and puts the herd's own curve behind them.
+    await expect(page.locator("[data-heritage-line]")).toContainText("LINE REPORT");
+    await expect(page.locator(".heritage-line__row").first()).toContainText("gen ");
+    await expect(page.locator("[data-heritage-line-series]")).toContainText("Herd best:");
+    await expect(page.locator("[data-heritage-line-series]")).toContainText("best on this line");
+  });
+
   test("@smoke every far road has someone on after dark", async ({ page }) => {
     await seedAndEnterWorld(page);
 

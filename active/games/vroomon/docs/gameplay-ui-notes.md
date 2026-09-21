@@ -842,6 +842,28 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The Heritage tree reads like a pedigree (2026-09-15) ✅
+
+Tapping a car in the family fabric has always traced its line into one
+sentence. It now opens a **LINE REPORT** underneath:
+
+```
+LINE REPORT · 3 LINKS
+gen 0   #12    ─
+gen 1   #30    420.11 pts
+gen 2   #55    1033.80 pts  ★
+Herd best: 1:1167.45 → 2:1167.45 → 3:1322.20 → 4:1207.43
+           · best on this line: #55 (1033.80)
+```
+
+Every link, its generation, whether it was a champion of its generation, and
+the score the herd recorded for it — plus the herd's own best across the last
+twelve generations, so a line can be read against the curve it came out of.
+Older links honestly read as `—`: only the latest generation still carries
+scores, and inventing them would be worse than admitting it.
+`src/renderer/heritage.ts` gained `lineReport` and `describeLine`, both pure
+and unit-tested.
+
 ## Grass you cannot walk to is a mechanic that does not exist (2026-09-15) ✅
 
 Two invariants about the wild's own precondition:

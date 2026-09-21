@@ -230,3 +230,85 @@ export function traceHeritage(graph: HeritageGraph, id: string): HeritageTrace {
 
   return { ancestors, descendants, chain };
 }
+
+
+// ---------------------------------------------------------------------------
+// The line report: a branch read as a pedigree rather than a tree of dots.
+// ---------------------------------------------------------------------------
+
+export interface LineRow {
+  /** How far back the car sits (0 = the founder end of the chain). */
+  depth: number;
+  id: string;
+  label: string;
+  /** The car's score, when the herd still knew it. */
+  score: number | null;
+  /** Was it a champion of its generation? */
+  champion: boolean;
+  /** How many generations of the herd sit between it and the clicked car. */
+  stepsFromHere: number;
+}
+
+export interface LineReport {
+  /** Oldest ancestor first, the clicked car last. */
+  rows: LineRow[];
+  /** The herd's own best, generation by generation, for context. */
+  series: Array<{ generation: number; bestScore: number }>;
+  /** Best score anywhere on this line, when any link still has one. */
+  best: { id: string; label: string; score: number } | null;
+}
+
+/**
+ * Read one chain as a pedigree: each link with the score the herd recorded for
+ * it (only the latest generation carries scores, so older links read as
+ * historical), plus the herd's own curve behind it.
+ */
+export function lineReport(
+  graph: HeritageGraph,
+  trace: HeritageTrace,
+  options: { scoreHistory?: Array<{ generation: number; bestScore: number }> } = {},
+): LineReport {
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+  const champions = new Set(graph.champions);
+  const chain = trace.chain.length > 0 ? trace.chain : [];
+
+  const rows: LineRow[] = chain.map((id, index) => {
+    const node = byId.get(id);
+    const score = node?.score ?? null;
+    return {
+      depth: node?.depth ?? index,
+      id,
+      label: node?.label ?? shortLabel(id),
+      score,
+      champion: champions.has(id),
+      stepsFromHere: chain.length - 1 - index,
+    };
+  });
+
+  let best: LineReport["best"] = null;
+  for (const row of rows) {
+    if (row.score !== null && (!best || row.score > best.score)) {
+      best = { id: row.id, label: row.label, score: row.score };
+    }
+  }
+
+  return {
+    rows,
+    series: (options.scoreHistory ?? []).map((entry) => ({
+      generation: entry.generation,
+      bestScore: entry.bestScore,
+    })),
+    best,
+  };
+}
+
+/** "gen 7 · 130.69 pts · line: #12 ← #30 ← #55" — the one-line summary. */
+export function describeLine(report: LineReport): string {
+  if (report.rows.length === 0) {
+    return "no line recorded";
+  }
+  const here = report.rows[report.rows.length - 1]!;
+  const chain = report.rows.map((row) => `#${row.label}`).join(" ← ");
+  const score = here.score !== null ? ` · ${here.score.toFixed(2)} pts` : " · released";
+  return `gen ${here.depth}${score} · line: ${chain}`;
+}

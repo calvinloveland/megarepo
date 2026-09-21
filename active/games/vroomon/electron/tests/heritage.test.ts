@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildHeritageGraph, shortLabel, traceHeritage } from "../src/renderer/heritage.js";
+import {
+  buildHeritageGraph,
+  describeLine,
+  lineReport,
+  shortLabel,
+  traceHeritage,
+} from "../src/renderer/heritage.js";
 
 const car = (
   id: string,
@@ -89,5 +95,46 @@ describe("heritage tracing", () => {
 
   it("returns nothing for an unknown car", () => {
     expect(traceHeritage(graph, "nope").chain).toEqual([]);
+  });
+});
+
+describe("the line report", () => {
+  const population = [
+    { id: "h-1", dna: "a", parents: [] as string[], score: 100 },
+    { id: "h-2", dna: "b", parents: ["h-1"], score: 250 },
+    { id: "h-3", dna: "c", parents: ["h-2"], score: 640 },
+    { id: "h-4", dna: "d", parents: ["h-1"], score: 180 },
+  ];
+  const graph = buildHeritageGraph({ population, genealogy: { "h-1": ["h-2", "h-4"], "h-2": ["h-3"] } });
+
+  it("reads a branch as a pedigree, oldest first", () => {
+    const trace = traceHeritage(graph, "h-3");
+    const report = lineReport(graph, trace, {
+      scoreHistory: [
+        { generation: 1, bestScore: 100 },
+        { generation: 2, bestScore: 250 },
+        { generation: 3, bestScore: 640 },
+      ],
+    });
+
+    expect(report.rows.map((row) => row.id)).toEqual(["h-1", "h-2", "h-3"]);
+    // Depth climbs along the line, and the clicked car is zero steps from here.
+    expect(report.rows.map((row) => row.depth)).toEqual([0, 1, 2]);
+    expect(report.rows[report.rows.length - 1]!.stepsFromHere).toBe(0);
+    expect(report.rows[0]!.stepsFromHere).toBe(2);
+    // The best link on the line is named.
+    expect(report.best).toEqual({ id: "h-3", label: "3", score: 640 });
+    expect(report.series.map((entry) => entry.bestScore)).toEqual([100, 250, 640]);
+  });
+
+  it("says a line in one breath", () => {
+    const report = lineReport(graph, traceHeritage(graph, "h-3"));
+    expect(describeLine(report)).toContain("gen 2");
+    expect(describeLine(report)).toContain("line: #");
+    expect(describeLine(report)).toContain("pts");
+    // Nothing traced: say so rather than printing nonsense.
+    expect(describeLine(lineReport(graph, { ancestors: [], descendants: [], chain: [] }))).toBe(
+      "no line recorded",
+    );
   });
 });

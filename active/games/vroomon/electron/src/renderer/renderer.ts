@@ -23,6 +23,8 @@ import { bestRecord, proposeRecord } from "./records.js";
 import { badgeForMap, feudBar, nextCircuitTarget, nextTier, rivalScoreFor, terrainForVenue, tierLabel, tierOutcome, venueTitle, VENUE_BADGE } from "./circuit.js";
 import {
   buildHeritageGraph,
+  describeLine,
+  lineReport,
   shortLabel,
   traceHeritage,
   type HeritageGraph,
@@ -6301,6 +6303,50 @@ function heritageNodeColor(score: number | null, best: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
+/** The pedigree behind a traced car: every link, and the herd's own curve. */
+function renderLineReport(id: string): void {
+  const panel = document.querySelector<HTMLElement>("[data-heritage-line]");
+  const rows = document.querySelector<HTMLElement>("[data-heritage-line-rows]");
+  if (!panel || !rows || !heritageGraph) {
+    return;
+  }
+  const report = lineReport(heritageGraph, traceHeritage(heritageGraph, id), {
+    scoreHistory: rendererState.scoreHistory,
+  });
+  if (report.rows.length === 0) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+
+  const count = document.querySelector<HTMLElement>("[data-heritage-line-count]");
+  if (count) {
+    count.textContent = String(report.rows.length);
+  }
+  rows.innerHTML = report.rows
+    .map(
+      (row) =>
+        `<div class="heritage-line__row">` +
+        `<em>gen ${row.depth}</em>` +
+        `<span>#${escapeHtml(row.label)}${row.champion ? " ★" : ""}</span>` +
+        `<b>${row.score !== null ? `${formatNumber(row.score)} pts` : "—"}</b>` +
+        `</div>`,
+    )
+    .join("");
+
+  const series = document.querySelector<HTMLElement>("[data-heritage-line-series]");
+  if (series) {
+    const points = report.series.slice(-12);
+    series.textContent =
+      points.length === 0
+        ? "No generation history yet."
+        : `Herd best: ${points.map((point) => `${point.generation}:${formatNumber(point.bestScore)}`).join(" → ")}` +
+          (report.best
+            ? ` · best on this line: #${escapeHtml(report.best.label)} (${formatNumber(report.best.score)})`
+            : "");
+  }
+}
+
 function renderHeritage(force = false): void {
   const canvas = document.querySelector<HTMLCanvasElement>("[data-heritage-canvas]");
   const stats = document.querySelector<HTMLElement>("[data-heritage-stats]");
@@ -6498,6 +6544,7 @@ function pickHeritageNode(clientX: number, clientY: number): void {
     trace.descendants.length > 0 ? ` · ${trace.descendants.length} descendants` : "";
   const line = `#${node.label} · ${scoreText} · gen ${node.depth} · ${chainText}${kidText}${node.mutated ? " · mutated" : ""}`;
   const dna = dnaForHerdId(node.id);
+  renderLineReport(node.id);
   info.innerHTML =
     escapeHtml(line) +
     (dna

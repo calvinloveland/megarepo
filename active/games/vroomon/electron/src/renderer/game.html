@@ -357,6 +357,36 @@
         cursor: pointer;
       }
       .market-row button:disabled { opacity: 0.45; cursor: default; }
+      .heritage-panel__line {
+        margin-top: 0.5rem;
+        padding: 0.4rem 0.5rem;
+        border: 1px solid rgba(138, 180, 255, 0.28);
+        border-radius: 10px;
+        background: rgba(9, 14, 24, 0.7);
+        font-family: var(--font-screen);
+        font-size: 0.76rem;
+        color: #dce8ff;
+      }
+      .heritage-line__head {
+        font-family: var(--font-pixel);
+        font-size: 0.5rem;
+        letter-spacing: 0.1em;
+        color: #ffd166;
+        margin-bottom: 0.25rem;
+      }
+      .heritage-line__rows { display: flex; flex-direction: column; gap: 0.1rem; }
+      .heritage-line__row {
+        display: grid;
+        grid-template-columns: 3.2rem 1fr auto;
+        gap: 0.5rem;
+      }
+      .heritage-line__row em { color: rgba(230, 238, 250, 0.7); font-style: normal; }
+      .heritage-line__row b { color: #ffd166; }
+      .heritage-line__series {
+        margin-top: 0.25rem;
+        color: rgba(230, 238, 250, 0.75);
+        font-size: 0.7rem;
+      }
       .inspector {
         position: fixed;
         inset: 0;
@@ -2156,6 +2186,11 @@
               </div>
               <canvas class="heritage-canvas" data-heritage-canvas width="1200" height="620"></canvas>
               <div class="heritage-panel__info" data-heritage-info>Tap a vroomon to trace its line.</div>
+              <div class="heritage-panel__line" data-heritage-line hidden>
+                <div class="heritage-line__head">LINE REPORT · <span data-heritage-line-count>0</span> LINKS</div>
+                <div class="heritage-line__rows" data-heritage-line-rows></div>
+                <div class="heritage-line__series" data-heritage-line-series></div>
+              </div>
             </div>
           </div>
           <div class="pocket-ranch__scene" data-barn-scene="dex" hidden>
