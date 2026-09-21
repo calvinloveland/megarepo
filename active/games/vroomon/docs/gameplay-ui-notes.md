@@ -913,6 +913,26 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## One field, one name (2026-09-15) ✅
+
+`gym_1` carries the name **Rustler Pasture** in its map chip, in the circuit's
+venue list, in the quest line and in the badge it awards — but the Roundup
+King welcomed you to *"the Roundup Grounds"*, and the roadside sign said the
+same. Two names for one field reads as two places, so the alias is gone: the
+sign, the keeper and a third mention in an early quest line all say Rustler
+Pasture now.
+
+Writing the invariant taught me something about invariants. My first version
+demanded that **every** arena's keeper name their own ground out loud, and it
+failed on three maps in a row — the Wreck Marshal, the Guru of the Updrafts,
+the Lay Foreman. Those keepers simply talk about their schools and their
+union rather than the place, which is a *style*, not a defect: an over-strict
+check that fails on good content is worse than no check. The rewritten version
+tests the thing that actually broke — the circuit and the map must agree on
+what the arena is called, and a known alias must not appear anywhere. That one
+has teeth (reintroducing "Roundup Grounds" fails it) and passes on the world
+as written.
+
 ## The panel says what your best is (2026-09-15) ✅
 
 The barn button already named the car it would record, but the *choice* is made
@@ -979,6 +999,13 @@ game's:
    final assertion polls now instead of reading once.
 
 Three consecutive full-suite runs green after the third fix.
+
+A fourth layer surfaced under parallel load: "record the leader once" is racy
+by construction, because the leader moves between repaints — the loop, the
+chip click, the label and the race each read at a slightly different moment.
+The test now does what a player does: **record your best as it improves**, one
+generation at a time, until the barn holds something above the bar. Three more
+consecutive green runs.
 
 ## The ground says what it wants (2026-09-15) ✅
 

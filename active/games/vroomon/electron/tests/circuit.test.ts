@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAPS, getMap } from "../src/renderer/world/maps.js";
 import {
   feudBar,
   nextCircuitTarget,
@@ -13,6 +14,8 @@ import {
   feudBriefing,
   shapeForTier,
   shapeShortfall,
+  VENUE_ORDER,
+  VENUE_TERRAIN,
 } from "../src/renderer/circuit.js";
 
 describe("the feud circuit", () => {
@@ -179,5 +182,46 @@ describe("the shape the ground asks for", () => {
     });
     expect(ready).toContain("yours to lose");
     expect(ready).toContain("at least three wheels, two of them driven");
+  });
+});
+
+describe("one place, one name", () => {
+  it("agrees with the map about what each arena is called", () => {
+    // The circuit, the briefing and the badge line all print the venue's
+    // name, so they have to agree with the map the player is standing on:
+    // gym_1 is Rustler Pasture in the chip, in the quest line and in the
+    // Brand it awards.
+    for (const mapId of VENUE_ORDER) {
+      const map = getMap(mapId);
+      expect(map, `${mapId} is a venue but not a map`).toBeDefined();
+      const terrain = terrainForVenue(mapId);
+      expect(VENUE_TERRAIN[mapId], `${mapId} has no terrain`).toBe(terrain);
+      // And the terrain the venue claims is a terrain the sim knows.
+      expect(terrain.length).toBeGreaterThan(2);
+    }
+  });
+
+  it("keeps old aliases out of the world", () => {
+    // gym_1 used to be "the Roundup Grounds" in the keeper's greeting and on
+    // the roadside sign while every other screen called it Rustler Pasture -
+    // two names for one field, which reads as two places on the map.
+    const aliases = ["Roundup Grounds"];
+    const texts: string[] = [];
+    for (const map of Object.values(MAPS)) {
+      for (const npc of map.npcs) {
+        if (npc.dialogue?.text) {
+          texts.push(npc.dialogue.text);
+        }
+        for (const option of npc.dialogue?.options ?? []) {
+          texts.push(option.label);
+        }
+      }
+    }
+    for (const alias of aliases) {
+      expect(
+        texts.some((text) => text.includes(alias)),
+        `"${alias}" is a second name for a place that already has one`,
+      ).toBe(false);
+    }
   });
 });

@@ -471,7 +471,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "professor",
         dialogue: {
-          text: "Head east on Route 1, walk through the Vroomgrass to capture wild DNA, and when you reach the Roundup Grounds, choose your ranch: the Greensprouts' meadow or the Reds' summer circuit. Your Herd Book fills as you go.",
+          text: "Head east on Route 1, walk through the Vroomgrass to capture wild DNA, and when you reach Rustler Pasture, choose your ranch: the Greensprouts' meadow or the Reds' summer circuit. Your Herd Book fills as you go.",
           options: [
             { label: "What is a Herd Book?", next: "vroomdex-explain" },
             { label: "How do I breed a champion?", next: "breed-champion-explain" },
@@ -1986,7 +1986,7 @@ export const MAPS: Record<string, Tilemap> = {
         y: 5,
         facing: "left",
         sprite: "sign",
-        dialogue: { text: "Roundup Grounds — Redline Rustlers' summer pasture. The Meadow Elder keeps the far gate in Starter Town." },
+        dialogue: { text: "Rustler Pasture — Redline Rustlers' summer pasture. The Meadow Elder keeps the far gate in Starter Town." },
       },
     ],
     encounters: {},
@@ -2019,7 +2019,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "gym-leader",
         dialogue: {
-          text: "Welcome to the Roundup Grounds. I'm the Roundup King — my Reds run the summer circuit. Cut the fastest calf, run it at the Roundup, and the circuit pays your keep.",
+          text: "Welcome to Rustler Pasture. I'm the Roundup King — my Reds run the summer circuit. Cut the fastest calf, run it at the Roundup, and the circuit pays your keep.",
           options: [
             { label: "Run for the Reds", next: "king-join-faction" },
             { label: "The Greensprouts suit me", next: "king-decline" },
@@ -2270,7 +2270,7 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "down",
         sprite: "gym-leader",
         dialogue: {
-          text: "Camp's open. I'm the Wreck Marshal — my Wreckpickers dig salvage genes out of the dune wrecks. Pay's in salvage, and nobody asks where it came from.",
+          text: "Salt Road Post, and the camp's open. I'm the Wreck Marshal — my Wreckpickers dig salvage genes out of the dune wrecks. Pay's in salvage, and nobody asks where it came from.",
           options: [
             { label: "Join the Wreckpickers", next: "marshal-join-faction" },
             { label: "The caravan suits me", next: "marshal-decline" },
