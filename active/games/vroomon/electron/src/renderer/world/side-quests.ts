@@ -149,6 +149,28 @@ export const SIDE_QUESTS: SideQuest[] = [
       "Nobody races the Stretch without sand in their teeth. Beat two wild ones out there and I'll call you a road runner.",
   },
   {
+    // The first job that asks you to breed rather than to walk: a bar you can
+    // clear with the loaner plus a generation or two, on the road where the
+    // fitter who explains the chain rule is standing.
+    id: "get-it-rolling",
+    title: "Get It Rolling",
+    giver: "Fitter Odile",
+    mapId: "route_1",
+    acceptFlag: "quest-rolling-accepted",
+    objective: {
+      kind: "champion-score",
+      score: 600,
+      label: "a car that runs 600 on the flat",
+    },
+    reward: {
+      wallet: 140,
+      feed: 2,
+      thanks: "Six hundred. So it was the order after all. Take this — I will not need the parts now.",
+    },
+    offer:
+      "Show me one that runs six hundred on the flat. If a herd can do that, I will believe the wheels were never the problem.",
+  },
+  {
     id: "mesa-thermals",
     title: "Thermals And Stone",
     giver: "Guru of the Updrafts",

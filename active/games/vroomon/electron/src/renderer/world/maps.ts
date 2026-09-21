@@ -2018,6 +2018,70 @@ export const MAPS: Record<string, Tilemap> = {
     ambientColor: "#a8c879",
     npcs: [
       {
+        // The chain rule, shown rather than told. Her car is a real genome
+        // whose blueprint says "The engine sits past every wheel", so the
+        // lesson in her mouth is checkable against the sim.
+        id: "fitter-odile",
+        name: "Fitter Odile",
+        x: 9,
+        y: 8,
+        facing: "up",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Mind the wreck — that one's mine. Bred it myself, and it will not move an inch. I have checked the wheels twice.",
+          options: [
+            { label: "Why won't it move?", next: "odile-why" },
+            { label: "Want a hand with it?", next: "odile-job" },
+            { label: "Bad luck.", next: "odile-shrug" },
+          ],
+        },
+      },
+      {
+        id: "odile-why",
+        name: "Fitter Odile",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "D3llZ0Po. Four plates, two wheels, one engine, five gearsets — and the engine sits past both wheels. The chain runs one way, so the power arrives at nothing. Put the cylinder first and the wheels after it and the same car rolls. I have drawn it out four times and I still build it backwards.",
+        },
+      },
+      {
+        id: "odile-job",
+        name: "Fitter Odile",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "You breed, do you? Then show me one that runs six hundred on the flat. If a herd can do that, I will believe the wheels were never the problem.",
+          setFlag: "quest-rolling-accepted",
+        },
+      },
+      {
+        id: "odile-shrug",
+        name: "Fitter Odile",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Luck has nothing to do with it. It is the order. It is always the order.",
+        },
+      },
+      {
+        id: "stricken-vroomon",
+        name: "A Stricken Vroomon",
+        x: 8,
+        y: 8,
+        facing: "up",
+        sprite: "sign",
+        dialogue: {
+          text: "Four plates on one chassis, two wheels pinned at their centres, one cylinder, five gearsets. Everything a vroomon needs, in the wrong order: the engine sits past both wheels, so nothing it makes ever arrives.",
+        },
+      },
+      {
         id: "oxide-trader",
         name: "Oxide",
         x: 5,
