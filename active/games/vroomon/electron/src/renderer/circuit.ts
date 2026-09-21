@@ -166,3 +166,33 @@ export function nextCircuitTarget(
   const tier = Math.max(1, feudTiers?.[badgeForMap(mapId)] ?? 1);
   return { mapId, terrain, tier, bar: feudBar(terrain, tier) };
 }
+
+
+/**
+ * What the ground asks of you, said out loud before you race it. The circuit
+ * is a breeding target, not a scoreboard — and a player who has never been
+ * told that the bar is 1000 while their barn holds 973 has no way to work out
+ * that the answer is generations, not a different car.
+ */
+export function feudBriefing(options: {
+  terrain: string;
+  tier: number;
+  bar: number;
+  best: number;
+}): string {
+  const { terrain, tier, bar, best } = options;
+  const label = `${terrain} ${tierLabel(tier)}`;
+  const asked = `The bar is ${Math.round(bar)}`;
+  if (best <= 0) {
+    return `${label}. ${asked}, and there is nothing in your Record Barn to answer it. Breed one first.`;
+  }
+  const held = `your barn holds ${Math.round(best)}`;
+  if (best >= bar) {
+    return `${label}. ${asked} and ${held}. This one is yours to lose.`;
+  }
+  const short = Math.round(bar - best);
+  return (
+    `${label}. ${asked}; ${held} — ${short} short. ` +
+    `That is a breeding job, not a racing one.`
+  );
+}

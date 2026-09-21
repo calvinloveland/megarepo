@@ -10,6 +10,7 @@ import {
   tierOutcome,
   venueTitle,
   TIER_GROWTH,
+  feudBriefing,
 } from "../src/renderer/circuit.js";
 
 describe("the feud circuit", () => {
@@ -97,5 +98,28 @@ describe("a feud is named for the ground, not the doorway", () => {
 
   it("resolves to the arena you are standing in", () => {
     expect(nextCircuitTarget("gym_2", [], {}).mapId).toBe("gym_2");
+  });
+});
+
+describe("the briefing before a feud", () => {
+  it("says how short you are, and that it is a breeding problem", () => {
+    const short = feudBriefing({ terrain: "Grassland", tier: 1, bar: 1000, best: 973 });
+    expect(short).toContain("Grassland I");
+    expect(short).toContain("The bar is 1000");
+    expect(short).toContain("your barn holds 973");
+    expect(short).toContain("27 short");
+    expect(short).toContain("breeding job");
+  });
+
+  it("says when the ground is yours to lose", () => {
+    const ready = feudBriefing({ terrain: "Grassland", tier: 2, bar: 1220, best: 1400 });
+    expect(ready).toContain("Grassland II");
+    expect(ready).toContain("yours to lose");
+    expect(ready).not.toContain("short");
+  });
+
+  it("says when there is nothing in the barn at all", () => {
+    const none = feudBriefing({ terrain: "Hills", tier: 1, bar: 1150, best: 0 });
+    expect(none).toContain("nothing in your Record Barn");
   });
 });

@@ -20,7 +20,7 @@ import type {
   VroomonParityContract,
 } from "../shared/parity-contract.js";
 import { bestRecord, proposeRecord } from "./records.js";
-import { badgeForMap, feudBar, nextCircuitTarget, nextTier, rivalScoreFor, terrainForVenue, tierLabel, tierOutcome, venueTitle, VENUE_BADGE } from "./circuit.js";
+import { badgeForMap, feudBar, feudBriefing, nextCircuitTarget, nextTier, rivalScoreFor, terrainForVenue, tierLabel, tierOutcome, venueTitle, VENUE_BADGE } from "./circuit.js";
 import {
   buildHeritageGraph,
   describeKin,
@@ -5407,8 +5407,15 @@ function renderDialogueOptions(dialogue: { options?: Array<{ next: string; label
       // the non-option "next" flow). The old text-matching lookup never
       // matched, so ANY option click silently ended the scene — the
       // faction joins and Professor Axle's explain options were dead.
-      const target = overworldController._resolveDialogue(nextId);
-      if (target) {
+      const resolved = overworldController._resolveDialogue(nextId);
+      if (resolved) {
+        // Before you race the ground, be told what it asks. This is where the
+        // circuit stops being a scoreboard and becomes a breeding target: the
+        // bar, what your barn holds, and the difference between them. It
+        // replaces the node's "Three, two, one... GO!" rather than joining it,
+        // because the race card does its own countdown.
+        const target =
+          resolved.onComplete === "gym" ? { ...resolved, text: briefForHere() } : resolved;
         const advanced = advanceWorldDialogue(overworldController.state, nextId, target);
         overworldController._setState(advanced);
         renderOverworldUi();
@@ -5657,6 +5664,19 @@ function handleOverworldKeydown(event: KeyboardEvent): void {
  * ever reaching a screen; a job's *reason* belongs in the mouth of the person
  * asking, not only in the objective list.
  */
+/** The bar and the barn, in one sentence, for whoever is about to race. */
+function briefForHere(): string {
+  const world = overworldController.state;
+  const target = nextCircuitTarget(world.currentMapId, world.badges, world.feudTiers);
+  const bar = feudBar(target.terrain, target.tier);
+  return feudBriefing({
+    terrain: target.terrain,
+    tier: target.tier,
+    bar,
+    best: bestChampionScore(target.terrain),
+  });
+}
+
 function talkAhead(): void {
   const before = overworldController.state.dialogueQueue.length;
   const next = overworldController.interact();

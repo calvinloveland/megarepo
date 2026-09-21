@@ -818,6 +818,11 @@ test.describe("vroomon Playwright harness", () => {
     // Third option on the Elder's menu: Race to settle the feud.
     await page.locator("[data-dialogue-option]").nth(2).click();
     await page.waitForTimeout(400);
+    // The ground tells you what it wants before you race it: the bar, what
+    // your barn holds, and the difference — so a first Brand reads as a
+    // breeding target rather than a scoreboard.
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("The bar is 1000");
+    await expect(page.locator("[data-overworld-dialogue-text]")).toContainText("Grassland I");
     await page.keyboard.press("z");
     await expect(page.locator("[data-race-overlay]")).toBeVisible();
     await expect(page.locator("[data-race-title]")).toContainText("FEUD RACE · I");

@@ -913,6 +913,32 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## The ground says what it wants (2026-09-15) ✅
+
+The circuit is a breeding target, and nothing in the game said so. A player
+whose barn holds 973 who loses to a bar of 1000 has no way to learn that the
+answer is *generations*, not a different car.
+
+Now, the moment you take the fight option, the keeper tells you the terms
+before the race card ever appears:
+
+> **Meadow Elder**: Grassland I. The bar is 1000; your barn holds 973 — 27
+> short. That is a breeding job, not a racing one.
+
+`feudBriefing` is a pure function with three registers, all unit-tested:
+
+- nothing in the barn — *"Breed one first."*
+- short — the exact gap, and *"a breeding job, not a racing one"*
+- enough — *"This one is yours to lose."*
+
+It **replaces** the node's `Three, two, one... GO!` line rather than joining
+it. The first version prefixed it and read like a lecture followed by a
+countdown nobody asked for; the race card does its own countdown.
+
+The screenshot is the whole idea in one box: the Elder's portrait, the terms,
+and the quest line behind him reading *Next: Rustler Pasture — race Roundup
+King to settle the feud*.
+
 ## Nothing the writer wrote goes unread (2026-09-15) ✅
 
 The offer/thanks lines had sat unread for weeks while every contract test
