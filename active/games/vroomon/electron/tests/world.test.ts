@@ -500,6 +500,63 @@ describe("world reachability", () => {
     }
   });
 
+  it("keeps the one-line walk-ons to a list somebody chose", () => {
+    // Not every person needs a menu. A hauler with one good line is
+    // atmosphere, and a schoolchild's single sentence is worth more than a
+    // dialog tree. What this guards against is the *unnoticed* one: an NPC
+    // added as a placeholder, whose dialogue never happens, and who therefore
+    // reads as furniture. Adding one fails this test, and the fix is either to
+    // give them something to do or to put them on this list on purpose.
+    //
+    // Props are not people: signs and "The ..." objects are read, not met.
+    const KNOWN = new Set([
+      "ice_map/lamp-lighter", // the watch that keeps the long light
+      "long_haul/stoker-raff", // the works, one line about the firebox
+      "long_haul_cookhouse/hauler-quill", // a cookhouse regular
+      "long_light_depot/hauler-wren", // a driver waiting on weather
+      "marrow_orchard/fitter-aubrey", // points at the Carrier's inspector
+      "ranch_yard/robby-caught-1", // the tutorial's Robby, before the lesson
+      "rocky_map/assay-clerk", // a clerk with an opinion about the boom
+      "route_2/canyon-hauler", // three drivers of the Salt Road
+      "route_2/frost-courier",
+      "route_2/highland-herder",
+      "the_cut/powder-monkey-bex", // night shift at the Cut
+      "town_schoolhouse/professor-axle", // Axle before the tutorial resolves
+    ]);
+
+    const found: string[] = [];
+    for (const map of MAP_LIST) {
+      for (const npc of map.npcs) {
+        if (!(npc.x > 0 || npc.y > 0)) {
+          continue;
+        }
+        const dialogue = npc.dialogue;
+        const interactive =
+          (dialogue?.options?.length ?? 0) > 0 ||
+          Boolean(dialogue?.setFlag) ||
+          Boolean(dialogue?.onComplete);
+        if (interactive) {
+          continue;
+        }
+        if (npc.sprite === "sign" || /^The\s/.test(npc.name)) {
+          continue;
+        }
+        found.push(`${map.id}/${npc.id}`);
+      }
+    }
+    found.sort();
+
+    const unexpected = found.filter((id) => !KNOWN.has(id));
+    expect(
+      unexpected,
+      `new walk-on(s) with nothing to do: ${unexpected.join(", ")} — give them a line ` +
+        `worth walking up for, or add them to KNOWN on purpose`,
+    ).toEqual([]);
+    // And the list does not rot: an entry that gains a menu should be removed.
+    const stale = [...KNOWN].filter((id) => !found.includes(id));
+    expect(stale, `now interactive, so drop them from KNOWN: ${stale.join(", ")}`).toEqual([]);
+  });
+
   it("gives every person something to say", () => {
     // An NPC with an empty dialogue is an interaction that does nothing.
     for (const map of MAP_LIST) {

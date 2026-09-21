@@ -913,6 +913,31 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## A ledger of walk-ons (2026-09-15) ✅
+
+The scenery sweep that found Pup Tam is a test now, and it works like a debt
+register rather than a rule. Twelve people in the world have exactly one line
+and nothing to click, and that is *right* for most of them — a hauler waiting on
+weather, three drivers of the Salt Road, the watch who keeps the long light.
+What the test guards against is the **unnoticed** one: an NPC added as a
+placeholder whose dialogue never happens, reading as furniture.
+
+So every one of the twelve is listed by id with a reason, and:
+
+- a **new** walk-on fails with `new walk-on(s) with nothing to do: …` and the
+  instruction to either give them a line worth walking up for or add them on
+  purpose;
+- an entry that **gains** a menu fails the other way (`now interactive, so drop
+  them from KNOWN`), so the list cannot rot into a lie.
+
+Props are excluded by construction — signs and "The …" objects are read, not
+met — which is why the Ridge Vane and the Fuel Bowser are not on it.
+
+Running the sweep also cleared two suspicions: Fitter Aubrey *does* explain the
+Carrier's inspector in her one line, and the Cut's two jobs are given by Face
+Boss Halg and Night Powder Peg, with Powder Monkey Bex left as the night shift.
+Verifying is cheaper than "fixing" good content.
+
 ## The wild's number, next to the human one (2026-09-15) ✅
 
 Two places had a number that meant less without the other.
