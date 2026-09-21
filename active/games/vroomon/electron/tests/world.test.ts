@@ -301,6 +301,23 @@ describe("world reachability", () => {
     expect(gone.relocated).toBe(true);
   });
 
+  it("puts every transition on a tile you can stand on to trigger it", () => {
+    // A transition keyed to an impassable tile is unreachable: the player can
+    // never stand there, so the door does nothing. (Route 2's gate to the
+    // Salt Road Post sat on the map's tree border for exactly this reason.)
+    for (const map of MAP_LIST) {
+      for (const [key, transition] of Object.entries(map.transitions)) {
+        const [rawX, rawY] = key.split(",");
+        const tile = map.tiles[Number(rawY)]?.[Number(rawX)];
+        expect(tile, `${map.id} ${key} is off the map`).toBeDefined();
+        expect(
+          isTilePassable(tile!),
+          `${map.id} ${key} (-> ${transition.mapId}) sits on ${tile} and can never be stepped on`,
+        ).toBe(true);
+      }
+    }
+  });
+
   it("lands every transition somewhere you can stand", () => {
     for (const mapId of ["starter_town", "home_ranch", "ranch_yard", "route_1", "route_2", "gym_1", "gym_2"]) {
       const map = getMap(mapId);
@@ -359,12 +376,15 @@ describe("world reachability", () => {
     const gym2 = getMap("gym_2");
     expect(town?.transitions["13,2"]?.mapId).toBe("route_1");
     expect(town?.transitions["1,0"]).toBeUndefined();
-    expect(route?.transitions["0,5"]?.mapId).toBe("starter_town");
+    expect(route?.transitions["1,9"]?.mapId).toBe("starter_town");
     expect(route?.transitions["18,5"]?.mapId).toBe("route_2");
-    expect(route?.transitions["19,5"]?.mapId).toBe("gym_1");
+    // The gym gate sits one tile in: on the border tree you could not reach it.
+    expect(route?.transitions["17,5"]?.mapId).toBe("gym_1");
     expect(gym?.transitions["6,9"]?.mapId).toBe("route_1");
-    expect(route2?.transitions["0,7"]?.mapId).toBe("route_1");
-    expect(route2?.transitions["21,5"]?.mapId).toBe("gym_2");
+    expect(route2?.transitions["1,7"]?.mapId).toBe("route_1");
+    expect(route2?.transitions["20,4"]?.mapId).toBe("gym_2");
+    // ...and the Salt Road stop at the waystation.
+    expect(route2?.transitions["20,5"]?.mapId).toBe("long_haul");
     expect(gym2?.transitions["6,9"]?.mapId).toBe("route_2");
   });
 

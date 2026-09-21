@@ -1405,6 +1405,56 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     }
   });
 
+  test("@smoke The Long Haul: a road stop with work for a working book", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    await enterMapAt(page, "long_haul", 4, 6, "left");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("The Long Haul");
+
+    // Cook Ada feeds the lane and wants proof the herd is worth it.
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Cook Ada");
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(500);
+    // It sits behind the orchard's cutting, so it stays off the board.
+    await expect(page.locator("[data-stats-quest-side]")).toHaveCount(0);
+
+    // The drover's job, though, is open — and counts grounds in the book.
+    await enterMapAt(page, "long_haul", 14, 6, "left");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Drover Holt");
+    await page.locator("[data-dialogue-option]").nth(1).click();
+    await page.waitForTimeout(500);
+    await page.locator("[data-overworld-dialogue-text]").click();
+    await page.waitForTimeout(600);
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("Four Grounds");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("grounds in your Herd Book");
+
+    // Three grounds of notes is not four.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      const notes: Record<string, { mapId: string; score: number; caughtAt: string; origin: "caught" }> = {};
+      for (const [index, mapId] of ["ranch_yard", "route_2", "hills_map"].entries()) {
+        notes[`sample${index}`] = {
+          mapId,
+          score: 200 + index,
+          caughtAt: new Date().toISOString(),
+          origin: "caught",
+        };
+      }
+      await window.vroomon.saveWorldState({ ...world, specimenMeta: notes });
+    });
+    await page.reload();
+    await page.locator('[data-menu-action="continue"]').waitFor({ state: "visible", timeout: 20000 });
+    await page.locator('[data-menu-action="continue"]').click();
+    await page.waitForTimeout(1000);
+    await enterMapAt(page, "long_haul", 14, 6, "left");
+    await expect(page.locator("[data-stats-quest-side]")).toContainText("3/4");
+  });
+
   test("@smoke the Herd Book remembers where a specimen came off", async ({ page }) => {
     await seedAndEnterWorld(page);
     await enterMapAt(page, "ranch_yard", 7, 3);

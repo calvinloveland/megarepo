@@ -175,6 +175,46 @@ describe("side quests", () => {
     }
   });
 
+  it("counts grounds in the book, not catches", () => {
+    // Four Grounds is satisfied by specimens from four biomes, however many
+    // you have from each.
+    const four = findSideQuest("four-grounds")!;
+    expect(four.objective.kind).toBe("dex-biomes");
+    const accepted = { flags: { "quest-book-accepted": true } };
+    const notes = (maps: string[]) =>
+      Object.fromEntries(
+        maps.map((mapId, index) => [
+          `dna${index}`,
+          { mapId, score: 100, caughtAt: "2026-09-15T12:00:00.000Z", origin: "caught" as const },
+        ]),
+      );
+
+    expect(questProgress(four, world({ ...accepted, specimenMeta: notes(["ranch_yard", "ranch_yard", "ranch_yard"]) }), RUN).have).toBe(1);
+    expect(questProgress(four, world({ ...accepted, specimenMeta: notes(["ranch_yard", "route_2", "hills_map"]) }), RUN).done).toBe(false);
+    expect(
+      questProgress(
+        four,
+        world({ ...accepted, specimenMeta: notes(["ranch_yard", "route_2", "hills_map", "ice_map"]) }),
+        RUN,
+      ).done,
+    ).toBe(true);
+  });
+
+  it("measures a champion on a named terrain from the records", () => {
+    const lane = findSideQuest("lane-proof")!;
+    expect(lane.objective.kind).toBe("champion-on");
+    // It sits behind the orchard's cutting, so pay that first.
+    const accepted = world({
+      flags: { "quest-lane-accepted": true },
+      tally: { "paid:orchard-cutting": 1 },
+    });
+    expect(questProgress(lane, accepted, { ...RUN, bestByTerrain: { Sand: 900 } }).done).toBe(false);
+    expect(
+      questProgress(lane, accepted, { ...RUN, bestByTerrain: { Sand: 1150 } }).progressText,
+    ).toBe("1150/1100 pts");
+    expect(questProgress(lane, accepted, { ...RUN, bestByTerrain: { Sand: 1150 } }).done).toBe(true);
+  });
+
   it("stops paying once a job is marked paid", () => {
     const w = world({
       flags: { "quest-muster-accepted": true },

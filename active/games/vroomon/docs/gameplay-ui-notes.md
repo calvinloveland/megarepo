@@ -842,6 +842,42 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The Long Haul: a road stop, and five unreachable doors (2026-09-15) ✅
+
+A new area on the Salt Road — a cookhouse and two workshops between Route 2
+and the Highland Mesa, with its own **Sand** wild pack, a pond, fence rows and
+**four people**:
+
+- **Cook Ada** hears everything on the lane (and wants proof: 1,100 on the
+  Stretch, once the orchard's cutting is paid).
+- **Drover Holt** explains the trade counter out loud — sell what you catch,
+  buy stock off ground you've walked — and pays for **Four Grounds**, a job
+  that counts *biomes in your Herd Book* using the new specimen provenance.
+- **Stoker Raff** explains the power path (cylinders, shafts, gears, and which
+  wheel actually gets drive).
+- **Hook** races anything that stops for bread, on a Long Haul special.
+
+### The bug this flushed out, five times over
+
+A new invariant now asserts that **every transition sits on a tile you can
+stand on**. A door keyed to an impassable tile is dead — the player can never
+step there, so the door does nothing. It immediately found five:
+
+1. Route 1's **walk back to town** was on the border tree: you could walk into
+   Route 1 but not out the way you came.
+2. Route 1's **gym gate** was on the border tree as well.
+3. Route 2's **gate to Route 1** was on the tree border.
+4. Marrow Orchard's **hedge gate** — mine, from the previous slice — was on
+   the tree border.
+5. The town's **north lane** had nowhere to stand, so the orchard's town gate
+   was unreachable.
+
+And one worse: Route 1 carried **two transitions under the same key**
+(`"18,5"`), so the second silently replaced the first and the Salt Road gate
+simply did not exist. All six are fixed, the trigger-tile invariant is
+permanent, and `defines transitions on the expected map edges` was updated to
+match the corrected gates.
+
 ## A save audit, and the herd it saved (2026-09-15) ✅
 
 A full-journey e2e now walks a session — catch a wild vroomon by racing it,

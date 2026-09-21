@@ -18,6 +18,7 @@ import { evaluatePopulation } from "./population.js";
 const WILD_TERRAIN_BY_MAP: Record<string, string> = {
   ranch_yard: "Grassland",
   marrow_orchard: "Grassland",
+  long_haul: "Sand",
   route_1: "Grassland",
   route_2: "Sand",
   gym_1: "Grassland",

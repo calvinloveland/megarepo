@@ -5,7 +5,9 @@ function row(...cells: TileKind[]): TileKind[] {
 }
 
 const STARTER_TOWN_TILES: TileKind[][] = [
-  row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "doormat", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
+  // Two gates in the north wall: the ranch doorstep at 8, and the lane up to
+  // Marrow Orchard at 10.
+  row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "doormat", "tree", "doormat", "tree", "tree", "tree", "tree", "tree"),
   row("tree", "grass", "grass", "grass", "grass", "building", "building", "building", "path", "building", "grass", "grass", "grass", "grass", "grass", "tree"),
   row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
   row("tree", "grass", "path", "counter", "path", "path", "path", "path", "path", "path", "path", "path", "counter", "path", "grass", "tree"),
@@ -94,7 +96,184 @@ const MARROW_ORCHARD_TILES: TileKind[][] = [
   row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
 ];
 
+const LONG_HAUL_TILES: TileKind[][] = [
+  row("rock", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "rock"),
+  row("tree", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "tree"),
+  row("tree", "path", "building", "building", "building", "path", "rock", "rock", "grass", "grass", "grass", "path", "building", "building", "building", "path", "rock", "tree"),
+  row("tree", "path", "building", "door", "building", "path", "grass", "grass", "grass", "grass", "grass", "path", "building", "door", "building", "path", "grass", "tree"),
+  row("tree", "path", "path", "doormat", "path", "path", "grass", "grass", "rock", "grass", "grass", "path", "path", "doormat", "path", "path", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "rock", "grass", "grass", "grass", "grass", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "tree"),
+  row("tree", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "grass", "grass", "water", "water", "grass", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "water", "water", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "fence", "fence", "fence", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "fence", "fence", "fence", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "tree"),
+  row("rock", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "rock"),
+];
+
 export const MAPS: Record<string, Tilemap> = {
+
+  long_haul: {
+    id: "long_haul",
+    name: "The Long Haul",
+    width: 18,
+    height: 13,
+    tiles: LONG_HAUL_TILES,
+    ambientColor: "#d0b47c",
+    npcs: [
+      {
+        id: "cook-ada",
+        name: "Cook Ada",
+        x: 3,
+        y: 6,
+        facing: "right",
+        sprite: "villager",
+        dialogue: {
+          text: "Sit. Eat. The road's four hundred miles of sand either way and nothing on it but my stove. I hear everything that comes up this lane — including what your herd can do.",
+          options: [
+            { label: "What's the talk on the lane?", next: "ada-talk" },
+            { label: "Feed the road?", next: "ada-feed" },
+            { label: "Just passing", next: "ada-passing" },
+          ],
+        },
+      },
+      {
+        id: "ada-talk",
+        name: "Cook Ada",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "The wild off this lane is the fastest on the island, and the counter in town pays for what you catch. Neither means a thing if the thing can't hold together on sand.",
+        },
+      },
+      {
+        id: "ada-feed",
+        name: "Cook Ada",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Bring me eleven hundred out on the Sandy Stretch and I'll believe the lane's worth cooking for.",
+          setFlag: "quest-lane-accepted",
+        },
+      },
+      {
+        id: "ada-passing",
+        name: "Cook Ada",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: { text: "Then take some bread for the road. No charge — I like the company." },
+      },
+      {
+        id: "drover-holt",
+        name: "Drover Holt",
+        x: 13,
+        y: 6,
+        facing: "left",
+        sprite: "rider",
+        dialogue: {
+          text: "I haul stock from the perimeter to the counters and back. Best money I ever made was a specimen somebody else caught — the counter buys what you can't use, and sells what you haven't seen.",
+          options: [
+            { label: "How do I get in on that?", next: "holt-trade" },
+            { label: "I'll fill my own book", next: "holt-book" },
+            { label: "Safe roads", next: "holt-safe" },
+          ],
+        },
+      },
+      {
+        id: "holt-trade",
+        name: "Drover Holt",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Carrier's counter — the trade page. Sell what you've caught, buy stock off ground you've walked. The shelf gets better as those packs breed up, so buy early or buy good.",
+        },
+      },
+      {
+        id: "holt-book",
+        name: "Drover Holt",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Then fill it from more than one island. Four different grounds in that book of yours and I'll pay to see it.",
+          setFlag: "quest-book-accepted",
+        },
+      },
+      {
+        id: "holt-safe",
+        name: "Drover Holt",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: { text: "There's no such road. There's only a car that holds and a car that doesn't." },
+      },
+      {
+        id: "stoker-raff",
+        name: "Stoker Raff",
+        x: 8,
+        y: 3,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Six gearsets in a heap and one chassis worth keeping. You want to know why a car runs? Read its power path: cylinders make the power, shafts lose a little of it, gears hand a share to the wheel in their own slot. A wheel with nothing upstream is along for the ride — the inspector will show you exactly which.",
+        },
+      },
+      {
+        id: "rider-hook",
+        name: "Hook",
+        x: 11,
+        y: 9,
+        facing: "left",
+        sprite: "rider",
+        dialogue: {
+          text: "Everyone fast stops at Ada's. I'm the fastest that stays. My car's a Long Haul special — nothing off the shelf about it. Race me if you think your line's better than mine.",
+          options: [
+            { label: "Run it", next: "hook-race" },
+            { label: "I'll pass", next: "hook-pass" },
+          ],
+        },
+      },
+      {
+        id: "hook-race",
+        name: "Hook",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: { text: "Four hundred miles of sand and one for pride. Go.", onComplete: "trainer" },
+      },
+      {
+        id: "hook-pass",
+        name: "Hook",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: { text: "Wise. Come back when your herd's outgrown the paddock." },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      // West back down the Salt Road, east on toward the Highlands. The gates
+      // sit one tile in from the tree border, because a transition on the
+      // border can never be stepped on.
+      "1,5": { mapId: "route_2", toX: 20, toY: 5, facing: "left" },
+      "1,6": { mapId: "route_2", toX: 20, toY: 6, facing: "left" },
+      "16,5": { mapId: "hills_map", toX: 5, toY: 6, facing: "right" },
+      "16,6": { mapId: "hills_map", toX: 5, toY: 7, facing: "right" },
+    },
+  },
   home_ranch: {
     id: "home_ranch",
     name: "The Shoddy Ranch House",
@@ -472,10 +651,11 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      // South down the lane to town, west along the hedge to Route 1.
+      // South down the lane to town, west along the hedge to Route 1. The
+      // hedge gate sits in from the tree border so it can be stepped on.
       "10,12": { mapId: "starter_town", toX: 10, toY: 2, facing: "down" },
-      "0,4": { mapId: "route_1", toX: 18, toY: 4, facing: "left" },
-      "0,5": { mapId: "route_1", toX: 18, toY: 5, facing: "left" },
+      "1,4": { mapId: "route_1", toX: 18, toY: 4, facing: "left" },
+      "1,5": { mapId: "route_1", toX: 18, toY: 5, facing: "left" },
     },
   },
   starter_town: {
@@ -845,11 +1025,15 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "0,5": { mapId: "starter_town", toX: 13, toY: 2 },
+      // The walk back to town: the gate sits one tile in from the border, and
+      // lands you beside the town gate rather than on it.
+      "1,9": { mapId: "starter_town", toX: 12, toY: 2, facing: "up" },
       // (18,6) was originally the Salt Road gate, but Rider Vicky stands on
       // that tile and blocked it — the gate lives on (18,5) instead.
-      "18,5": { mapId: "route_2", toX: 1, toY: 7, facing: "right" },
-      "19,5": { mapId: "gym_1", toX: 6, toY: 9, facing: "up" },
+      "18,5": { mapId: "route_2", toX: 1, toY: 6, facing: "right" },
+      // One tile each: two transitions on the same key meant the second
+      // won and the Salt Road gate silently disappeared.
+      "17,5": { mapId: "gym_1", toX: 6, toY: 9, facing: "up" },
     },
   },
   gym_1: {
@@ -1087,9 +1271,10 @@ export const MAPS: Record<string, Tilemap> = {
     ],
     encounters: {},
     transitions: {
-      "0,7": { mapId: "route_1", toX: 18, toY: 5 },
+      "1,7": { mapId: "route_1", toX: 17, toY: 6 },
       "19,3": { mapId: "hills_map", toX: 1, toY: 6, facing: "right" },
-      "21,5": { mapId: "gym_2", toX: 6, toY: 9, facing: "up" },
+      "20,5": { mapId: "long_haul", toX: 2, toY: 5, facing: "right" },
+      "20,4": { mapId: "gym_2", toX: 6, toY: 9, facing: "up" },
     },
   },
   gym_2: {

@@ -4169,11 +4169,19 @@ function questRunState(): QuestRun {
       : 0,
   );
   const released = overworldController.state.tally?.["released"] ?? 0;
+  const bestByTerrain: Record<string, number> = {};
+  for (const entry of recordsBoard.entries) {
+    bestByTerrain[entry.terrainName] = Math.max(
+      bestByTerrain[entry.terrainName] ?? 0,
+      entry.score,
+    );
+  }
   return {
     generation,
     populationSize: rendererState.runState.population.length,
     bestScore,
     released,
+    bestByTerrain,
   };
 }
 
@@ -4184,7 +4192,13 @@ function questRunState(): QuestRun {
  */
 function settleSideQuests(): void {
   const run = questRunState();
-  const ready = claimableQuests(overworldController.state, run);
+  const ready = claimableQuests(
+    {
+      ...overworldController.state,
+      specimenMeta: overworldController.state.specimenMeta ?? {},
+    },
+    run,
+  );
   if (ready.length === 0) {
     return;
   }
@@ -4231,7 +4245,11 @@ function settleSideQuests(): void {
 /** The side-quest lines under the main objective. */
 function sideQuestCardHtml(): string {
   const run = questRunState();
-  const active = activeSideQuests(overworldController.state, run).slice(0, 3);
+  const questWorld = {
+    ...overworldController.state,
+    specimenMeta: overworldController.state.specimenMeta ?? {},
+  };
+  const active = activeSideQuests(questWorld, run).slice(0, 3);
   if (active.length === 0) {
     return "";
   }

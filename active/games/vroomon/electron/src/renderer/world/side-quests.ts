@@ -14,6 +14,10 @@ export type QuestObjective =
   | { kind: "win-wild"; count: number; label: string }
   /** Beat the wild where it lives: wins counted per biome. */
   | { kind: "win-wild-on"; mapId: string; count: number; label: string }
+  /** Specimens in the Herd Book from this many different biomes. */
+  | { kind: "dex-biomes"; count: number; label: string }
+  /** A champion that reaches this score on a named terrain. */
+  | { kind: "champion-on"; terrain: string; score: number; label: string }
   | { kind: "generations"; count: number; label: string }
   | { kind: "decor"; count: number; label: string }
   | { kind: "visit"; mapId: string; label: string }
@@ -60,6 +64,8 @@ export interface QuestWorld {
   flags: Record<string, boolean>;
   /** People and their tallies live here. */
   tally?: Record<string, number>;
+  /** dna -> where that specimen came off (see world/specimens.ts). */
+  specimenMeta?: Record<string, { mapId: string; score: number; caughtAt: string; origin: "caught" | "bought" }>;
 }
 
 export interface QuestRun {
@@ -67,6 +73,8 @@ export interface QuestRun {
   populationSize: number;
   bestScore: number;
   released: number;
+  /** terrain -> the best the herd has run there (from the records board). */
+  bestByTerrain?: Record<string, number>;
 }
 
 export interface QuestProgress {
@@ -189,6 +197,29 @@ export const SIDE_QUESTS: SideQuest[] = [
       "Eight wins and I'll chalk your name on the board by the gate. Nobody argues with the board.",
   },
   {
+    id: "lane-proof",
+    title: "Proof For The Lane",
+    giver: "Cook Ada",
+    mapId: "long_haul",
+    requires: "orchard-cutting",
+    acceptFlag: "quest-lane-accepted",
+    objective: { kind: "champion-on", terrain: "Sand", score: 1100, label: "on the Stretch" },
+    reward: { wallet: 300, feed: 3, thanks: "Eleven hundred on sand. Sit down — the meal's on the house." },
+    offer:
+      "Bring me eleven hundred out on the Sandy Stretch and I'll believe the lane's worth cooking for.",
+  },
+  {
+    id: "four-grounds",
+    title: "Four Grounds",
+    giver: "Drover Holt",
+    mapId: "long_haul",
+    acceptFlag: "quest-book-accepted",
+    objective: { kind: "dex-biomes", count: 4, label: "grounds in your Herd Book" },
+    reward: { wallet: 260, dna: "Lhn4yi8zKRd2", thanks: "Four grounds. That's a book worth hauling. Take a Long Haul line." },
+    offer:
+      "Fill that book of yours from four different grounds and I'll pay to see it.",
+  },
+  {
     id: "orchard-cutting",
     title: "A Marrow Cutting",
     giver: "Orchard Keeper Maren",
@@ -263,6 +294,10 @@ export function objectiveProgress(
       return tallyOf(world, "wildWins");
     case "win-wild-on":
       return tallyOf(world, `wildWins:${objective.mapId}`);
+    case "dex-biomes":
+      return new Set(Object.values(world.specimenMeta ?? {}).map((note) => note.mapId)).size;
+    case "champion-on":
+      return run.bestByTerrain?.[objective.terrain] ?? 0;
     case "generations":
       return run.generation;
     case "decor":
@@ -285,6 +320,7 @@ function objectiveNeed(objective: QuestObjective): number {
     case "visit":
       return 1;
     case "champion-score":
+    case "champion-on":
       return objective.score;
     default:
       return objective.count;
@@ -311,7 +347,7 @@ export function questProgress(
   const need = objectiveNeed(quest.objective);
   const done = accepted && have >= need;
   const progressText =
-    quest.objective.kind === "champion-score"
+    quest.objective.kind === "champion-score" || quest.objective.kind === "champion-on"
       ? `${Math.round(have)}/${need} pts`
       : `${Math.min(have, need)}/${need} ${quest.objective.label}`;
 
