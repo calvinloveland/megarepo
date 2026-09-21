@@ -273,7 +273,7 @@ export function createOverworldInputs(
       return commit(setPlayerFacing(state, direction));
     }
 
-    const moveResult = attemptMove(state, direction);
+    const moveResult = attemptMove(state, direction, dependencies.now?.() ?? Date.now());
     commit(moveResult.state);
     startMoveAnimation();
 

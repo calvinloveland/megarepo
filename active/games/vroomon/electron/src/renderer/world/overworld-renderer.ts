@@ -445,6 +445,7 @@ function easeOutCubic(t: number): number {
 export function attemptMove(
   world: WorldState,
   direction: Direction,
+  timeMs: number = Date.now(),
 ): { state: WorldState; transitionKey: string | null } {
   if (world.isMoving || world.activeNpc) {
     return { state: world, transitionKey: null };
@@ -474,9 +475,10 @@ export function attemptMove(
   }
 
   const targetTile = map.tiles[targetY]?.[targetX] ?? "grass";
-  const npcAtTarget = map.npcs.find(
-    (npc) => npc.x === targetX && npc.y === targetY,
-  );
+  // Where people are standing *now*, not where the map file puts them: a
+  // keeper with a routine leaves their tile at dusk, and blocking the tile
+  // they used to occupy leaves an invisible wall in the road.
+  const npcAtTarget = npcOnTile(map, targetX, targetY, timeMs);
 
   if (npcAtTarget) {
     return {

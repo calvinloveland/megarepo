@@ -365,6 +365,141 @@ describe("world reachability", () => {
     }
   });
 
+  it("leaves every keeper an approach you can stand on, at every hour", () => {
+    // Interaction is about the PLAYER's facing: you stand next to someone and
+    // press Z. So the contract is not "the keeper faces a walkable tile", it
+    // is "there is a walkable, reachable tile next to the keeper that nobody
+    // else is standing on" — for every keeper, all day. A night watch that
+    // moves into a nook with no reachable neighbour is a person you can see
+    // and never speak to.
+    for (const map of MAP_LIST) {
+      const reachable = reachableFrom(map.id, entriesFor(map.id));
+      for (let step = 0; step <= 100; step += 1) {
+        const phase = step / 100;
+        const spots = new Map<string, string>();
+        for (const npc of map.npcs) {
+          if (npc.x <= 0 && npc.y <= 0) {
+            continue;
+          }
+          const spot = npcPositionAt(npc, phase);
+          if (spot) {
+            spots.set(`${spot.x},${spot.y}`, npc.id);
+          }
+        }
+        for (const [key, id] of spots) {
+          const [x, y] = key.split(",").map(Number);
+          const approachable = [
+            { x: x + 1, y },
+            { x: x - 1, y },
+            { x, y: y + 1 },
+            { x, y: y - 1 },
+          ].some((tile) => {
+            const kind = map.tiles[tile.y]?.[tile.x];
+            const spotKey = `${tile.x},${tile.y}`;
+            return (
+              kind !== undefined &&
+              isTilePassable(kind) &&
+              reachable.has(spotKey) &&
+              !spots.has(spotKey)
+            );
+          });
+          expect(
+            approachable,
+            `${map.id}: ${id} at ${key} (phase ${phase}) has nowhere to stand and talk`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("blocks the tile a keeper is on, not the tile the map file puts them on", () => {
+    // Movement and interaction have to agree about where people are. Blocking
+    // the *static* tile leaves an invisible wall where the day shift used to
+    // stand, and lets the player walk straight through whoever is there now.
+    const hosted = MAP_LIST.filter((map) =>
+      map.npcs.some(
+        (npc) =>
+          npc.routine &&
+          npcPositionAt(npc, 0.25) &&
+          npcPositionAt(npc, 0.95) &&
+          (npcPositionAt(npc, 0.25)!.x !== npcPositionAt(npc, 0.95)!.x ||
+            npcPositionAt(npc, 0.25)!.y !== npcPositionAt(npc, 0.95)!.y),
+      ),
+    );
+    expect(hosted.length).toBeGreaterThan(0);
+
+    for (const map of hosted) {
+      const npc = map.npcs.find(
+        (candidate) =>
+          candidate.routine &&
+          npcPositionAt(candidate, 0.25) &&
+          npcPositionAt(candidate, 0.95) &&
+          (npcPositionAt(candidate, 0.25)!.x !== npcPositionAt(candidate, 0.95)!.x ||
+            npcPositionAt(candidate, 0.25)!.y !== npcPositionAt(candidate, 0.95)!.y),
+      )!;
+      const morning = npcPositionAt(npc, 0.25)!;
+      const night = npcPositionAt(npc, 0.95)!;
+
+      /** Walk onto a tile at a given phase, from the tile behind it. */
+      const walkInto = (target: { x: number; y: number }, phase: number) => {
+        const from = { x: target.x + 1, y: target.y };
+        if (!isTilePassable(map.tiles[from.y]?.[from.x] ?? "wall")) {
+          return null; // no runway on this side; the other case still counts
+        }
+        const world = {
+          ...createInitialWorldState(),
+          currentMapId: map.id,
+          playerX: from.x,
+          playerY: from.y,
+          playerFacing: "left" as const,
+        };
+        return attemptMove(world, "left", phase * 240_000);
+      };
+
+      // Whoever is standing there now turns you away...
+      const morningBlocked = walkInto(morning, 0.25);
+      if (morningBlocked) {
+        expect(
+          morningBlocked.state.playerX,
+          `${map.id}: ${npc.id} is not blocking ${morning.x},${morning.y} in the morning`,
+        ).toBe(morning.x + 1);
+      }
+      // ...and the ground they have left is plain ground.
+      const nightWalk = walkInto(morning, 0.95);
+      if (nightWalk && Math.abs(night.x - morning.x) + Math.abs(night.y - morning.y) > 1) {
+        expect(
+          nightWalk.state.playerX,
+          `${map.id}: the tile ${npc.id} left at ${morning.x},${morning.y} is still an invisible wall`,
+        ).toBe(morning.x);
+      }
+    }
+  });
+
+  it("never has a keeper facing off the map", () => {
+    // The one facing rule with no legitimate exception: somebody staring into
+    // the void beyond the border reads as a bug at any hour.
+    for (const map of MAP_LIST) {
+      for (const npc of map.npcs) {
+        for (const [phase, spot] of [
+          [0.25, npcPositionAt(npc, 0.25)],
+          [0.5, npcPositionAt(npc, 0.5)],
+          [0.95, npcPositionAt(npc, 0.95)],
+        ] as const) {
+          if (!spot) {
+            continue;
+          }
+          const dx = spot.facing === "left" ? -1 : spot.facing === "right" ? 1 : 0;
+          const dy = spot.facing === "up" ? -1 : spot.facing === "down" ? 1 : 0;
+          const facing = map.tiles[spot.y + dy]?.[spot.x + dx];
+          expect(
+            facing,
+            `${map.id}: ${npc.id} faces off the map at ${spot.x},${spot.y} (phase ${phase})`,
+          ).toBeDefined();
+        }
+      }
+    }
+  });
+
   it("gives every person something to say", () => {
     // An NPC with an empty dialogue is an interaction that does nothing.
     for (const map of MAP_LIST) {

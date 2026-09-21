@@ -842,6 +842,47 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Where people are, and where the map file says they are (2026-09-15) ✅
+
+Chasing the "can you always talk to this person" question turned up something
+better than the thing I was looking for.
+
+**The facing rule I assumed does not exist.** Interaction is about the
+*player's* facing: you stand next to someone and press Z. A keeper staring at
+a wall is only ever a cosmetic oddity. So the real contract is not "the keeper
+faces a walkable tile" — it is:
+
+> there is a walkable, reachable tile next to the keeper that nobody else is
+> standing on, for every keeper, at every hour
+
+A night watch that moves into a nook with no reachable neighbour would be a
+person you can see and never speak to. Swept across the clock in hundredths:
+none. (There is one facing rule with no legitimate exception, so it is
+asserted too: nobody faces off the edge of the map.)
+
+### Two answers to "who is standing here"
+
+`attemptMove` looked up an occupant by the **static** `npc.x / npc.y` from the
+map file, while `findAdjacentNpc` — what actually decides who you talk to —
+uses routine positions. Two answers to the same question is how a bug gets
+written later. The static lookup is the wrong one: a keeper with a routine
+leaves their tile at dusk, so the map file's answer is a person who is not
+there.
+
+`attemptMove` now uses the same `npcOnTile` helper, and a test walks into a
+morning tile at night. Reverting the fix reproduces it:
+
+```
+long_haul: the tile cook-ada left at 3,6 is still an invisible wall
+```
+
+In game this was already unreachable, because the controller checks
+`npcOnTile` before calling `attemptMove` — so this is a latent inconsistency
+rather than a live bug, and worth saying plainly. It is still worth fixing:
+the helper is exported, and the next caller would have inherited the wrong
+answer. The controller now also passes its own pinned clock through, so both
+layers agree even at a phase boundary.
+
 ## The early game, measured (2026-09-15) ✅
 
 The first Brand is reachable in a first sitting, and the second one is not —
