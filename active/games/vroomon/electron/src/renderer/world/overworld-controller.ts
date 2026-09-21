@@ -223,7 +223,11 @@ export function createOverworldInputs(
 
     if (onComplete === "trainer" || onComplete === "gym") {
       const npc = mapForState(state);
-      const trainerDna = `trainer-${state.activeNpc ?? "rival"}`;
+      const rivalNode = npc?.npcs.find((n) => n.id === state.activeNpc)?.dialogue;
+      // An authored car for a rival; the old derived string was a lottery,
+      // and one rival drew a car that could not move.
+      const trainerDna =
+        rivalNode?.rivalDna ?? `trainer-${state.activeNpc ?? "rival"}`;
       const trainerName = npc?.npcs.find((n) => n.id === state.activeNpc)?.name ?? "Rival";
       dependencies.onEncounterStart(onComplete, trainerDna, trainerName);
       // onEncounterStart may mutate the world synchronously (e.g. the gym

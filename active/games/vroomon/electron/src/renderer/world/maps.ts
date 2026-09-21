@@ -415,7 +415,7 @@ export const MAPS: Record<string, Tilemap> = {
         y: 0,
         facing: "down",
         sprite: "rival",
-        dialogue: { text: "First switchback, then the ridge. Go.", onComplete: "trainer" },
+        dialogue: { text: "First switchback, then the ridge. Go.", onComplete: "trainer", rivalDna: "Lhn4yi8zKRd2" },
       },
       {
         id: "tez-pass",
@@ -925,7 +925,7 @@ export const MAPS: Record<string, Tilemap> = {
         y: 0,
         facing: "down",
         sprite: "rider",
-        dialogue: { text: "Four hundred miles of sand and one for pride. Go.", onComplete: "trainer" },
+        dialogue: { text: "Four hundred miles of sand and one for pride. Go.", onComplete: "trainer", rivalDna: "Lhn4yi8zKRd2" },
       },
       {
         id: "hook-pass",
@@ -1254,7 +1254,7 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "rival",
         dialogue: {
           text: "Down the lane and past the pond. Ready?",
-          onComplete: "trainer",
+          onComplete: "trainer", rivalDna: "UoZzJLj1FOFC",
         },
       },
       {
@@ -1638,7 +1638,7 @@ export const MAPS: Record<string, Tilemap> = {
         y: 0,
         facing: "down",
         sprite: "rider",
-        dialogue: { text: "Three, two, one... go!", onComplete: "trainer" },
+        dialogue: { text: "Three, two, one... go!", onComplete: "trainer", rivalDna: "RuAp2owjBaqK" },
       },
       {
         id: "vicky-decline",
@@ -1885,7 +1885,7 @@ export const MAPS: Record<string, Tilemap> = {
         y: 0,
         facing: "down",
         sprite: "rider",
-        dialogue: { text: "Try to keep up!", onComplete: "trainer" },
+        dialogue: { text: "Try to keep up!", onComplete: "trainer", rivalDna: "A9gpwYaIPmdg" },
       },
       {
         id: "marcus-decline",

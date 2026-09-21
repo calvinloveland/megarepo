@@ -125,6 +125,33 @@ describe("quest contracts", () => {
     }
   });
 
+  it("gives every rival a car that actually races", () => {
+    // A trainer race drives a DNA derived from the NPC's id. If that car does
+    // not move, the "race" is a walkover and the rival is a lie.
+    const rivals: Array<{ mapId: string; npcId: string; dna: string }> = [];
+    for (const map of Object.values(MAPS)) {
+      for (const npc of map.npcs) {
+        const dialogue = npc.dialogue as { onComplete?: string; rivalDna?: string } | null;
+        if (dialogue?.onComplete === "trainer") {
+          rivals.push({
+            mapId: map.id,
+            npcId: npc.id,
+            dna: dialogue.rivalDna ?? `trainer-${npc.id}`,
+          });
+        }
+      }
+    }
+    // There is at least one rival per biome's road, and they all drive.
+    expect(rivals.length).toBeGreaterThanOrEqual(3);
+    for (const rival of rivals) {
+      const travel = travelOnFlat(rival.dna);
+      expect(
+        travel,
+        `${rival.npcId} (${rival.mapId}) races a car that manages ${Math.round(travel)}px`,
+      ).toBeGreaterThan(50);
+    }
+  });
+
   it("asks for something a rancher can measure", () => {
     for (const quest of SIDE_QUESTS) {
       if (quest.objective.kind === "win-wild-on") {

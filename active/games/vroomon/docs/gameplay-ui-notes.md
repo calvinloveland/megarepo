@@ -842,6 +842,26 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## Three invariants that reached across systems (2026-09-15) ✅
+
+The bugs worth hunting now live *between* features, so these three look for
+agreement between subsystems that were written separately:
+
+- **The circuit's terrain table and the wild's must agree.** They describe the
+  same ground from two directions, and a pack selected on one surface but
+  raced on another is a silent mismatch.
+- **Every piece of decor sits on walkable ground** — in the meadow *and* in
+  each per-biome spot. It found four pieces parked inside the town's tree
+  line (`duck-pond`, `salt-road-marker`, `meadow-lanterns`, `roundup-bell`);
+  they now line the meadow fence, which is what their flavour text always
+  claimed.
+- **Every rival races a car that actually moves.** A trainer race drives a
+  DNA derived from the node's id — which was pure luck, and **Tez drew a car
+  that managed 0.1px** while **Sprout's managed 38px**. A rival you cannot
+  lose to is not a rival. Rival cars are now **authored** (`rivalDna`), and
+  the invariant refuses to let one be a dud: Hook races the 1,433px car, Tez
+  the 719, Vicky the 454, and Sprout a rattletrap that at least runs.
+
 ## Night changes who is about (2026-09-15) ✅
 
 The day cycle used to be decoration — a wash over the map and a reason for

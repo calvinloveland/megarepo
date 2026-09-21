@@ -44,7 +44,7 @@ export const DECOR_ITEMS: DecorItem[] = [
     emoji: "🦆",
     cost: 18,
     flavor: "Two ducks, one tin bathtub, zero fuss.",
-    anchor: { x: 1, y: 10 },
+    anchor: { x: 10, y: 10 },
     spots: { hills_map: { x: 7, y: 3 } },
   },
   {
@@ -96,7 +96,7 @@ export const DECOR_ITEMS: DecorItem[] = [
     emoji: "🪧",
     cost: 16,
     flavor: "A spare post that still points every way at once.",
-    anchor: { x: 5, y: 10 },
+    anchor: { x: 11, y: 10 },
     spots: { route_2: { x: 13, y: 8 } },
   },
   {
@@ -114,7 +114,7 @@ export const DECOR_ITEMS: DecorItem[] = [
     emoji: "🏮",
     cost: 28,
     flavor: "Glassed candle-rings strung low for the dusk herd.",
-    anchor: { x: 6, y: 10 },
+    anchor: { x: 12, y: 10 },
     spots: { ice_map: { x: 11, y: 3 } },
   },
   {
@@ -123,7 +123,7 @@ export const DECOR_ITEMS: DecorItem[] = [
     emoji: "🔔",
     cost: 38,
     flavor: "One honest ring when the road opens for a champ.",
-    anchor: { x: 3, y: 11 },
+    anchor: { x: 13, y: 10 },
     spots: { gym_1: { x: 11, y: 7 } },
   },
   {

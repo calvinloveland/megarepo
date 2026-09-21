@@ -73,6 +73,12 @@ export interface DialogueNode {
     | `join-faction:${string}`
     | null;
   setFlag?: string;
+  /**
+   * The car a rival races, for `onComplete: "trainer"` beats. Authored
+   * rather than derived from the node's id: the derived string was luck, and
+   * one rival's turned out to be a car that could not move at all.
+   */
+  rivalDna?: string;
 }
 
 export interface DialogueOption {

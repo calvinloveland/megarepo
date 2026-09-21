@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { MAPS, getMap, isTilePassable, safeSpawn } from "../src/renderer/world/maps.js";
 import { npcPositionAt } from "../src/renderer/world/routines.js";
+import { VENUE_TERRAIN } from "../src/renderer/circuit.js";
+import { WILD_TERRAIN_BY_MAP, wildTerrainFor } from "../src/core/wild.js";
+import { DECOR_ITEMS } from "../src/renderer/world/decor.js";
 
 const MAP_LIST = Object.values(MAPS);
 import {
@@ -367,6 +370,47 @@ describe("world reachability", () => {
             `${map.id}: ${npc.id} option "${option.label}" points at a missing node "${option.next}"`,
           ).toBe(true);
         }
+      }
+    }
+  });
+
+  it("keeps the wild's terrain in step with the circuit's", () => {
+    // Two tables describe the same ground: the circuit's venue terrain and
+    // the wild's pack terrain. If they drift, a pack ends up selected on one
+    // surface and raced on another.
+    for (const mapId of Object.keys(VENUE_TERRAIN)) {
+      expect(
+        wildTerrainFor(mapId),
+        `${mapId}: circuit says ${VENUE_TERRAIN[mapId]}, wild says ${wildTerrainFor(mapId)}`,
+      ).toBe(VENUE_TERRAIN[mapId]);
+    }
+    // And every ground the wild knows about is a real place.
+    for (const mapId of Object.keys(WILD_TERRAIN_BY_MAP)) {
+      if (mapId === "starter_town") {
+        continue; // the town meadow has no pack of its own
+      }
+      expect(getMap(mapId), `wild terrain names a missing map: ${mapId}`).toBeDefined();
+    }
+  });
+
+  it("puts every piece of decor somewhere you can stand", () => {
+    // Decor is drawn as a little scene; one parked inside a wall looks like a
+    // bug even though nothing breaks.
+    const check = (item: { id: string }, mapId: string, spot: { x: number; y: number }) => {
+      const map = getMap(mapId);
+      expect(map, `${item.id} names a missing map: ${mapId}`).toBeDefined();
+      const tile = map!.tiles[spot.y]?.[spot.x];
+      expect(tile, `${item.id} is placed off ${mapId}`).toBeDefined();
+      expect(
+        isTilePassable(tile!),
+        `${item.id} sits on ${tile} at ${mapId} ${spot.x},${spot.y}`,
+      ).toBe(true);
+    };
+
+    for (const item of DECOR_ITEMS) {
+      check(item, "starter_town", item.anchor);
+      for (const [mapId, spot] of Object.entries(item.spots ?? {})) {
+        check(item, mapId, spot);
       }
     }
   });
