@@ -842,6 +842,26 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## A fresh-playthrough pass (2026-09-15) ✅
+
+With this much added *around* the opening, it was worth walking it again from a
+genuinely empty save (`localStorage.clear()`) and reading what a new player
+actually sees. Screenshots in `/tmp/vshots/pt-*.png`:
+
+1. **Title** — only NEW GAME, CONTINUE correctly hidden.
+2. **Opening** — the monologue, the name step, the wake line personalised:
+   *"Somewhere, Nell's breakfast smells like it's already decided."*
+3. **The kitchen** — Robby with his portrait, two options, and the quest line
+   *"Robby's in the kitchen — follow the call."*
+4. **The reveal** — the story walks you into the **yard** through the new
+   `goto:` hand-off, and the quest advances to *"The tall grass on the left
+   grazes wild vroomon."* (the bug where the ranch quest never advanced is
+   fixed and visible here).
+5. **The yard** — porch, paddock, grass, the lesson.
+
+Nothing read wrong, which is the point of taking the pass rather than assuming
+it.
+
 ## Rain is a defence modifier, not a fitness change (2026-09-15) ✅
 
 The rule from the weather work — *weather may never move a measured number* —
