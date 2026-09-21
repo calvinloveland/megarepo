@@ -28,7 +28,7 @@ export interface RendererState {
   mode: AppModeId;
   /** The Pocket Ranch hub (carrier dashboard) is open over the world. */
   barnOpen: boolean;
-  barnScene: "herd" | "drive" | "barn" | "heritage" | "market";
+  barnScene: "herd" | "drive" | "barn" | "heritage" | "market" | "dex";
   draftDna: string;
   runState: RunStateSnapshot;
   lastEvaluatedRunState: RunStateSnapshot | null;

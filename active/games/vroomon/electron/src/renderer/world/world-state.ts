@@ -19,6 +19,7 @@ export function createInitialWorldState(): WorldState {
     vroomdex: [],
     hunting: true,
     tally: {},
+    specimenMeta: {},
     wildPacks: {},
     wildGenerations: {},
     flags: {},

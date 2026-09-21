@@ -105,6 +105,8 @@ export interface WorldState {
    * state in a dozen places.
    */
   tally: Record<string, number>;
+  /** dna -> where that specimen came off, what it ran, and when. */
+  specimenMeta: Record<string, { mapId: string; score: number; caughtAt: string; origin: "caught" | "bought" }>;
   /**
    * mapId -> the wild pack living on that ground, and how many generations
    * it has turned over. The wild evolves while nobody is watching: every
@@ -146,6 +148,8 @@ export interface PersistedWorldState {
   hunting?: boolean;
   /** Optional for old saves: counters, empty until a quest needs one. */
   tally?: Record<string, number>;
+  /** Optional: herd book provenance, absent in saves made before it. */
+  specimenMeta?: Record<string, { mapId: string; score: number; caughtAt: string; origin: "caught" | "bought" }>;
   /** Optional: wild packs appear the first time you walk a biome's grass. */
   wildPacks?: Record<string, string[]>;
   wildGenerations?: Record<string, number>;
@@ -171,6 +175,7 @@ export const EMPTY_PERSISTED_WORLD: PersistedWorldState = {
   feudTiers: {},
   hunting: true,
   tally: {},
+  specimenMeta: {},
   wildPacks: {},
   wildGenerations: {},
   flags: {},
@@ -193,6 +198,7 @@ export function serializeWorldState(world: WorldState): PersistedWorldState {
     feudTiers: { ...world.feudTiers },
     hunting: world.hunting,
     tally: { ...world.tally },
+    specimenMeta: { ...world.specimenMeta },
     wildPacks: { ...world.wildPacks },
     wildGenerations: { ...world.wildGenerations },
     flags: { ...world.flags },

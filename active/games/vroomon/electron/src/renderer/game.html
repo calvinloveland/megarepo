@@ -249,11 +249,39 @@
         min-height: 1.3rem;
       }
       .wild-race__actions { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+      .dex-panel__line {
+        margin: 0 0 0.4rem;
+        font-family: var(--font-screen);
+        font-size: 0.82rem;
+        color: var(--text-soft);
+      }
+      .dex-panel__line b { color: var(--gold-deep); }
+      .dex-panel__list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        max-height: 22rem;
+        overflow: auto;
+      }
+      .dex-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.15rem 0.6rem;
+        padding: 0.3rem 0.5rem;
+        border-radius: 8px;
+        background: rgba(90, 69, 48, 0.09);
+        font-family: var(--font-screen);
+        font-size: 0.78rem;
+      }
+      .dex-row__dna { color: var(--text); }
+      .dex-row__origin { color: var(--gold-deep); text-align: right; }
+      .dex-row__meta { color: var(--text-soft); font-size: 0.7rem; grid-column: 1 / -1; }
+      .dex-row--unknown { opacity: 0.6; }
       .market-panel__line {
         margin: 0 0 0.4rem;
         font-family: var(--font-screen);
         font-size: 0.78rem;
-        color: var(--muted);
+        color: var(--text-soft);
       }
       .market-panel__wallet {
         font-family: var(--font-screen);
@@ -281,21 +309,21 @@
         align-items: center;
         padding: 0.3rem 0.45rem;
         border-radius: 8px;
-        background: rgba(138, 180, 255, 0.07);
+        background: rgba(90, 69, 48, 0.09);
         font-family: var(--font-screen);
         font-size: 0.76rem;
       }
-      .market-row__dna { color: #dce8ff; }
-      .market-row__meta { color: var(--muted); font-size: 0.68rem; }
+      .market-row__dna { color: var(--text); }
+      .market-row__meta { color: var(--text-soft); font-size: 0.68rem; }
       .market-row__actions { display: flex; gap: 0.3rem; align-items: center; }
       .market-row button {
         font-family: var(--font-screen);
         font-size: 0.7rem;
         padding: 0.15rem 0.4rem;
         border-radius: 6px;
-        border: 1px solid rgba(138, 180, 255, 0.4);
-        background: rgba(255, 209, 102, 0.15);
-        color: #ffd166;
+        border: 1px solid rgba(90, 69, 48, 0.5);
+        background: rgba(176, 132, 60, 0.22);
+        color: var(--gold-deep);
         cursor: pointer;
       }
       .market-row button:disabled { opacity: 0.45; cursor: default; }
@@ -2087,6 +2115,7 @@
             <button class="barn-pill" type="button" data-barn-pill="barn" aria-pressed="false">🏟 Barn</button>
             <button class="barn-pill" type="button" data-barn-pill="heritage" aria-pressed="false">🌳 Heritage</button>
             <button class="barn-pill" type="button" data-barn-pill="market" aria-pressed="false">🧺 Trade</button>
+            <button class="barn-pill" type="button" data-barn-pill="dex" aria-pressed="false">📖 Dex</button>
             <button class="barn-hub__close" type="button" data-barn-close>Back to the road</button>
           </div>
           <div class="pocket-ranch__scene pocket-ranch__scene--heritage" data-barn-scene="heritage" hidden>
@@ -2097,6 +2126,13 @@
               </div>
               <canvas class="heritage-canvas" data-heritage-canvas width="1200" height="620"></canvas>
               <div class="heritage-panel__info" data-heritage-info>Tap a vroomon to trace its line.</div>
+            </div>
+          </div>
+          <div class="pocket-ranch__scene" data-barn-scene="dex" hidden>
+            <div class="barn-modal__panel dex-panel">
+              <h3 class="barn-modal__title">THE HERD BOOK</h3>
+              <p class="dex-panel__line" data-dex-summary>Every specimen you have brought in.</p>
+              <div class="dex-panel__list" data-dex-list></div>
             </div>
           </div>
           <div class="pocket-ranch__scene" data-barn-scene="market" hidden>

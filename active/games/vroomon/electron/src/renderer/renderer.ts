@@ -57,6 +57,13 @@ import { getMap, safeSpawn } from "./world/maps.js";
 import { findFaction } from "./world/factions.js";
 import { DECOR_ITEMS, findDecor } from "./world/decor.js";
 import { canAfford, marketStock, sellPrice, sourceLabel } from "../core/market.js";
+import {
+  ageLabel,
+  dexSummary,
+  pruneSpecimenMeta,
+  recordSpecimen,
+  specimenEntries,
+} from "./world/specimens.js";
 import { questFor } from "./world/quest.js";
 import {
   activeSideQuests,
@@ -1801,7 +1808,27 @@ function finishWildRace(): void {
 }
 
 function catchWildVroomon(dna: string): void {
-  overworldController._setState(recordEncounterDna(overworldController.state, dna));
+  const mapId = overworldController.state.currentMapId;
+  const caughtWith = recordEncounterDna(overworldController.state, dna);
+  // Where it came off and what it ran: the race just told us both.
+  const withNotes = {
+    ...caughtWith,
+    specimenMeta: recordSpecimen(
+      overworldController.state.specimenMeta,
+      dna,
+      {
+        mapId,
+        score: Math.max(0, wildRaceState.result?.wild ?? 0),
+        caughtAt: new Date().toISOString(),
+        origin: "caught" as const,
+      },
+      caughtWith.vroomdex,
+    ),
+  };
+  overworldController._setState({
+    ...withNotes,
+    specimenMeta: pruneSpecimenMeta(withNotes.specimenMeta, withNotes.vroomdex),
+  });
   rendererState = setWorldState(rendererState, overworldController.state);
   rendererState = {
     ...rendererState,
@@ -4270,7 +4297,24 @@ function renderMarket(): void {
       }
       // Buying puts the animal in the Herd Book AND the herd: what the
       // counter sells is a wild vroomon, so it arrives ready to breed with.
-      overworldController._setState(recordEncounterDna(overworldController.state, offer.dna));
+      const bought = recordEncounterDna(overworldController.state, offer.dna);
+      overworldController._setState({
+        ...bought,
+        specimenMeta: pruneSpecimenMeta(
+          recordSpecimen(
+            overworldController.state.specimenMeta,
+            offer.dna,
+            {
+              mapId: offer.sourceMapId,
+              score: offer.score,
+              caughtAt: new Date().toISOString(),
+              origin: "bought",
+            },
+            bought.vroomdex,
+          ),
+          bought.vroomdex,
+        ),
+      });
       rendererState = setWorldState(rendererState, overworldController.state);
       rendererState = {
         ...rendererState,
@@ -4295,9 +4339,11 @@ function renderMarket(): void {
     button.addEventListener("click", () => {
       const dna = button.dataset.marketSell ?? "";
       const price = specimenPrice(dna);
+      const remaining = overworldController.state.vroomdex.filter((entry) => entry !== dna);
       overworldController._setState({
         ...overworldController.state,
-        vroomdex: overworldController.state.vroomdex.filter((entry) => entry !== dna),
+        vroomdex: remaining,
+        specimenMeta: pruneSpecimenMeta(overworldController.state.specimenMeta, remaining),
       });
       rendererState = setWorldState(rendererState, overworldController.state);
       rendererState = {
@@ -4333,6 +4379,50 @@ function renderMarket(): void {
       renderMarket();
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// The Herd Book: every specimen, where it came off, and what it ran.
+// ---------------------------------------------------------------------------
+
+function renderDex(): void {
+  const world = overworldController.state;
+  const entries = specimenEntries(world.vroomdex, world.specimenMeta ?? {});
+  const summary = dexSummary(entries);
+
+  const line = document.querySelector<HTMLElement>("[data-dex-summary]");
+  if (line) {
+    line.innerHTML =
+      summary.total === 0
+        ? "Nothing in the book yet — walk some tall grass with SEEKING on."
+        : `<b>${summary.total}</b> specimen${summary.total === 1 ? "" : "s"} from ` +
+          `<b>${summary.biomes}</b> biome${summary.biomes === 1 ? "" : "s"}` +
+          (summary.best ? ` · best wild animal runs <b>${Math.round(summary.best.score)}px</b> (${escapeHtml(summary.best.dna)})` : "") +
+          (summary.unrecorded > 0 ? ` · ${summary.unrecorded} with no note` : "");
+  }
+
+  const list = document.querySelector<HTMLElement>("[data-dex-list]");
+  if (!list) {
+    return;
+  }
+  list.innerHTML =
+    entries.length === 0
+      ? `<p class="muted">Empty.</p>`
+      : entries
+          .map((entry) => {
+            const note = entry.meta;
+            const origin = note
+              ? `${escapeHtml(sourceLabel(note.mapId))} · ${Math.round(note.score)}px · ${escapeHtml(ageLabel(note.caughtAt))}`
+              : "caught before the book kept notes";
+            return (
+              `<div class="dex-row ${note ? "" : "dex-row--unknown"}">` +
+              `<span class="dex-row__dna">${escapeHtml(entry.dna)}</span>` +
+              `<span class="dex-row__origin">${note?.origin === "bought" ? "BOUGHT" : note ? "CAUGHT" : "—"}</span>` +
+              `<span class="dex-row__meta">${origin}</span>` +
+              `</div>`
+            );
+          })
+          .join("");
 }
 
 function renderStatsHud(): void {
@@ -4843,7 +4933,7 @@ function applyPersistedWorldToRenderer(persisted: PersistedWorldState): void {
 
 function applyPersistedWorld(
   world: WorldState,
-  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; hunting?: boolean; tally?: Record<string, number>; wildPacks?: Record<string, string[]>; wildGenerations?: Record<string, number>; flags: Record<string, boolean> },
+  persisted: { currentMapId: string; playerX: number; playerY: number; playerFacing: Direction; badges: string[]; factionChoices?: Record<string, string>; decor?: string[]; rancherName?: string; rancherCap?: "navy" | "rust" | "green"; vroomdex: string[]; feudTiers?: Record<string, number>; hunting?: boolean; tally?: Record<string, number>; specimenMeta?: Record<string, { mapId: string; score: number; caughtAt: string; origin: "caught" | "bought" }>; wildPacks?: Record<string, string[]>; wildGenerations?: Record<string, number>; flags: Record<string, boolean> },
 ): WorldState {
   // A save can predate a map change (the ranch used to be one map): put the
   // rancher somewhere they can actually stand rather than in the void.
@@ -4873,6 +4963,10 @@ function applyPersistedWorld(
       persisted.tally && typeof persisted.tally === "object"
         ? persisted.tally
         : world.tally,
+    specimenMeta:
+      persisted.specimenMeta && typeof persisted.specimenMeta === "object"
+        ? persisted.specimenMeta
+        : world.specimenMeta,
     wildPacks:
       persisted.wildPacks && typeof persisted.wildPacks === "object"
         ? persisted.wildPacks
@@ -5940,11 +6034,11 @@ function renderHerdBook(): void {
   }
 }
 
-type BarnScene = "herd" | "drive" | "barn" | "heritage" | "market";
+type BarnScene = "herd" | "drive" | "barn" | "heritage" | "market" | "dex";
 
 /** Hub scenes that aren't backed by a renderer mode (they replace the
  * bench/paddock view instead of scoping to it). */
-const NON_MODE_SCENES = new Set<BarnScene>(["barn", "heritage", "market"]);
+const NON_MODE_SCENES = new Set<BarnScene>(["barn", "heritage", "market", "dex"]);
 
 const BARN_SCENE_STATUS: Record<BarnScene, string> = {
   herd: "The carrier opens — the herd bench hums under your hand.",
@@ -5952,6 +6046,7 @@ const BARN_SCENE_STATUS: Record<BarnScene, string> = {
   barn: "The Record Barn creaks open, shelves and ledgers in order.",
   heritage: "You lay the herd book flat — every line back to the founders.",
   market: "Oxide sets a crate on the counter and flips the ledger open.",
+  dex: "You open the Herd Book at the specimen pages.",
 };
 
 function openPocketRanch(scene: BarnScene): void {
@@ -6271,6 +6366,9 @@ function renderPocketRanch(): void {
   }
   if (rendererState.barnOpen && rendererState.barnScene === "market") {
     renderMarket();
+  }
+  if (rendererState.barnOpen && rendererState.barnScene === "dex") {
+    renderDex();
   }
 }
 

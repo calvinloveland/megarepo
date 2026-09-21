@@ -1298,6 +1298,45 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-wild-race-overlay]")).toBeHidden();
   });
 
+  test("@smoke the Herd Book remembers where a specimen came off", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    await enterMapAt(page, "ranch_yard", 7, 3);
+    // A car good enough to win the catch, so provenance has something to note.
+    await seedHerdDna(page, "Lhn4yi8zKRd2");
+
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(400);
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-wild-race-overlay]")).toBeVisible();
+    await page.locator("[data-wild-race-run]").click();
+    await page.waitForTimeout(4500);
+    await expect(page.locator("[data-wild-race-verdict]")).toContainText("Beaten by");
+    await page.locator("[data-wild-race-leave]").click();
+    await expect.poll(async () => vroomdexCount(page), { timeout: 8000 }).toBe(1);
+
+    // The note was written with the ground and the race.
+    const noted = await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      const dna = (world?.vroomdex ?? [])[0] ?? "";
+      return { dna, meta: world?.specimenMeta?.[dna] ?? null };
+    });
+    expect(noted.meta).not.toBeNull();
+    expect(noted.meta?.mapId).toBe("ranch_yard");
+    expect(noted.meta?.origin).toBe("caught");
+
+    // And the Herd Book scene reads it back in words.
+    await page.locator("[data-open-barn]").click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-barn-pill="dex"]').click();
+    await page.waitForTimeout(500);
+    await expect(page.locator("[data-dex-summary]")).toContainText("1 specimen");
+    await expect(page.locator("[data-dex-list] .dex-row").first()).toContainText("CAUGHT");
+    await expect(page.locator("[data-dex-list] .dex-row").first()).toContainText(
+      "the Shoddy Ranch paddock",
+    );
+  });
+
   test("@smoke a far-biome job unlocks once the job before it is paid", async ({ page }) => {
     await seedAndEnterWorld(page);
     // The Frost Baron's Watch job sits behind Wrangler Jess's muster.

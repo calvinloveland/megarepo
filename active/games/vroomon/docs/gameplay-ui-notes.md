@@ -842,6 +842,28 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## The Herd Book keeps notes (2026-09-15) ✅
+
+A sixth hub scene (`📖 Dex`). The Vroomdex used to be a bare list of DNA
+strings — a specimen off the ice read exactly like one off the home paddock,
+and nothing remembered what it ran. Now every catch and every purchase
+records **where it came off, what it ran, and when**:
+
+- `the Canyon Quarry · 1433px · just now` · `BOUGHT`
+- `the Shoddy Ranch paddock · 719px · 1h ago` · `CAUGHT`
+- and specimens from before the notes existed read honestly as
+  `caught before the book kept notes`.
+
+The header reads the collection back: **N specimens from M biomes · best wild
+animal runs Xpx**. Notes are pruned with the Herd Book's own 200-entry cap, so
+they cannot outlive their specimens, and selling one at Oxide's counter drops
+its note with it. `src/renderer/world/specimens.ts` is pure and unit-tested
+(recording, pruning, summary, and age in words).
+
+Found while building it: the Trade and Dex panels were styled with colours
+meant for a dark panel, but the console cards are **paper** — light ink on
+cream, unreadable. Both now use the ledger's own variables.
+
 ## Quest contracts: the content is now checked, not trusted (2026-09-15) ✅
 
 Writing jobs is easy; breaking them is easier. `tests/quest-contracts.test.ts`
