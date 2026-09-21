@@ -380,7 +380,7 @@ export const SIDE_QUESTS: SideQuest[] = [
     giver: "Stoker Vane",
     mapId: "long_light_shed",
     acceptFlag: "quest-shed-accepted",
-    objective: { kind: "win-wild-on", mapId: "ice_map", count: 1, label: "wild beaten on the ice" },
+    objective: { kind: "win-wild-on", mapId: "ice_map", count: 1, label: "wild beaten on the Drift Perimeter" },
     reward: { wallet: 220, feed: 2, thanks: "One off the ice in the dark, can full. You've done a shift." },
     offer:
       "One off the ice, at night, and bring the can back full. That's the shift.",

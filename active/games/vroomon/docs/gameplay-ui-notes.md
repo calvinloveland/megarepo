@@ -913,6 +913,32 @@ the helper is exported, and the next caller would have inherited the wrong
 answer. The controller now also passes its own pinned clock through, so both
 layers agree even at a phase boundary.
 
+## The inverse sweep: flavour that could belong to any map (2026-09-15) ✅
+
+Twenty-five of thirty-three quest givers never name the ground they stand on.
+Before writing a rule about that, I checked whether it is a problem: it is not.
+They talk about their herd, their trade, their ground — *"Beat two of them on my
+ground"* — and the quest card names the map. A rule demanding place names would
+have fired on three quarters of good content, which is the same over-strict
+mistake as the keeper-naming check two cycles ago. Third time I have had to
+learn it, so it is written down now.
+
+What **is** a contract is narrower and it caught something real: a job that
+happens on a **different map** from its giver has to say where.
+
+```
+these jobs do not say where: night-can: "wild beaten on the ice"
+  (job at Drift Perimeter)
+```
+
+Fine until you count the grounds: the Drift Perimeter and the Long Light Depot
+are *both* ice. "On the ice" is ambiguous between two places a hundred tiles
+apart, so the label now reads **"wild beaten on the Drift Perimeter"**. The
+check matches on shared significant words, because the labels are written the
+way people speak — "wild beaten on the Stretch" for "Route 2 — Sandy Stretch",
+"a 2600 champion on the Mesa" for "Highland Mesa" — and it has teeth: making a
+remote job vague ("walk the high road") fails it by name.
+
 ## "Is it worth a walk?" answered where the car is (2026-09-15) ✅
 
 The records board compares your best lap against what a terrain's wild would

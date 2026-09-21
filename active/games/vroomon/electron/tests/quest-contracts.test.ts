@@ -420,6 +420,48 @@ describe("quest contracts", () => {
     }
   });
 
+  it("tells you where a job happens, when it is not where you are", () => {
+    // The inverse of the walk-on ledger: flavour that could belong to any map.
+    // Most givers speak about their herd, their ground or their trade without
+    // naming a place, and that is fine - the quest card names it. What cannot
+    // be fine is a job on ANOTHER map whose label does not name that map: the
+    // player reads "the Wrangler's Muster" and has no way to know the Mesa is
+    // where they have to go.
+    //
+    // Matched on shared significant words, because the labels are written the
+    // way people speak: "wild beaten on the Stretch" for "Route 2 — Sandy
+    // Stretch", "a 2600 champion on the Mesa" for "Highland Mesa".
+    const significant = (text: string): string[] =>
+      text
+        .toLowerCase()
+        .split(/[^a-z]+/)
+        .filter((word) => word.length >= 4);
+    const namesPlace = (label: string, mapName: string): boolean => {
+      const labelWords = new Set(significant(label));
+      return significant(mapName).some((word) => labelWords.has(word));
+    };
+
+    const vague: string[] = [];
+    for (const quest of SIDE_QUESTS) {
+      const objectiveMap =
+        "mapId" in quest.objective ? quest.objective.mapId : undefined;
+      if (!objectiveMap || objectiveMap === quest.mapId) {
+        continue;
+      }
+      const mapName = MAPS[objectiveMap]?.name ?? "";
+      const terrain =
+        "terrain" in quest.objective ? quest.objective.terrain : "";
+      if (namesPlace(quest.objective.label, mapName) || (terrain && quest.objective.label.includes(terrain))) {
+        continue;
+      }
+      vague.push(`${quest.id}: "${quest.objective.label}" (job at ${mapName})`);
+    }
+    expect(
+      vague,
+      `these jobs do not say where: ${vague.join("; ")}`,
+    ).toEqual([]);
+  });
+
   it("leaves no earned-only decor item unearnable", () => {
     // An item marked `earnedOnly` is hidden from the ranch shop, so a quest
     // reward is the only way it can ever exist in a save. Add one without a
