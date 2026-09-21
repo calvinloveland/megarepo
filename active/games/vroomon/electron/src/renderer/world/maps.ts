@@ -130,7 +130,286 @@ const WORKSHOP_TILES: TileKind[][] = [
   row("wall", "wall", "wall", "wall", "wall", "doormat", "doormat", "wall", "wall", "wall", "wall", "wall"),
 ];
 
+const SWITCHBACK_TILES: TileKind[][] = [
+  row("rock", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "rock"),
+  row("tree", "grass", "grass", "rock", "grass", "grass", "grass", "grass", "grass", "rock", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
+  row("tree", "grass", "path", "grass", "grass", "rock", "grass", "grass", "rock", "grass", "grass", "path", "grass", "tree"),
+  row("tree", "grass", "path", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "path", "grass", "tree"),
+  row("tree", "grass", "path", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "path", "grass", "tree"),
+  row("tree", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "path", "grass", "tree"),
+  row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "rock", "grass", "grass", "rock", "grass", "grass", "grass", "grass", "tree"),
+  row("rock", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "rock"),
+];
+
+const CUT_TILES: TileKind[][] = [
+  row("rock", "rock", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "rock", "rock"),
+  row("rock", "tree", "grass", "grass", "rock", "rock", "grass", "grass", "rock", "rock", "grass", "grass", "tree", "rock"),
+  row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
+  row("tree", "grass", "path", "rock", "grass", "grass", "grass", "grass", "grass", "grass", "rock", "path", "grass", "tree"),
+  row("tree", "grass", "path", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "path", "grass", "tree"),
+  row("tree", "grass", "path", "grass", "grass", "grass", "water", "water", "grass", "grass", "grass", "path", "grass", "tree"),
+  row("tree", "grass", "path", "rock", "grass", "grass", "grass", "grass", "grass", "grass", "rock", "path", "grass", "tree"),
+  row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
+  row("rock", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "rock"),
+];
+
+const DEPOT_TILES: TileKind[][] = [
+  row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
+  row("tree", "fence", "fence", "grass", "grass", "grass", "path", "path", "grass", "grass", "fence", "fence", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "vroomgrass", "grass", "path", "path", "grass", "vroomgrass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "rock", "grass", "vroomgrass", "grass", "path", "path", "grass", "vroomgrass", "grass", "rock", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "path", "path", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "doormat", "doormat", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "grass", "rock", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "rock", "grass", "tree"),
+  row("tree", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "tree"),
+  row("tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree"),
+];
+
 export const MAPS: Record<string, Tilemap> = {
+
+  mesa_switchback: {
+    id: "mesa_switchback",
+    name: "The Switchback",
+    width: 14,
+    height: 10,
+    tiles: SWITCHBACK_TILES,
+    ambientColor: "#c2b184",
+    npcs: [
+      {
+        id: "cable-hand-juno",
+        name: "Cable-hand Juno",
+        x: 3,
+        y: 6,
+        facing: "right",
+        sprite: "rider",
+        dialogue: {
+          text: "I run the cable car up the mesa face. Everything that climbs this road goes past me, and I can tell you: the Hills eat light cars. Bring me one that climbs and I'll sign the log for you.",
+          options: [
+            { label: "What does the Hills road want?", next: "juno-hills" },
+            { label: "I'll bring you a climber", next: "juno-job" },
+            { label: "Just looking", next: "juno-look" },
+          ],
+        },
+      },
+      {
+        id: "juno-hills",
+        name: "Cable-hand Juno",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Power past the obstacle, not into it. A car with its drive on the wheel that's still touching the ground clears the ridge; one with a folded frame digs in and stalls. The inspector prints the drive at every wheel — read it before you race uphill.",
+        },
+      },
+      {
+        id: "juno-job",
+        name: "Cable-hand Juno",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Nine hundred on the Mesa and I'll log the climb. Your name and the height, side by side.",
+          setFlag: "quest-switchback-accepted",
+        },
+      },
+      {
+        id: "juno-look",
+        name: "Cable-hand Juno",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: { text: "Then mind the cables. They hum when the car's coming down." },
+      },
+      {
+        id: "climber-tez",
+        name: "Tez",
+        x: 10,
+        y: 3,
+        facing: "left",
+        sprite: "rival",
+        dialogue: {
+          text: "Everyone with a fast car comes up here to prove it climbs. Mine's geared short and it eats this road. Want to find out whose frame holds?",
+          options: [
+            { label: "Up the switchback", next: "tez-race" },
+            { label: "Not today", next: "tez-pass" },
+          ],
+        },
+      },
+      {
+        id: "tez-race",
+        name: "Tez",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rival",
+        dialogue: { text: "First switchback, then the ridge. Go.", onComplete: "trainer" },
+      },
+      {
+        id: "tez-pass",
+        name: "Tez",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rival",
+        dialogue: { text: "The ridge isn't going anywhere. Neither am I." },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "6,8": { mapId: "hills_map", toX: 5, toY: 7, facing: "down" },
+      "7,8": { mapId: "hills_map", toX: 6, toY: 7, facing: "down" },
+    },
+  },
+  the_cut: {
+    id: "the_cut",
+    name: "The Cut",
+    width: 14,
+    height: 9,
+    tiles: CUT_TILES,
+    ambientColor: "#b8a98c",
+    npcs: [
+      {
+        id: "powder-monkey-bex",
+        name: "Powder Monkey Bex",
+        x: 4,
+        y: 4,
+        facing: "right",
+        sprite: "mechanic",
+        dialogue: {
+          text: "We blow the face, they haul the spoil, and every hauler breaks an axle on the way out. Want to know what survives this ground? Weight. Not power — weight, and a frame that doesn't fold when the front wheel drops.",
+        },
+      },
+      {
+        id: "face-boss-halg",
+        name: "Face Boss Halg",
+        x: 10,
+        y: 4,
+        facing: "left",
+        sprite: "rider",
+        dialogue: {
+          text: "You're not on my crew. Good — then you're a racer, and racers bring me something to watch. A thousand on this rock and I'll buy you a night at the cookhouse.",
+          options: [
+            { label: "A thousand on the Quarry", next: "halg-job" },
+            { label: "Tell me about this ground", next: "halg-ground" },
+            { label: "Later", next: "halg-later" },
+          ],
+        },
+      },
+      {
+        id: "halg-job",
+        name: "Face Boss Halg",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "A thousand, on rock, in one run. No favours from the spoil heap.",
+          setFlag: "quest-cut-accepted",
+        },
+      },
+      {
+        id: "halg-ground",
+        name: "Face Boss Halg",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Rocks don't move, so you go over them. Long frame, drive on both axles, and enough weight at the back to keep the nose down.",
+        },
+      },
+      {
+        id: "halg-later",
+        name: "Face Boss Halg",
+        x: 0, y: 0, facing: "down", sprite: "rider",
+        dialogue: { text: "Then watch the blast, at least. Everyone watches the blast." },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "6,7": { mapId: "rocky_map", toX: 5, toY: 7, facing: "down" },
+      "7,7": { mapId: "rocky_map", toX: 6, toY: 7, facing: "down" },
+    },
+  },
+  long_light_depot: {
+    id: "long_light_depot",
+    name: "The Long Light Depot",
+    width: 14,
+    height: 9,
+    tiles: DEPOT_TILES,
+    ambientColor: "#cdd8de",
+    npcs: [
+      {
+        id: "depot-keeper-sable",
+        name: "Depot Keeper Sable",
+        x: 3,
+        y: 5,
+        facing: "right",
+        sprite: "professor",
+        dialogue: {
+          text: "This is the last fuel and the last roof before the perimeter. Everything that comes off that ice stops here first — including your herd, if you're fool enough to race it out there.",
+          options: [
+            { label: "What's out on the ice?", next: "sable-ice" },
+            { label: "I'll race it", next: "sable-job" },
+            { label: "Just sheltering", next: "sable-warm" },
+          ],
+        },
+      },
+      {
+        id: "sable-ice",
+        name: "Depot Keeper Sable",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Nothing, and it's fast. Ice has no grip, so a car that spins a wheel loses the run — the wild out there is bred patient and smooth. Beat one on that ground and you've beaten a specialist.",
+        },
+      },
+      {
+        id: "sable-job",
+        name: "Depot Keeper Sable",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: {
+          text: "Eleven hundred on the Drift Perimeter. Bring me that and I'll load your carrier for the road home.",
+          setFlag: "quest-depot-accepted",
+        },
+      },
+      {
+        id: "sable-warm",
+        name: "Depot Keeper Sable",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "professor",
+        dialogue: { text: "Warm up, then. The kettle's always on and the roads never are." },
+      },
+      {
+        id: "hauler-wren",
+        name: "Hauler Wren",
+        x: 10,
+        y: 5,
+        facing: "left",
+        sprite: "rider",
+        dialogue: {
+          text: "I haul ice-salvage down from the perimeter twice a week. Longest run on the island. My car's nothing clever — heavy frame, wide rear, drive on both axles — and it finishes every trip, which is more than the clever ones do.",
+        },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      "6,7": { mapId: "ice_map", toX: 5, toY: 7, facing: "down" },
+      "7,7": { mapId: "ice_map", toX: 6, toY: 7, facing: "down" },
+    },
+  },
 
   long_haul_cookhouse: {
     id: "long_haul_cookhouse",
@@ -1585,6 +1864,8 @@ export const MAPS: Record<string, Tilemap> = {
     transitions: {
       "1,6": { mapId: "route_2", toX: 18, toY: 3, facing: "left" },
       "14,6": { mapId: "rocky_map", toX: 1, toY: 6, facing: "right" },
+      // The Switchback climbs off the Mesa.
+      "5,6": { mapId: "mesa_switchback", toX: 6, toY: 7, facing: "down" },
     },
   },
   rocky_map: {
@@ -1662,6 +1943,8 @@ export const MAPS: Record<string, Tilemap> = {
     transitions: {
       "1,6": { mapId: "hills_map", toX: 14, toY: 6, facing: "left" },
       "14,6": { mapId: "ice_map", toX: 1, toY: 6, facing: "right" },
+      // The Cut runs off the Quarry road.
+      "5,6": { mapId: "the_cut", toX: 6, toY: 6, facing: "down" },
     },
   },
   ice_map: {
@@ -1738,6 +2021,8 @@ export const MAPS: Record<string, Tilemap> = {
     encounters: {},
     transitions: {
       "1,6": { mapId: "rocky_map", toX: 14, toY: 6, facing: "left" },
+      // The Long Light Depot is the last roof before the ice.
+      "5,6": { mapId: "long_light_depot", toX: 6, toY: 6, facing: "down" },
     },
   },
 };

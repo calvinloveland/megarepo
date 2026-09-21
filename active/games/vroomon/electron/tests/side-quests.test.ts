@@ -119,7 +119,7 @@ describe("side quests", () => {
     expect(questProgress(cutting, good, { ...RUN, bestScore: 1200 }).done).toBe(true);
     expect(questProgress(cutting, good, { ...RUN, bestScore: 700 }).done).toBe(false);
     expect(questProgress(cutting, good, { ...RUN, bestScore: 700 }).progressText).toBe(
-      "700/900 pts",
+      "700/900 pts on the flat",
     );
 
     // The beekeeper pays in skeps, which are earned rather than sold.
@@ -211,7 +211,7 @@ describe("side quests", () => {
     expect(questProgress(lane, accepted, { ...RUN, bestByTerrain: { Sand: 900 } }).done).toBe(false);
     expect(
       questProgress(lane, accepted, { ...RUN, bestByTerrain: { Sand: 1150 } }).progressText,
-    ).toBe("1150/1100 pts");
+    ).toBe("1150/1100 pts on the Stretch");
     expect(questProgress(lane, accepted, { ...RUN, bestByTerrain: { Sand: 1150 } }).done).toBe(true);
   });
 

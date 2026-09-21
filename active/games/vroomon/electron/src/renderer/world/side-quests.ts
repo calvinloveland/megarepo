@@ -197,6 +197,42 @@ export const SIDE_QUESTS: SideQuest[] = [
       "Eight wins and I'll chalk your name on the board by the gate. Nobody argues with the board.",
   },
   {
+    id: "switchback-log",
+    title: "The Climb, Logged",
+    giver: "Cable-hand Juno",
+    mapId: "mesa_switchback",
+    requires: "town-board",
+    acceptFlag: "quest-switchback-accepted",
+    objective: { kind: "champion-on", terrain: "Hills", score: 900, label: "on the Mesa" },
+    reward: { wallet: 280, feed: 3, thanks: "Nine hundred on the Mesa. Your name and the height, logged." },
+    offer:
+      "Nine hundred on the Mesa and I'll log the climb — your name and the height, side by side.",
+  },
+  {
+    id: "cut-wager",
+    title: "A Thousand On Rock",
+    giver: "Face Boss Halg",
+    mapId: "the_cut",
+    requires: "town-board",
+    acceptFlag: "quest-cut-accepted",
+    objective: { kind: "champion-on", terrain: "Rocky", score: 1000, label: "in the Quarry" },
+    reward: { wallet: 300, dna: "A9gpwYaIPmdg", thanks: "A thousand on rock. Here's a Cut line to go with it." },
+    offer:
+      "A thousand on this rock, in one run, no favours from the spoil heap.",
+  },
+  {
+    id: "depot-run",
+    title: "Smooth On The Ice",
+    giver: "Depot Keeper Sable",
+    mapId: "long_light_depot",
+    requires: "town-board",
+    acceptFlag: "quest-depot-accepted",
+    objective: { kind: "champion-on", terrain: "Ice", score: 1100, label: "on the Perimeter" },
+    reward: { wallet: 320, feed: 4, thanks: "Eleven hundred on the ice. That's a specialist. Here's your load." },
+    offer:
+      "Eleven hundred on the Drift Perimeter and I'll load your carrier for the road home.",
+  },
+  {
     id: "roundup-board",
     title: "Brands On The Board",
     giver: "Roundup King",
@@ -380,9 +416,11 @@ export function questProgress(
   const have = objectiveProgress(quest.objective, world, run);
   const need = objectiveNeed(quest.objective);
   const done = accepted && have >= need;
+  // Champion jobs carry their ground in the label ("on the Mesa"), so a
+  // score without it reads as an anonymous number.
   const progressText =
     quest.objective.kind === "champion-score" || quest.objective.kind === "champion-on"
-      ? `${Math.round(have)}/${need} pts`
+      ? `${Math.round(have)}/${need} pts ${quest.objective.label}`
       : `${Math.min(have, need)}/${need} ${quest.objective.label}`;
 
   return { quest, accepted, done, have, need, progressText };

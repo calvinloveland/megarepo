@@ -842,6 +842,28 @@ gets harder instead of just paying out a Brand:
   dropped new world state (circuit tiers) — it now uses the shared
   serializer.
 
+## A landmark for every far road (2026-09-15) ✅
+
+Each leg of the circuit now has a place with a face on it, off its biome's
+map and reachable from town:
+
+- **The Switchback** (Hills) — a cable station on the Mesa face. **Cable-hand
+  Juno** explains why the Hills eat light cars and logs a climb for 900 on the
+  Mesa; **Tez** races anything with a fast car and a point to prove.
+- **The Cut** (Rocky) — a rock cutting with a pool and spoil. **Powder Monkey
+  Bex** explains what survives rough ground (weight and a frame that doesn't
+  fold); **Face Boss Halg** pays for a thousand on rock.
+- **The Long Light Depot** (Ice) — the last roof before the perimeter, with
+  fence lines and ice lanes. **Depot Keeper Sable** explains that ice has no
+  grip, so a spinning wheel loses the run, and pays for 1,100 on the
+  Perimeter; **Hauler Wren** hauls salvage twice a week in a heavy frame that
+  finishes.
+
+Each is chained behind the town board, each has its own wild pack on its own
+terrain, and each one back-links to its biome map so nothing strands you.
+Champion jobs now read their ground in the HUD (`0/900 pts on the Mesa`), not
+just a bare score.
+
 ## Rooms behind the waystation's doors (2026-09-15) ✅
 
 The Long Haul's two doors were painted and promised nothing — a door that

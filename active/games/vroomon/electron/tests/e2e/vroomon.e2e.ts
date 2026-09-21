@@ -1405,6 +1405,80 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     }
   });
 
+  test("@smoke every far road has a landmark with a job on it", async ({ page }) => {
+    await seedAndEnterWorld(page);
+    // The landmark jobs chain behind the town board, so unlock them.
+    await page.evaluate(async () => {
+      const world = await window.vroomon.loadWorldState();
+      await window.vroomon.saveWorldState({
+        ...world,
+        tally: { ...(world?.tally ?? {}), "paid:town-board": 1 },
+      });
+    });
+
+    const meetLandmark = async (
+      mapId: string,
+      x: number,
+      y: number,
+      facing: "up" | "down" | "left" | "right",
+      option: number,
+      giver: string,
+      job: string,
+      detail: string,
+    ): Promise<void> => {
+      await enterMapAt(page, mapId, x, y, facing);
+      await page.keyboard.press("z");
+      await page.waitForTimeout(700);
+      await expect(page.locator("[data-overworld-dialogue-name]")).toContainText(giver);
+      await page.locator("[data-dialogue-option]").nth(option).click();
+      await page.waitForTimeout(500);
+      await page.locator("[data-overworld-dialogue-text]").click();
+      await page.waitForTimeout(500);
+      await expect(page.locator("[data-stats-quest-side]")).toContainText(job);
+      await expect(page.locator("[data-stats-quest-side]")).toContainText(detail);
+    };
+
+    // The Hills road: a cable hand who logs a climb.
+    await meetLandmark(
+      "mesa_switchback",
+      4,
+      6,
+      "left",
+      1,
+      "Cable-hand Juno",
+      "The Climb, Logged",
+      "on the Mesa",
+    );
+    // The Quarry road: a face boss who wants a thousand on rock.
+    await meetLandmark(
+      "the_cut",
+      9,
+      4,
+      "right",
+      0,
+      "Face Boss Halg",
+      "A Thousand On Rock",
+      "in the Quarry",
+    );
+    // The ice road: the last roof before the perimeter.
+    await meetLandmark(
+      "long_light_depot",
+      4,
+      5,
+      "left",
+      1,
+      "Depot Keeper Sable",
+      "Smooth On The Ice",
+      "on the Perimeter",
+    );
+
+    // And you can walk back out of each one.
+    await enterMapAt(page, "long_light_depot", 6, 6, "down");
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(800);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("Drift Perimeter");
+  });
+
   test("@smoke the waystation's rooms: a cookhouse job for turning stock out", async ({
     page,
   }) => {
