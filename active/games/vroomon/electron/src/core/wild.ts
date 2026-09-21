@@ -133,8 +133,11 @@ export function advanceWildPack(
   mapId: string,
   pack: string[],
   random: () => number,
+  /** A ranking already computed for this exact pack, to avoid re-racing it. */
+  prescored?: WildPack,
 ): { pack: string[]; champion: { dna: string; score: number }; terrain: string } {
-  const scored = scoreWildPack(mapId, pack);
+  const scored =
+    prescored && prescored.members.length === pack.length ? prescored : scoreWildPack(mapId, pack);
   const survivors = scored.members.slice(
     0,
     Math.max(2, Math.floor(scored.members.length * WILD_SURVIVOR_SHARE)),

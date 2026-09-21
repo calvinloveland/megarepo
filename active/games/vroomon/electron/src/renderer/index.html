@@ -169,15 +169,21 @@
         padding: 0.8rem;
         box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
       }
-      .wild-race__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+      .wild-race__head { display: block; }
       .wild-race__title {
         margin: 0;
         font-family: var(--font-pixel);
         font-size: 0.85rem;
         color: #ffd166;
         letter-spacing: 0.05em;
+        white-space: nowrap;
       }
-      .wild-race__sub { margin: 0; font-family: var(--font-screen); font-size: 0.8rem; color: #dce8ff; }
+      .wild-race__sub {
+        margin: 0.2rem 0 0;
+        font-family: var(--font-screen);
+        font-size: 0.8rem;
+        color: #dce8ff;
+      }
       .wild-race__canvas {
         width: 100%;
         height: auto;

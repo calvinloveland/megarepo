@@ -866,6 +866,11 @@ does but with nobody steering:
   tutorial's first catch *unwinnable*, since Robby's loaner (~460px) is
   slower than a selected pack's best.
 
+The race window makes the wild legible: it names the pack's generation, states
+what the ground's best can do (`this ground's best runs 479px`), and parks both
+machines in their lanes — drawn from the parts their DNA builds — before you
+press Race. Esc lets the wild one go, which also breeds its pack on.
+
 Measured on the home paddock: founder stock has a representative at **112px**
 and a champion at 479px; after eight generations the representative is at
 **858px** and the champion at **1744px**. Robby's loaner (460px) therefore

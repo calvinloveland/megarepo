@@ -80,7 +80,7 @@ import {
   type SupplyId,
 } from "../core/economy.js";
 import { createInitialWorldState, recordEncounterDna } from "./world/world-state.js";
-import { advanceWildPack, scoreWildPack, seedWildPack } from "../core/wild.js";
+import { advanceWildPack, scoreWildPack, seedWildPack, type WildPack } from "../core/wild.js";
 import { serializeWorldState } from "./world/types.js";
 import type { Direction, PersistedWorldState, WorldState } from "./world/types.js";
 import { advanceDialogue as advanceWorldDialogue, endDialogue as endWorldDialogue } from "./world/world-state.js";
@@ -1497,9 +1497,24 @@ function renderEvolutionStage(
 /** The vroomon you meet on this ground: a middling member of the pack, not
  * its champion (see WildPack.representative). Seeded the first time you walk
  * a biome's grass, then evolved by its own races. */
+let lastScoredPack: { mapId: string; pack: string[]; scored: WildPack } | null = null;
+
+/** What the pack on this ground is capable of — its champion's score. */
+function packBestFor(mapId: string): number {
+  if (lastScoredPack && lastScoredPack.mapId === mapId) {
+    return Math.round(lastScoredPack.scored.champion.score);
+  }
+  const pack = overworldController.state.wildPacks[mapId];
+  return pack ? Math.round(scoreWildPack(mapId, pack).champion.score) : 0;
+}
+
 function nextWildDna(mapId: string): string {
   const pack = rendererState.world.wildPacks[mapId] ?? seedWildPack(mapId);
   const scored = scoreWildPack(mapId, pack);
+  // Keep the ranking: the pack breeds as soon as this meeting ends, and
+  // racing all 24 animals again for that would double the cost of every
+  // encounter (measured ~150ms each time).
+  lastScoredPack = { mapId, pack, scored };
   const encountered = scored.representative.dna;
   const generation = rendererState.world.wildGenerations[mapId] ?? 0;
   rendererState = setWorldState(rendererState, {
@@ -1525,7 +1540,12 @@ function nextWildDna(mapId: string): string {
 function advanceWildForMap(mapId: string): void {
   const pack = overworldController.state.wildPacks[mapId] ?? seedWildPack(mapId);
   const random = mulberryFor(`wild:${mapId}:${overworldController.state.wildGenerations[mapId] ?? 0}`);
-  const step = advanceWildPack(mapId, pack, random);
+  const prescored =
+    lastScoredPack && lastScoredPack.mapId === mapId && lastScoredPack.pack.length === pack.length
+      ? lastScoredPack.scored
+      : undefined;
+  const step = advanceWildPack(mapId, pack, random, prescored);
+  lastScoredPack = null;
   const generation = (overworldController.state.wildGenerations[mapId] ?? 0) + 1;
 
   overworldController._setState({
@@ -1560,6 +1580,9 @@ function mulberryFor(seed: string): () => number {
 interface WildRaceState {
   open: boolean;
   wildDna: string;
+  /** The pack's best on this ground, shown so the ceiling is legible. */
+  packBest: number;
+  packTerrain: string;
   myDna: string | null;
   terrain: string;
   frames: { mine: VehiclePreviewFrame[]; wild: VehiclePreviewFrame[] } | null;
@@ -1572,6 +1595,8 @@ interface WildRaceState {
 let wildRaceState: WildRaceState = {
   open: false,
   wildDna: "",
+  packBest: 0,
+  packTerrain: "Grassland",
   myDna: null,
   terrain: "Grassland",
   frames: null,
@@ -1633,10 +1658,13 @@ function bestOwnedDna(terrainName: string): string | null {
 }
 
 function openWildRace(wildDna: string): void {
-  const terrain = terrainForVenue(rendererState.world.currentMapId) ?? "Grassland";
+  const mapId = rendererState.world.currentMapId;
+  const terrain = terrainForVenue(mapId) ?? "Grassland";
   wildRaceState = {
     open: true,
     wildDna,
+    packBest: packBestFor(mapId),
+    packTerrain: terrain,
     myDna: bestOwnedDna(terrain),
     terrain,
     frames: null,
@@ -1787,7 +1815,44 @@ function drawWildRace(): void {
   }
 
   if (!frames) {
-    // Before the race: both cars sitting on the line.
+    // Before the race: both machines parked on their lines, drawn from the
+    // parts their DNA builds so the window is never an empty sheet.
+    const parked = (dna: string | null, laneY: number, fill: string): void => {
+      if (!dna) {
+        return;
+      }
+      const shapes = inspectVehicle(dna, inspectorTuning()).shapes;
+      const span = Math.max(60, ...shapes.map((shape) => shape.x));
+      const scale = Math.min(0.6, (canvas.width - 120) / span);
+      for (const shape of shapes) {
+        const x = (canvas.width - span * scale) / 2 + shape.x * scale;
+        if (shape.kind === "wheel") {
+          const radius = Math.max(3, shape.radius * scale);
+          ctx.fillStyle = "#22282f";
+          ctx.beginPath();
+          ctx.arc(x, laneY - radius, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = fill;
+          ctx.beginPath();
+          ctx.arc(x, laneY - radius, Math.max(2, radius * 0.55), 0, Math.PI * 2);
+          ctx.fill();
+          continue;
+        }
+        const width = shape.width * scale;
+        const height = shape.height * scale;
+        ctx.save();
+        ctx.translate(x, laneY - height / 2 - 2);
+        ctx.rotate((shape.angleDeg * Math.PI) / 180);
+        ctx.fillStyle = fill;
+        ctx.fillRect(-width / 2, -height / 2, width, height);
+        ctx.strokeStyle = "rgba(16, 24, 34, 0.8)";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(-width / 2, -height / 2, width, height);
+        ctx.restore();
+      }
+    };
+    parked(wildRaceState.myDna, laneTop, "#8ab4ff");
+    parked(wildRaceState.wildDna, laneBottom, "#ffb3a7");
     return;
   }
 
@@ -1881,8 +1946,12 @@ function renderWildRace(): void {
     const mapId = overworldController.state.currentMapId;
     const generation = overworldController.state.wildGenerations[mapId] ?? 0;
     const packLine =
-      generation > 0 ? ` · wild gen ${generation + 1}` : " · founder stock";
-    sub.textContent = `${wildRaceState.terrain}${packLine} · win the race and it joins your Herd Book`;
+      generation > 0 ? `wild gen ${generation + 1}` : "founder stock";
+    const ceiling =
+      wildRaceState.packBest > 0
+        ? ` · this ground's best runs ${Math.round(wildRaceState.packBest)}px`
+        : "";
+    sub.textContent = `${wildRaceState.terrain} · ${packLine}${ceiling} · win and it joins your Herd Book`;
   }
   const lanes = document.querySelector<HTMLElement>("[data-wild-race-lanes]");
   if (lanes) {
@@ -5990,8 +6059,16 @@ document.addEventListener("input", (event) => {
   renderInspector();
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && inspectorState.open) {
+  if (event.key !== "Escape") {
+    return;
+  }
+  if (inspectorState.open) {
     closeInspector();
+    return;
+  }
+  // Esc lets the wild one go, which also breeds its pack on.
+  if (wildRaceState.open) {
+    closeWildRace();
   }
 });
 document.querySelector<HTMLButtonElement>("[data-barn-close]")?.addEventListener("click", () => {
