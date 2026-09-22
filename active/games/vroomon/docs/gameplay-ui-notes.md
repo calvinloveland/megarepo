@@ -4056,7 +4056,12 @@ The hedge maze's Hedger and the Quarry's Deep Runner now have rematches gated on
 the same counter, and all three runners have authored greetings for after a win
 and after a loss — a mechanism the greeting system has had all along and that
 nobody had written for any of them, so a beaten rival used to say the same
-sentence he said when you had never met.
+sentence he said when you had never met. Then the four rivals outside the mazes
+— Tez on the switchback, Sprout in the orchard, and the two riders who teach the
+first races — turned out to have the same hole, so they have their lines now too,
+and the contract suite refuses a `trainer` node whose rival has no memory: the
+greeting mechanism has been there all along, and what it needed was somebody to
+insist that every rival use it.
 
 Two checks came with it, because a condition is a new way to write dead content:
 the swap is walked through the real map content (before, the offer is there and

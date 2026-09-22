@@ -201,6 +201,41 @@ describe("quest contracts", () => {
     }
   });
 
+  it("makes every rival say what happened last race", () => {
+    // The greeting system has always been able to do this — \`greetings\` keys on
+    // standing and on \`after:win\`/\`after:loss\` — and four of the world's rivals
+    // had never been written one, so a beaten rival repeated the sentence they
+    // said when you had never met. Whoever races you owes you a memory.
+    const rivals: Array<{ mapId: string; name: string; nodeId: string }> = [];
+    for (const map of Object.values(MAPS)) {
+      for (const npc of map.npcs) {
+        const dialogue = npc.dialogue as { onComplete?: string | null } | null | undefined;
+        if (dialogue?.onComplete === "trainer") {
+          rivals.push({ mapId: map.id, name: npc.name, nodeId: npc.id });
+        }
+      }
+    }
+    expect(rivals.length, "no rivals shipped at all").toBeGreaterThan(4);
+
+    const silent: string[] = [];
+    for (const rival of rivals) {
+      const person = MAPS[rival.mapId]?.npcs.find(
+        (npc) => npc.name === rival.name && (npc.x > 0 || npc.y > 0),
+      );
+      if (!person) {
+        silent.push(`${rival.mapId}/${rival.nodeId} has nobody standing to say it`);
+        continue;
+      }
+      if (!person.greetings?.["after:win"]) {
+        silent.push(`${rival.mapId}/${rival.name} never mentions a win`);
+      }
+      if (!person.greetings?.["after:loss"]) {
+        silent.push(`${rival.mapId}/${rival.name} never mentions a loss`);
+      }
+    }
+    expect(silent, `rivals with no memory of the last race: ${silent.join("; ")}`).toEqual([]);
+  });
+
   it("asks for things the ground it names can actually provide", () => {
     // A job to beat wild vroomon on a map with no wild grass is impossible.
     // Every objective that names a ground has to find that ground capable.

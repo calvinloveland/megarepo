@@ -753,6 +753,10 @@ export const MAPS: Record<string, Tilemap> = {
         y: 3,
         facing: "left",
         sprite: "rival",
+        greetings: {
+          "after:win": "You took the switchback off me, on the ridge I have been running since before you had a licence. I will want it back — when the wind drops.",
+          "after:loss": "Geared short, like I said. Come back when yours climbs in something other than second.",
+        },
         dialogue: {
           text: "Everyone with a fast car comes up here to prove it climbs. Mine's geared short and it eats this road. Want to find out whose frame holds?",
           options: [
@@ -1662,6 +1666,10 @@ export const MAPS: Record<string, Tilemap> = {
         y: 4,
         facing: "left",
         sprite: "rival",
+        greetings: {
+          "after:win": "You beat me with a borrowed crate off the ranch, and I want to know how. Sit down and tell me what your line does that mine does not.",
+          "after:loss": "Nothing special, like I told you. It still has not lost to a ranch car this season, and it is not going to start with yours.",
+        },
         routine: {
           morning: { x: 13, y: 4, facing: "left" },
           afternoon: { x: 13, y: 4, facing: "left" },
@@ -2859,6 +2867,10 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "left",
         sprite: "rider",
         encounterId: "vicky-race",
+        greetings: {
+          "after:win": "Oh, you are one of those. Right. I will be on the line every time you come past it, and I will not be taking it easy on account of you being new.",
+          "after:loss": "Keep the car, keep the laps. The records board does not care how it felt on the day, and neither should you.",
+        },
         dialogue: {
           text: "Oh, you're the new kid! I heard the Roundup King's Reds are the fastest herd on the plain. A race is simple: stand the line and let the machine take the road — one tap of Z and the timer runs. Test any car you've bred in Test Drive first; the flat is a good yardstick, and the records board logs every lap so you can race your own tailwind.",
           options: [
@@ -3021,6 +3033,10 @@ export const MAPS: Record<string, Tilemap> = {
         facing: "left",
         sprite: "rider",
         encounterId: "marcus-race",
+        greetings: {
+          "after:win": "Fat wheels and you still had it. Fine — sand is not the whole world, and you have made me want to go and find out what is.",
+          "after:loss": "Grip, that was all it was. Bring something with teeth next time and I will show you the loose stuff.",
+        },
         dialogue: {
           text: "Sand's tricky. My car's got fat wheels for grip. You got fat wheels?",
           options: [
