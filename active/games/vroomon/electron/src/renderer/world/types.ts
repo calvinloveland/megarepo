@@ -1,3 +1,5 @@
+import type { DialogueSession } from "../../engine/dialogue.js";
+
 export type TileKind =
   | "grass"
   | "path"
@@ -147,7 +149,11 @@ export interface WorldState {
   wildPacks: Record<string, string[]>;
   wildGenerations: Record<string, number>;
   flags: Record<string, boolean>;
-  dialogueQueue: DialogueNode[];
+  /**
+   * The conversation in progress, if any. Transient: the engine session owns
+   * the graph walk, Vroomon owns the flags and the verbs it fires.
+   */
+  dialogue: DialogueSession | null;
   activeNpc: string | null;
   currentEncounter: {
     kind: Exclude<EncounterKind, null>;

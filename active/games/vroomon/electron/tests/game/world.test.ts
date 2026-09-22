@@ -21,7 +21,6 @@ import {
 } from "../../src/renderer/world/types.js";
 import {
   addTally,
-  advanceDialogue,
   awardBadge,
   createInitialWorldState,
   endDialogue,
@@ -29,10 +28,24 @@ import {
   setFlag,
   setPlayerPosition,
   startDialogue,
+  syncDialogue,
   transitionToMap,
   joinFaction,
   markVisited,
 } from "../../src/renderer/world/world-state.js";
+import { DialogueSession, type ScriptHost } from "../../src/engine/dialogue.js";
+import { scriptForText } from "../../src/renderer/world/dialogue-bridge.js";
+
+/** A script host that remembers nothing, for the state tests. */
+function quietHost(): ScriptHost {
+  return {
+    getFlag: () => false,
+    setFlag: () => {},
+    countItem: () => 0,
+    coins: () => 0,
+    run: () => true,
+  };
+}
 
 describe("world maps", () => {
   it("exposes the three faction biomes with their host NPCs", () => {
@@ -928,17 +941,22 @@ describe("world state transitions", () => {
     expect(world.isMoving).toBe(false);
   });
 
-  it("starts and ends dialogue", () => {
-    const started = startDialogue(createInitialWorldState(), "npc-1", {
-      text: "Hello there!",
-    });
+  it("starts and ends a conversation", () => {
+    const started = startDialogue(
+      createInitialWorldState(),
+      "npc-1",
+      new DialogueSession(scriptForText("Hello there!", "npc-1"), quietHost()),
+    );
     expect(started.activeNpc).toBe("npc-1");
-    expect(started.dialogueQueue).toHaveLength(1);
+    expect(started.dialogue?.current()?.text).toBe("Hello there!");
 
-    const ended = endDialogue(started, null, "met_axle");
+    // Ending it drops the session: the walk is the engine's, the state is
+    // Vroomon's, and a beat nobody acknowledged happened to nobody.
+    const ended = endDialogue(started);
     expect(ended.activeNpc).toBeNull();
-    expect(ended.dialogueQueue).toEqual([]);
-    expect(ended.flags.met_axle).toBe(true);
+    expect(ended.dialogue).toBeNull();
+    // Which is a no-op on a state that had none.
+    expect(endDialogue(ended)).toBe(ended);
   });
 
   it("records new DNA into the vroomdex without duplicates", () => {
@@ -1079,7 +1097,9 @@ describe("world persistence", () => {
     const serialized = serializeWorldState(world);
 
     const keys = Object.keys(serialized);
-    expect(keys).not.toContain("dialogueQueue");
+    // The conversation in progress is a live session, not save data: a reload
+    // mid-sentence starts the sentence again, from the person's greeting.
+    expect(keys).not.toContain("dialogue");
     expect(keys).not.toContain("activeNpc");
     expect(keys).not.toContain("currentEncounter");
     expect(keys).not.toContain("isMoving");
@@ -1143,17 +1163,24 @@ describe("the tally, and the things it remembers", () => {
     expect(again.tally["visited:hills_map"]).toBe(1);
   });
 
-  it("applies a beat's flag when the player advances past it", () => {
-    // setFlag must not be reserved for terminal nodes: a flagged beat that
-    // also chains onward applies its flag on the way through, which is how the
-    // reveal beat walks you into the yard and records itself at the same time.
-    const started = startDialogue(createInitialWorldState(), "somebody", {
-      text: "a beat that also chains",
-      setFlag: "beat-seen",
-    });
-    const next = advanceDialogue(started, "somebody-2", { text: "the next beat" });
-    expect(next.flags["beat-seen"]).toBe(true);
-    expect(next.dialogueQueue[0]?.text).toBe("the next beat");
+  it("keeps activeNpc and the open conversation in step", () => {
+    // A session that has run out of beats is not a conversation: syncing is
+    // what stops the HUD showing a name over an ended scene.
+    const host = quietHost();
+    const started = startDialogue(
+      createInitialWorldState(),
+      "somebody",
+      new DialogueSession(scriptForText("the only beat", "somebody"), host),
+    );
+    started.dialogue?.advance();
+    expect(started.dialogue?.isOpen()).toBe(false);
+
+    const synced = syncDialogue(started);
+    expect(synced.activeNpc).toBeNull();
+    expect(synced.dialogue).toBeNull();
+    // An open session is left exactly alone.
+    const open = startDialogue(createInitialWorldState(), "somebody", new DialogueSession(scriptForText("still going"), host));
+    expect(syncDialogue(open)).toBe(open);
   });
 });
 

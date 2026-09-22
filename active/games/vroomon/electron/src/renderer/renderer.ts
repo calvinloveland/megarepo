@@ -131,7 +131,6 @@ import {
 import { advanceWildPack, scoreWildPack, seedWildPack, wildTerrainFor, type WildPack } from "../core/wild.js";
 import { serializeWorldState } from "./world/types.js";
 import type { Direction, PersistedWorldState, WorldState } from "./world/types.js";
-import { advanceDialogue as advanceWorldDialogue, endDialogue as endWorldDialogue } from "./world/world-state.js";
 import type { GenerationLogEntry } from "../core/persistence.js";
 import type {
   BodySnapshot,
@@ -2207,11 +2206,10 @@ function catchWildVroomon(dna: string): void {
     overworldController.setFlag("tut-caught", true);
     const robby = getMap("ranch_yard")?.npcs.find((npc) => npc.id === "robby-caught-1");
     if (robby?.dialogue) {
-      overworldController._setState({
-        ...overworldController.state,
-        activeNpc: "robby-caught-1",
-        dialogueQueue: [...overworldController.state.dialogueQueue, { ...robby.dialogue }],
-      });
+      // The old shape appended the beat to the open queue, which the next
+      // advance cleared — so the line only ever played when nothing was open.
+      // Starting his conversation is the same thing without the dead end.
+      overworldController.speakNpc(robby.id);
     }
   }
 }
@@ -5734,12 +5732,11 @@ document
     if ((event.target as HTMLElement).closest("[data-dialogue-option]")) {
       return;
     }
-    const world = overworldController.state;
-    const current = world.dialogueQueue[0];
-    if (!current) {
+    const session = overworldController.state.dialogue;
+    if (!session) {
       return;
     }
-    if (current.options && current.options.length > 0) {
+    if (session.options().length > 0) {
       return;
     }
     if (dialogueTyping) {
@@ -5755,53 +5752,48 @@ document
     scheduleWorldSave();
   });
 
-function renderDialogueOptions(dialogue: { options?: Array<{ next: string; label: string }> }): void {
+function renderDialogueOptions(dialogue: { options?: readonly { next: string | null; label: string }[] }): void {
   if (!dialogue.options || dialogue.options.length === 0) {
     overworldDialogueOptions.innerHTML = "";
     return;
   }
   overworldDialogueOptions.innerHTML = dialogue.options
     .map(
-      (option) => `<button type="button" data-dialogue-option="${escapeHtml(option.next)}">${escapeHtml(option.label)}</button>`,
+      (option, index) =>
+        `<button type="button" data-dialogue-option="${index}">${escapeHtml(option.label)}</button>`,
     )
     .join("");
   for (const button of Array.from(
     overworldDialogueOptions.querySelectorAll<HTMLButtonElement>("[data-dialogue-option]"),
   )) {
     button.addEventListener("click", () => {
-      const nextId = button.dataset.dialogueOption ?? "";
-      // Dialogue options reference NPC ids in the current map (matching
-      // the non-option "next" flow). The old text-matching lookup never
-      // matched, so ANY option click silently ended the scene — the
-      // faction joins and Professor Axle's explain options were dead.
-      const resolved = overworldController._resolveDialogue(nextId);
-      if (resolved) {
-        // Before you race the ground, be told what it asks. This is where the
-        // circuit stops being a scoreboard and becomes a breeding target: the
-        // bar, what your barn holds, and the difference between them. It
-        // replaces the node's "Three, two, one... GO!" rather than joining it,
-        // because the race card does its own countdown.
-        const target =
-          resolved.onComplete === "gym" ? { ...resolved, text: briefForHere() } : resolved;
-        const advanced = advanceWorldDialogue(overworldController.state, nextId, target);
-        overworldController._setState(advanced);
-        renderOverworldUi();
-        renderStatsHud();
-        scheduleWorldSave();
-      } else {
-        const ended = endWorldDialogue(overworldController.state, null, null);
-        overworldController._setState(ended);
-        renderOverworldUi();
-        renderStatsHud();
-        scheduleWorldSave();
-      }
+      const index = Number(button.dataset.dialogueOption ?? -1);
+      const world = overworldController.state;
+      const session = world.dialogue;
+      const target = session?.options()[index]?.next ?? null;
+      // Before you race the ground, be told what it asks. This is where the
+      // circuit stops being a scoreboard and becomes a breeding target: the
+      // bar, what your barn holds, and the difference between them. It
+      // replaces the node's "Three, two, one... GO!" rather than joining it,
+      // because the race card does its own countdown.
+      const authored = target
+        ? getMap(world.currentMapId)?.npcs.find((npc) => npc.id === target)?.dialogue
+        : null;
+      overworldController.chooseDialogue(
+        index,
+        authored?.onComplete === "gym" && target ? { nodeId: target, text: briefForHere() } : undefined,
+      );
+      renderOverworldUi();
+      renderStatsHud();
+      scheduleWorldSave();
     });
   }
 }
 
 let typewriterTimer: ReturnType<typeof setTimeout> | null = null;
 let dialogueTyping = false;
-let typingDialogue: { text: string; options?: Array<{ next: string; label: string }> } | null = null;
+// Only the line being typed: the session owns everything else about the beat.
+let typingDialogue: { text: string } | null = null;
 let revealedChars = 0;
 let lastDialogueSignature = "";
 
@@ -5817,7 +5809,7 @@ function cancelTypewriter(): void {
 /** Complete the typewriter; returns true when the beat had options (callers
  * must not advance past an option dialogue). */
 function completeDialogueTyping(): boolean {
-  const hadOptions = (typingDialogue?.options?.length ?? 0) > 0;
+  const hadOptions = (overworldController.state.dialogue?.options().length ?? 0) > 0;
   cancelTypewriter();
   dialogueTyping = false;
   if (typingDialogue) {
@@ -5834,10 +5826,12 @@ function renderOverworldUi(): void {
   rendererState = setWorldState(rendererState, world);
 
   const map = getMap(world.currentMapId);
-  const currentDialogue = world.dialogueQueue[0] ?? null;
+  const session = world.dialogue;
+  const currentNode = session?.current() ?? null;
+  const currentOptions = session?.options() ?? [];
   const activeNpc = map?.npcs.find((npc) => npc.id === world.activeNpc) ?? null;
 
-  if (currentDialogue) {
+  if (currentNode) {
     overworldDialogue.hidden = false;
     const dialogueName = activeNpc?.name ?? "Narrator";
     overworldDialogueName.textContent = dialogueName;
@@ -5847,18 +5841,18 @@ function renderOverworldUi(): void {
         dialogueName,
       );
     }
-    const signature = `${currentDialogue.text}|${currentDialogue.options?.length ?? 0}`;
+    const signature = `${currentNode.text}|${currentOptions.length}`;
     if (signature !== lastDialogueSignature) {
       lastDialogueSignature = signature;
-      typingDialogue = currentDialogue;
-      typingLineText = currentDialogue.text;
+      typingDialogue = currentNode;
+      typingLineText = currentNode.text;
       dialogueTyping = true;
       overworldDialogueText.dataset.typing = "true";
       revealedChars = 0;
       overworldDialogueText.textContent = "";
       // Options render right away so interaction never waits on the
       // typewriter (mobile/busy players keep the old snappy feel).
-      renderDialogueOptions(currentDialogue);
+      renderDialogueOptions({ options: currentOptions });
       cancelTypewriter();
       const tick = (): void => {
         if (!typingDialogue || revealedChars >= typingDialogue.text.length) {
@@ -5977,11 +5971,11 @@ function stopOverworldAnimationLoop(): void {
 function handleOverworldKeydown(event: KeyboardEvent): void {
   const world = overworldController.state;
 
-  if (world.dialogueQueue.length > 0) {
+  const openSession = world.dialogue;
+  if (openSession) {
     if (event.key === "z" || event.key === "Z" || event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      const current = world.dialogueQueue[0];
-      if (current?.options && current.options.length > 0) {
+      if (openSession.options().length > 0) {
         return;
       }
       if (dialogueTyping) {
@@ -6050,12 +6044,16 @@ function briefForHere(): string {
 }
 
 function talkAhead(): void {
-  const before = overworldController.state.dialogueQueue.length;
+  const hadDialogue = overworldController.state.dialogue !== null;
   const next = overworldController.interact();
-  if (before > 0 || next.dialogueQueue.length === 0) {
+  const session = next.dialogue;
+  if (hadDialogue || !session) {
     return;
   }
-  const opening = next.dialogueQueue[0]!;
+  const opening = session.current();
+  if (!opening) {
+    return;
+  }
   const npc = getMap(next.currentMapId)?.npcs.find((candidate) => candidate.id === next.activeNpc);
   if (!npc) {
     return;
@@ -6074,19 +6072,18 @@ function talkAhead(): void {
   // nag while a job is open, and the thank-you when it is done. Those come
   // first; a plain offer is only voiced when the greeting has no menu of its
   // own to say it with.
-  const hasMenu = (opening.options?.length ?? 0) > 0;
+  const hasMenu = session.options().length > 0;
   const voice = beats.thanks ?? beats.pending ?? (hasMenu ? null : beats.offer);
   if (!voice) {
     return;
   }
-  const withVoice =
-    beats.thanks && voice === beats.thanks
-      ? addTally(next, thanksSpokenKey(beats.thanks.id), 1)
-      : next;
-  overworldController._setState({
-    ...withVoice,
-    dialogueQueue: [{ text: voice.text, next: undefined }, ...next.dialogueQueue],
-  });
+  if (beats.thanks && voice === beats.thanks) {
+    overworldController._setState(addTally(next, thanksSpokenKey(beats.thanks.id), 1));
+  }
+  // The voice is an aside that replaces the greeting it was spoken over: the
+  // old shape prepended it to the queue, and the first advance cleared the rest
+  // anyway. Saying it out loud is the same beat without the pretence.
+  overworldController.speakLine(voice.text);
 }
 
 function dispatchOverworldDpad(direction: Direction | "interact"): void {

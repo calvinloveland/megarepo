@@ -167,6 +167,7 @@ export class DialogueSession {
   readonly diagnostics: DialogueDiagnostic[] = [];
   private nodeId: string | null;
   private readonly visited = new Set<string>();
+  private readonly textOverrides = new Map<string, string>();
 
   constructor(
     private readonly script: DialogueScript,
@@ -180,12 +181,27 @@ export class DialogueSession {
     return this.script.id;
   }
 
+  /**
+   * Substitute a line for this run of the conversation. The game owns the
+   * words for a generated beat — a feud briefing, a price quoted back, a name
+   * the node could not have known — and the session owns which node is on
+   * screen. The override lasts as long as the session does.
+   */
+  replaceText(nodeId: string, text: string): void {
+    this.textOverrides.set(nodeId, text);
+  }
+
   isOpen(): boolean {
     return this.nodeId !== null;
   }
 
   current(): DialogueNode | null {
-    return this.nodeId === null ? null : (this.script.nodes.get(this.nodeId) ?? null);
+    const node = this.nodeId === null ? null : (this.script.nodes.get(this.nodeId) ?? null);
+    if (!node) {
+      return null;
+    }
+    const override = this.textOverrides.get(node.id);
+    return override === undefined ? node : { ...node, text: override };
   }
 
   /** The options this player can actually pick right now. */

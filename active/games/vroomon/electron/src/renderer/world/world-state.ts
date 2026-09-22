@@ -1,8 +1,5 @@
-import {
-  type Direction,
-  type DialogueNode,
-  type WorldState,
-} from "./types.js";
+import type { DialogueSession } from "../../engine/dialogue.js";
+import type { Direction, WorldState } from "./types.js";
 
 export function createInitialWorldState(): WorldState {
   return {
@@ -24,7 +21,7 @@ export function createInitialWorldState(): WorldState {
     wildPacks: {},
     wildGenerations: {},
     flags: {},
-    dialogueQueue: [],
+    dialogue: null,
     activeNpc: null,
     currentEncounter: null,
     isMoving: false,
@@ -82,6 +79,7 @@ export function transitionToMap(
     playerY: y,
     playerFacing: facing,
     activeNpc: null,
+    dialogue: null,
     isMoving: false,
     movementTarget: null,
   };
@@ -90,50 +88,38 @@ export function transitionToMap(
 export function startDialogue(
   state: WorldState,
   npcId: string,
-  dialogue: DialogueNode,
+  session: DialogueSession,
 ): WorldState {
   return {
     ...state,
     activeNpc: npcId,
-    dialogueQueue: [dialogue],
+    dialogue: session,
   };
 }
 
-export function advanceDialogue(
-  state: WorldState,
-  next: string,
-  nextDialogue: DialogueNode,
-): WorldState {
-  // A flagged beat that ALSO chains onward applies its flag when the
-  // player advances — setFlag must not be reserved for terminal nodes.
-  const flag = state.dialogueQueue[0]?.setFlag ?? null;
-  const newFlags = flag ? { ...state.flags, [flag]: true } : state.flags;
-  return {
-    ...state,
-    dialogueQueue: [nextDialogue],
-    flags: newFlags,
-  };
-}
-
-export function endDialogue(
-  state: WorldState,
-  onComplete: DialogueNode["onComplete"],
-  flag: string | null,
-): WorldState {
-  const newFlags = flag ? { ...state.flags, [flag]: true } : state.flags;
+/**
+ * The conversation is over — because the engine session closed, or because the
+ * game took it away (a warp, a race card). Dropping the session runs nothing:
+ * a beat nobody acknowledged did not happen.
+ */
+export function endDialogue(state: WorldState): WorldState {
+  if (state.dialogue === null && state.activeNpc === null) {
+    return state;
+  }
   return {
     ...state,
     activeNpc: null,
-    dialogueQueue: [],
-    flags: newFlags,
-    // On-complete "encounters" (wild/trainer/gym) are fire-and-forget
-    // reports via onEncounterStart — they do NOT open a persistent
-    // encounter, so currentEncounter stays untouched. Previously it was
-    // set here and permanently blocked persistWorldState (which bails on
-    // activeNpc || currentEncounter), meaning ANY gym fight silently
-    // froze world saving.
+    dialogue: null,
     currentEncounter: state.currentEncounter,
   };
+}
+
+/** Keep `activeNpc` and `dialogue` in step: a closed session is no session. */
+export function syncDialogue(state: WorldState): WorldState {
+  if (state.dialogue && !state.dialogue.isOpen()) {
+    return endDialogue(state);
+  }
+  return state;
 }
 
 export function recordEncounterDna(
@@ -158,7 +144,7 @@ export function joinFaction(
     ...state,
     factionChoices: { ...state.factionChoices, [biomeId]: factionId },
     activeNpc: null,
-    dialogueQueue: [],
+    dialogue: null,
     flags: { ...state.flags, [`faction-joined-${biomeId}`]: true },
   };
 }

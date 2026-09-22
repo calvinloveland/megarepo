@@ -226,6 +226,7 @@ new entry that is not indexed here fails the suite.
 - [Where this session left the project (2026-09-15) ✅](#where-this-session-left-the-project-2026-09-15)
 - [The engine, and the maze it bought (2026-09-21) ✅](#the-engine-and-the-maze-it-bought-2026-09-21)
 - [Three mazes, one builder, and the tile that was not a wall (2026-09-21) ✅](#three-mazes-one-builder-and-the-tile-that-was-not-a-wall-2026-09-21)
+- [The dialogue walk moved into the engine (2026-09-21) ✅](#the-dialogue-walk-moved-into-the-engine-2026-09-21)
 - [The last rule with no teacher: what the wild is *for* (2026-09-15) ✅](#the-last-rule-with-no-teacher-what-the-wild-is-for-2026-09-15)
 - [Six wrong assumptions in one test file (2026-09-15) ✅](#six-wrong-assumptions-in-one-test-file-2026-09-15)
 - [The wild table answers the question you came in with (2026-09-15) ✅](#the-wild-table-answers-the-question-you-came-in-with-2026-09-15)
@@ -3954,6 +3955,44 @@ this game is walkable ground — a boulder you drive over — so a maze walled w
 rock would have been a maze with no walls at all, and every invariant would
 still have passed. The Deep is walled with `wall` for that reason, and the
 comment in `maze-map.ts` says so.
+
+## The dialogue walk moved into the engine (2026-09-21) ✅
+
+The last big duplication in the game was its dialogue: `world-state.ts` kept a
+one-element queue and `overworld-controller.ts` walked the graph by hand —
+advance, find the next node by id, apply `setFlag` on the way out, run one of
+ten `onComplete` verbs. The engine had all of that, with conditions the content
+never had, and the two could not agree on one thing: when a flag is recorded.
+
+That was settled in the engine's favour rather than the game's: a node now has
+`effects` (when the beat *appears*) and `onLeave` (when the player
+*acknowledges* it). Content needs both, and "a quest accepted by the option
+someone just chose is recorded when they chose it" is the honest reading.
+
+`renderer/world/dialogue-bridge.ts` is the whole translation: one node per
+person, keyed by the NPC id the links already use, `setFlag` and `onComplete`
+as leave effects in that order, and a rival's car travelling as the command's
+argument. The controller is the session's host — six verbs, and `goto:` carrying
+its map, position and landing node. Two things worth having fell out:
+
+- **Three dead paths deleted.** The praise beat appended after the tutorial was
+  never played (the next advance cleared the queue); the voice line "prepended"
+  to a greeting was a replacement all along, and now says so; and the branch
+  where an option click resolved to nothing — which silently ended the scene,
+  and had done since the old text-matching lookup — cannot happen, because the
+  engine validated the link when it built the script.
+- **One new engine feature, general on purpose.** The feud briefing that stands
+  in for an arena's countdown is `session.replaceText(nodeId, text)`: the game
+  owns the words for a beat it computed, the session owns which node is on
+  screen. Without it, that swap would have been renderer code reaching into the
+  session's node map.
+
+What it cost: two unit tests that pinned the old API shape, and one DOM
+attribute (`data-dialogue-option`) that changed from a node id to an index —
+checked first, and no test or helper depended on the value. The gate was the e2e
+suite, since conversations are how every quest, faction, race and warp is
+reached: **41 smoke and 58 e2e walks pass unchanged on the first run after the
+port**, which is the result a refactor of the most-tested surface should have.
 
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 

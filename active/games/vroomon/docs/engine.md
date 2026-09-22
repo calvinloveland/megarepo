@@ -119,6 +119,18 @@ not move the player, and closes it.
 
 ## Where Vroomon uses it
 
+- **Dialogue.** `renderer/world/dialogue-bridge.ts` turns Vroomon's authored
+  maps into engine scripts: one node per person, keyed by the NPC id the links
+  already use, with `setFlag` and `onComplete` as `onLeave` effects (the flag
+  first, then the verb). The controller is the `ScriptHost`: six `onComplete`
+  verbs became commands, and `goto:` carries its map, position and optional
+  landing node in the argument. The engine validates every link when the script
+  is built, and a test builds one for every person in the world — so a link to a
+  node nobody wrote is now a failure rather than a conversation that quietly
+  ends.
+- **A generated line.** The feud briefing that replaces an arena's "three,
+  two, one… go" is `session.replaceText(nodeId, text)`: the game owns the words
+  for a beat it computed, the session owns which node is on screen.
 - **Routine validation.** Vroomon learned the hard way that a keeper's routine
   can walk them into a hedge, that two people can be tidy at dawn and standing
   in one another at dusk, and that hours are a fraction of the day. Those checks
@@ -146,35 +158,25 @@ not move the player, and closes it.
 
 ## What is not ported yet
 
-The engine is the target, not a rewrite that has already happened. Still on the
-old footing, in order of how much it would buy:
-
-1. **`renderer.ts`'s overworld state machine.** `world-state.ts` and
-   `overworld-controller.ts` implement dialogue, flags and movement in
-   vroomon's own terms. They work, and they are the largest remaining
-   duplication of the engine: Vroomon's `DialogueNode` (text, `next`,
-   `options`, `setFlag`, `onComplete`, `rivalDna`) maps cleanly onto the engine
-   graph, and the six `onComplete` verbs would become registered commands.
-   Two things to settle first, because they are decisions rather than chores.
-   One is now settled: Vroomon applies a node's flag when the player **leaves**
-   it, and the engine can express that — `onLeave` effects, added for exactly
-   this split, with the honest reading that a quest accepted by an option should
-   be recorded when the option is chosen. What is left is the two flows that
-   push a beat in front of a conversation that is already open (Robby's tutorial
-   line, the NPC voice line over `[text]`), and the gym node whose text the
-   renderer swaps for a generated feud briefing. Both change player-visible
-   behaviour rather than internals, so the ~20 dialogue unit tests and the e2e
-   walks are the gate.
+Nothing large. Two ports that looked obvious were measured and are **not**
+deletions yet; both are written up below rather than left as TODOs.
 
 Already moved:
 
+- **Dialogue** — `world/dialogue-bridge.ts` plus a `ScriptHost` on the
+  overworld controller; `world-state.ts` no longer carries a queue. The two
+  behaviours that needed a decision were settled rather than papered over: the
+  engine's `onLeave` effects give Vroomon's leave-time `setFlag`, and the line
+  that used to be *prepended* to an open conversation turned out to be a
+  replacement all along (the next advance cleared the rest), so it is one now.
 - **NPC routines** — `renderer/world/routines.ts` is now an adapter, not a
   second implementation: `engine/schedule.ts` owns the five phases, the walk
   back through the day for a missing slot (and forward, when there is nothing
   earlier), and the wrapping shift. Standing and greetings stayed, because
   those are about *this* world knowing *this* rancher.
-- **Maze generation** — `renderer/world/maze-map.ts` is one option set with two
-  users (the orchard's hedge maze and the Quarry's Deep).
+- **Maze generation** — `renderer/world/maze-map.ts` is one option set with
+  three users (the orchard's hedge maze, the Quarry's Deep, the Mesa's
+  Brambles).
 
 ## Two ports that look obvious and are not
 

@@ -8,7 +8,6 @@ import {
   startMoveAnimation,
 } from "./overworld-renderer.js";
 import {
-  advanceDialogue,
   awardBadge,
   endDialogue,
   joinFaction,
@@ -16,8 +15,11 @@ import {
   setMovementTarget,
   setPlayerFacing,
   startDialogue,
+  syncDialogue,
   transitionToMap,
 } from "./world-state.js";
+import { DialogueSession, type ScriptHost } from "../../engine/dialogue.js";
+import { commandFor, scriptForNpc, scriptForText } from "./dialogue-bridge.js";
 import { findFaction, type Faction } from "./factions.js";
 import { greetingFor, standingFor, type Standing } from "./routines.js";
 import { BADGE_BY_MAP } from "../circuit.js";
@@ -33,10 +35,19 @@ export interface OverworldInputs {
   interact: () => WorldState;
   move: (direction: Direction) => WorldState;
   advanceDialogue: () => WorldState;
+  /** Pick the index-th visible option; `briefInstead` replaces the line of the
+   * node it leads to (the feud briefing swaps an arena's countdown). */
+  chooseDialogue: (index: number, briefInstead?: { nodeId: string; text: string }) => WorldState;
+  /** Say one line as an aside, replacing whatever was on screen. */
+  speakLine: (text: string) => WorldState;
+  /** Start a conversation with somebody by id (a beat the game owes the player). */
+  speakNpc: (npcId: string, textOverrides?: Record<string, string>) => WorldState;
+  /** The authored node behind the beat on screen, for a game that wants to
+   * know what it is looking at. */
+  currentDialogueNode: () => DialogueNode | null;
   setFlag: (flag: string, value: boolean) => WorldState;
   _setState: (next: WorldState) => void;
   _awardBadge: (badge: string) => WorldState;
-  _resolveDialogue: (id: string) => DialogueNode | null;
 }
 
 export function createOverworldInputs(
@@ -90,8 +101,8 @@ export function createOverworldInputs(
   }
 
   function interact(): WorldState {
-    if (state.dialogueQueue.length > 0) {
-      return commit(advanceDialogueInput());
+    if (state.dialogue) {
+      return advanceDialogueInput();
     }
 
     if (state.isMoving) {
@@ -106,148 +117,169 @@ export function createOverworldInputs(
     const npc = findAdjacentNpc(state, dependencies.now?.() ?? Date.now());
     if (npc && npc.dialogue) {
       // People remember: a rival opens with the last race, everyone else with
-      // how well they know you.
+      // how well they know you. The greeting is a line override on the opening
+      // beat, so the menu it belongs to is untouched.
       const greeting = openingLine(npc);
-      const dialogue = greeting ? { ...npc.dialogue, text: greeting } : npc.dialogue;
-      return commit(startDialogue(state, npc.id, dialogue));
+      return speakNpc(npc.id, greeting ? { [npc.id]: greeting } : undefined);
     }
 
     return state;
+  }
+
+  /** The game's side of a conversation: flags, and the verbs a beat can fire. */
+  const host: ScriptHost = {
+    getFlag: (flag) => state.flags[flag] === true,
+    setFlag: (flag, value) => {
+      commit({ ...state, flags: { ...state.flags, [flag]: value } });
+    },
+    // Vroomon's world has no bag and no purse of its own: credits live in the
+    // run state, which the world cannot see. Nothing authored asks for them
+    // yet, and a condition that did would simply read zero.
+    countItem: () => 0,
+    coins: () => 0,
+    run: (command, arg) => runDialogueCommand(command, arg),
+  };
+
+  /**
+   * The verbs an authored `onComplete` becomes. Each ends the conversation
+   * first: the beat has been read, and what comes next is a race card, a warp
+   * or a badge rather than another line.
+   */
+  function runDialogueCommand(command: string, arg: string | undefined): boolean {
+    const speaker = state.activeNpc
+      ? getMap(state.currentMapId)?.npcs.find((npc) => npc.id === state.activeNpc) ?? null
+      : null;
+    switch (command) {
+      case "wild": {
+        const wildDna =
+          dependencies.nextWildDna?.(state.currentMapId) ??
+          `wild${Math.random().toString(36).slice(2, 12)}`;
+        commit(endDialogue(state));
+        dependencies.onEncounterStart("wild", wildDna, null);
+        return true;
+      }
+      case "trainer":
+      case "gym": {
+        // The car is authored on the node and arrives as the argument; the old
+        // derived string was a lottery, and one rival drew a car that could not
+        // move at all.
+        const trainerDna = arg ?? `trainer-${speaker?.id ?? "rival"}`;
+        const trainerName = speaker?.name ?? "Rival";
+        commit(endDialogue(state));
+        dependencies.onEncounterStart(command, trainerDna, trainerName);
+        return true;
+      }
+      case "vroomdex": {
+        const dna = "prof" + Math.random().toString(36).slice(2, 10);
+        const ended = endDialogue(state);
+        commit({ ...ended, vroomdex: recordEncounterDna(ended, dna).vroomdex });
+        dependencies.onVroomdexTick(dna);
+        return true;
+      }
+      case "open-ranch":
+        commit(endDialogue(state));
+        dependencies.onOpenRanch?.();
+        return true;
+      case "grand-roundup":
+        commit(endDialogue(state));
+        dependencies.onGrandRoundup?.();
+        return true;
+      case "starter-vroomon":
+        // Robby lends a starter before the lesson, so the first catch can be a
+        // race, and puts you on the hunt: with the toggle off the lesson's tall
+        // grass would never shake.
+        commit({ ...endDialogue(state), hunting: true });
+        dependencies.onStarterVroomon?.();
+        return true;
+      case "goto": {
+        const [mapId, rawX, rawY, nodeId] = (arg ?? "").split(":");
+        const target = getMap(mapId ?? "");
+        const x = Number(rawX);
+        const y = Number(rawY);
+        if (!target || !Number.isFinite(x) || !Number.isFinite(y)) {
+          return false;
+        }
+        // The story picks up on the far side: the beat that walked you out of
+        // the house hands off to the one that greets you in the yard.
+        const moved = transitionToMap(endDialogue(state), mapId!, x, y, "down");
+        commit(moved);
+        dependencies.onMapTransition?.();
+        if (nodeId) {
+          const script = scriptForNpc(moved.currentMapId, nodeId);
+          if (script) {
+            commit(startDialogue(moved, nodeId, new DialogueSession(script, host)));
+          }
+        }
+        return true;
+      }
+      case "join-faction": {
+        const factionId = arg ?? "";
+        const faction = findFaction(factionId);
+        commit(joinFaction(endDialogue(state), faction?.biomeId ?? "grassland", factionId));
+        dependencies.onFactionJoined?.(faction);
+        return true;
+      }
+      default:
+        return false;
+    }
   }
 
   function advanceDialogueInput(): WorldState {
-    const current = state.dialogueQueue[0];
-    if (!current) {
+    const session = state.dialogue;
+    if (!session || session.options().length > 0) {
       return state;
     }
-
-    if (current.options && current.options.length > 0) {
-      return state;
-    }
-
-    if (current.next) {
-      const nextDialogue = findDialogueById(state, current.next);
-      if (nextDialogue) {
-        return commit(advanceDialogue(state, current.next, nextDialogue));
-      }
-    }
-
-    return commit(completeDialogue(current.onComplete ?? null, current.setFlag ?? null));
+    session.advance();
+    return commit(syncDialogue(state));
   }
 
-  function completeDialogue(
-    onComplete: DialogueNode["onComplete"],
-    flag: string | null,
+  function chooseDialogueInput(
+    index: number,
+    briefInstead?: { nodeId: string; text: string },
   ): WorldState {
-    if (onComplete === "open-ranch") {
-      // The carrier bench: interacting with your own bench opens the
-      // Pocket Ranch hub (the renderer owns the overlay).
-      commit(endDialogue(state, onComplete, flag));
-      dependencies.onOpenRanch?.();
+    const session = state.dialogue;
+    if (!session) {
       return state;
     }
+    if (briefInstead) {
+      session.replaceText(briefInstead.nodeId, briefInstead.text);
+    }
+    session.choose(index);
+    return commit(syncDialogue(state));
+  }
 
-    if (onComplete === "grand-roundup") {
-      // Readiness (5 Brands + an enshrined champion) is the renderer's call —
-      // it owns the Hall of Fame; the controller just reports the attempt
-      // and returns the live state (endDialogue already committed above).
-      dependencies.onGrandRoundup?.();
+  /** Say one line as an aside, replacing whatever was on screen. */
+  function speakLine(text: string): WorldState {
+    return commit(
+      startDialogue(state, state.activeNpc ?? "narrator", new DialogueSession(scriptForText(text), host)),
+    );
+  }
+
+  /** Start a conversation with somebody by id — a beat the game owes the player. */
+  function speakNpc(npcId: string, textOverrides?: Record<string, string>): WorldState {
+    const script = scriptForNpc(state.currentMapId, npcId, textOverrides);
+    if (!script) {
       return state;
     }
+    return commit(startDialogue(state, npcId, new DialogueSession(script, host)));
+  }
 
-    if (onComplete === "starter-vroomon") {
-      // Robby lends a starter before the lesson, so the first catch can be a
-      // race: you can only keep what you can outrun. He also puts you on the
-      // hunt — with the toggle off, the lesson's tall grass would never shake
-      // and the tutorial would have no way forward.
-      commit({ ...endDialogue(state, onComplete, flag), hunting: true });
-      dependencies.onStarterVroomon?.();
-      return state;
+  /** The authored node behind the beat on screen, for the game's own checks. */
+  function currentDialogueNode(): DialogueNode | null {
+    const session = state.dialogue;
+    if (!session) {
+      return null;
     }
-
-    if (onComplete?.startsWith("goto:")) {
-      // Crossing between spaces (house <-> yard): the dialogue chain cannot
-      // span two maps, so a beat ends by walking you into the next one. An
-      // optional node id picks the story up again on the far side — without
-      // it the walk out of the house ended the scene and the yard lesson
-      // never played.
-      const [kind, mapId, rawX, rawY, nodeId] = onComplete.split(":");
-      void kind;
-      const target = getMap(mapId ?? "");
-      const x = Number(rawX);
-      const y = Number(rawY);
-      if (!target || !Number.isFinite(x) || !Number.isFinite(y)) {
-        return state;
-      }
-      // End the scene first: that is what records the beat's setFlag (the
-      // reveal flag lives on the beat that walks you into the yard).
-      const moved = transitionToMap(
-        endDialogue(state, onComplete, flag),
-        mapId!,
-        x,
-        y,
-        "down",
-      );
-      commit(moved);
-      const nextNode = nodeId ? findDialogueById(moved, nodeId) : null;
-      if (nextNode) {
-        const withDialogue = startDialogue(moved, nodeId!, nextNode);
-        dependencies.onMapTransition?.();
-        return commit(withDialogue);
-      }
-      dependencies.onMapTransition?.();
-      return moved;
+    const currentNode = session.current();
+    if (!currentNode) {
+      return null;
     }
-
-    if (onComplete?.startsWith("join-faction:")) {
-      const factionId = onComplete.slice("join-faction:".length);
-      const faction = findFaction(factionId);
-      const updated = joinFaction(
-        state,
-        faction?.biomeId ?? "grassland",
-        factionId,
-      );
-      dependencies.onFactionJoined?.(faction);
-      return commit(updated);
-    }
-
-    commit(endDialogue(state, onComplete, flag));
-
-    if (onComplete === "wild") {
-      const wildDna =
-        dependencies.nextWildDna?.(state.currentMapId) ??
-        `wild${Math.random().toString(36).slice(2, 12)}`;
-      dependencies.onEncounterStart("wild", wildDna, null);
-      return state;
-    }
-
-    if (onComplete === "trainer" || onComplete === "gym") {
-      const npc = mapForState(state);
-      const rivalNode = npc?.npcs.find((n) => n.id === state.activeNpc)?.dialogue;
-      // An authored car for a rival; the old derived string was a lottery,
-      // and one rival drew a car that could not move.
-      const trainerDna =
-        rivalNode?.rivalDna ?? `trainer-${state.activeNpc ?? "rival"}`;
-      const trainerName = npc?.npcs.find((n) => n.id === state.activeNpc)?.name ?? "Rival";
-      dependencies.onEncounterStart(onComplete, trainerDna, trainerName);
-      // onEncounterStart may mutate the world synchronously (e.g. the gym
-      // branch awards a brand via _awardBadge -> commit). Return the LIVE
-      // closure state instead of a stale snapshot so that award isn't
-      // wiped by advanceDialogueInput's `return commit(...)`.
-      return state;
-    }
-
-    if (onComplete === "vroomdex") {
-      const dna = "prof" + Math.random().toString(36).slice(2, 10);
-      dependencies.onVroomdexTick(dna);
-      return commit({ ...state, vroomdex: recordEncounterDna(state, dna).vroomdex });
-    }
-
-    return state;
+    const authored = getMap(state.currentMapId)?.npcs.find((npc) => npc.id === currentNode.id);
+    return authored?.dialogue ?? null;
   }
 
   function move(direction: Direction): WorldState {
-    if (state.isMoving || state.dialogueQueue.length > 0) {
+    if (state.isMoving || state.dialogue !== null) {
       return state;
     }
 
@@ -314,14 +346,6 @@ export function createOverworldInputs(
     return state;
   }
 
-  function findDialogueById(state: WorldState, id: string) {
-    const map = getMap(state.currentMapId);
-    if (!map) {
-      return null;
-    }
-    return map.npcs.find((npc) => npc.id === id)?.dialogue ?? null;
-  }
-
   function setFlagInput(flag: string, value: boolean): WorldState {
     return commit({
       ...state,
@@ -358,10 +382,13 @@ export function createOverworldInputs(
     interact,
     move,
     advanceDialogue: advanceDialogueInput,
+    chooseDialogue: chooseDialogueInput,
+    speakLine,
+    speakNpc,
+    currentDialogueNode,
     setFlag: setFlagInput,
     _setState: (next: WorldState) => commit(next),
     _awardBadge: awardBadgeAndReport,
-    _resolveDialogue: (id: string) => findDialogueById(state, id),
   } as OverworldInputs & {
     _setState: (next: WorldState) => void;
     _awardBadge: (badge: string) => WorldState;
