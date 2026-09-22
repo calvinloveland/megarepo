@@ -242,6 +242,27 @@ The migration order matters less than the rule: new gameplay should reach for
 the engine first, and each port should delete the duplicate rather than wrap
 it.
 
+## The three things left, and what each needs first
+
+Written down because each one was measured and then deliberately not started,
+and the next session should not have to re-measure or re-decide:
+
+1. **The wallet and the trade counter.** The plan, the call-site list and the
+   lenient-reader requirement are in the section above. It is a save-format
+   change: it has to land green in one commit, so it wants a fresh session
+   rather than the end of one.
+2. **The herd book.** `engine/collection.ts` needs eviction (the Hall of Fame
+   drops its oldest entry when full) and rename before it can host the Hall of
+   Fame; until then `heritage.ts` keeps its own shape. Small engine addition,
+   then a straight port.
+3. **A panel of the real app on the engine's scene stack.** This one needs a
+   decision before code: vroomon's renderer does not own an engine `Game`, so
+   either it grows one (and scenes become a second, parallel world-state) or
+   `SceneStack` is lifted out of `Game` as a standalone stack the renderer can
+   own on its own. The second is smaller and probably right, but it is a
+   design call, not a chore — make it explicitly, in this file, before writing
+   the Record Barn list as the first such panel.
+
 ## Running the engine tests
 
 ```bash
