@@ -12,6 +12,7 @@ import { gridFromRows, inBounds, tileKey } from "./grid.js";
 import type { Facing } from "./direction.js";
 import type { TileSet } from "./tiles.js";
 import type { Routine } from "./schedule.js";
+import { resolveRoutine } from "./schedule.js";
 
 export interface Warp {
   /** The tile the player steps onto to travel. */
@@ -106,6 +107,13 @@ export function defineMap(definition: MapDefinition, tileset: TileSet): GameMap 
     }
   }
 
+  // Routines are what a map looks fine with and then fails at dusk. Checked on
+  // their own so a game can run (and report) just this part.
+  const actors = definition.actors ?? [];
+  if (actors.length > 0) {
+    problems.push(...validateActors(definition.id, actors, tiles, tileset));
+  }
+
   if (problems.length > 0) {
     throw new Error(`defineMap("${definition.id}") is not walkable:\n  - ${problems.join("\n  - ")}`);
   }
@@ -118,12 +126,83 @@ export function defineMap(definition: MapDefinition, tileset: TileSet): GameMap 
     tiles,
     tileset: definition.tileset,
     warps,
-    actors: (definition.actors ?? []).map((actor) => ({ ...actor })),
+    actors: actors.map((actor) => ({ ...actor })),
     interior: definition.interior === true,
     ambientColor: definition.ambientColor ?? "#101a0d",
     music: definition.music ?? null,
     meta: { ...(definition.meta ?? {}) },
   };
+}
+
+/**
+ * How many points in the day the routine checks sample. A routine is authored
+ * in five named phases, so twenty-four samples lands in every one of them and
+ * straddles the boundaries where a fallback hands over.
+ */
+export const ROUTINE_SAMPLES = 24;
+
+/**
+ * The checks a person's day has to pass: every stop on ground they could
+ * stand on, every stop on the map, and nobody standing in anybody else at any
+ * hour. Vroomon caught all three at the content level, one map at a time; an
+ * engine that places people should refuse to place them badly.
+ */
+export function validateActors(
+  mapId: string,
+  actors: readonly ActorSpawn[],
+  tiles: Grid<string>,
+  tileset: TileSet,
+): string[] {
+  const problems: string[] = [];
+  const standable = (x: number, y: number): boolean =>
+    inBounds(tiles.width, tiles.height, x, y) && !tileset.isSolid(tiles.get(x, y)!);
+
+  for (const actor of actors) {
+    const routine = actor.routine;
+    if (!routine) {
+      continue;
+    }
+    const hours = routine.hours;
+    if (hours && (hours.from < 0 || hours.from > 1 || hours.to < 0 || hours.to > 1)) {
+      problems.push(
+        `${mapId}: "${actor.id}" keeps hours ${hours.from}-${hours.to}; they are a fraction of the day, 0 to 1`,
+      );
+    }
+    for (const [phase, slot] of Object.entries(routine.stops)) {
+      const stops = slot === null || slot === undefined ? [] : Array.isArray(slot) ? slot : [slot];
+      for (const stop of stops as readonly { x: number; y: number }[]) {
+        if (!standable(stop.x, stop.y)) {
+          problems.push(
+            `${mapId}: "${actor.id}" is at ${stop.x},${stop.y} in the ${phase}, which nobody can stand on`,
+          );
+        }
+      }
+    }
+  }
+
+  // Two people in one tile at one hour is one person invisible and unreachable;
+  // routines make it a question about the day, not about the file.
+  for (let sample = 0; sample < ROUTINE_SAMPLES; sample += 1) {
+    const phase = sample / ROUTINE_SAMPLES;
+    const taken = new Map<string, string>();
+    for (const actor of actors) {
+      const stop = actor.routine ? resolveRoutine(actor.routine, phase) : { x: actor.x, y: actor.y };
+      if (!stop) {
+        continue;
+      }
+      const key = tileKey(stop.x, stop.y);
+      const other = taken.get(key);
+      if (other) {
+        problems.push(
+          `${mapId}: "${actor.id}" and "${other}" both stand on ${key} at phase ${phase.toFixed(2)}`,
+        );
+        continue;
+      }
+      taken.set(key, actor.id);
+    }
+  }
+
+  return problems;
 }
 
 export function isSolidTile(map: GameMap, tileset: TileSet, x: number, y: number): boolean {

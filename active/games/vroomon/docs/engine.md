@@ -24,7 +24,7 @@ engine is testable at full speed: the demo game is played end to end in
 | `tiles.ts` | Tile definitions: solid, encounter table, tags. A map naming an unknown tile is a startup error. |
 | `direction.ts` | Facing and its vectors. |
 | `schedule.ts` | NPC routines: where a person stands at each phase of the day, and when they are off duty. |
-| `map.ts` | `defineMap` (validating), warps, reachability, whole-graph checks. |
+| `map.ts` | `defineMap` (validating), warps, reachability, whole-graph checks — including the routine checks: a stop on a tile nobody can stand on, and two people in one tile at any hour of the day. |
 | `actors.ts` | Tile-by-tile movement: destination + origin + progress, so collision is exact and drawing is smooth. |
 | `camera.ts` | Centred, clamped, optionally eased. |
 | `inventory.ts` | Items and coins, as counts that never go negative. |
@@ -80,6 +80,12 @@ reported in `session.diagnostics` rather than swallowed, because a typo in a
 conversation is a content bug and should read like one.
 
 ## Where Vroomon uses it
+
+- **Routine validation.** Vroomon learned the hard way that a keeper's routine
+  can walk them into a hedge, that two people can be tidy at dawn and standing
+  in one another at dusk, and that hours are a fraction of the day. Those checks
+  now run in `defineMap`, so any game built on the engine gets them for free
+  and no game has to re-learn them one map at a time.
 
 - **The Marrow Hedge Maze** (`renderer/world/hedge-maze.ts`) is generated, not
   hand-drawn: `buildHedgeMaze()` asks the engine for a maze and returns

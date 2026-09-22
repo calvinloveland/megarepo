@@ -6,9 +6,11 @@ import {
   defineMap,
   isSolidTile,
   reachableOn,
+  validateActors,
   validateMapGraph,
   warpAt,
 } from "../../src/engine/map.js";
+import { gridFromRows } from "../../src/engine/grid.js";
 import { phaseIndex, phaseName, resolveRoutine, isOnDuty } from "../../src/engine/schedule.js";
 
 const tileset = createTileSet("test", [
@@ -189,6 +191,105 @@ describe("map", () => {
     const map = defineMap(base, tileset);
     const reachable = reachableOn(map, tileset, [{ x: 0, y: 0 }]);
     expect([...reachable].sort()).toEqual(["0,0", "0,1", "1,0", "1,1"]);
+  });
+});
+
+describe("routine checks", () => {
+  const flat = {
+    id: "flat",
+    name: "Flat",
+    tileset: "test",
+    tiles: [
+      ["grass", "grass", "grass"],
+      ["grass", "grass", "grass"],
+    ],
+  };
+
+  it("refuses a routine that walks somebody into a hedge", () => {
+    expect(() =>
+      defineMap(
+        {
+          ...flat,
+          actors: [
+            { id: "keeper", sprite: "npc", x: 0, y: 0, facing: "down", routine: { stops: { afternoon: { x: 9, y: 9 } } } },
+          ],
+        },
+        tileset,
+      ),
+    ).toThrow(/nobody can stand on/);
+  });
+
+  it("refuses two people in one tile at any hour", () => {
+    // Tidy at dawn and colliding at dusk is the failure a routine makes
+    // possible: one of them is invisible and unreachable, and nothing in the
+    // file looks wrong.
+    expect(() =>
+      defineMap(
+        {
+          ...flat,
+          actors: [
+            { id: "mover", sprite: "npc", x: 0, y: 0, facing: "down", routine: { stops: { afternoon: { x: 1, y: 1 } } } },
+            { id: "sitter", sprite: "npc", x: 1, y: 1, facing: "down" },
+          ],
+        },
+        tileset,
+      ),
+    ).toThrow(/both stand on 1,1/);
+  });
+
+  it("lets a night watch be off duty at noon, and checks the hours make sense", () => {
+    const offDuty = defineMap(
+      {
+        ...flat,
+        actors: [
+          {
+            id: "watch",
+            sprite: "npc",
+            x: 0,
+            y: 0,
+            facing: "down",
+            routine: { stops: { dawn: { x: 1, y: 0 }, afternoon: null } },
+          },
+        ],
+      },
+      tileset,
+    );
+    expect(offDuty.actors).toHaveLength(1);
+
+    expect(() =>
+      defineMap(
+        {
+          ...flat,
+          actors: [
+            {
+              id: "all-day",
+              sprite: "npc",
+              x: 0,
+              y: 0,
+              facing: "down",
+              routine: { stops: { dawn: { x: 1, y: 0 } }, hours: { from: 0, to: 24 } },
+            },
+          ],
+        },
+        tileset,
+      ),
+    ).toThrow(/fraction of the day/);
+  });
+
+  it("reports the routine problems on their own, or nothing at all", () => {
+    const grid = gridFromRows(flat.tiles);
+    expect(validateActors("flat", [], grid, tileset)).toEqual([]);
+    expect(
+      validateActors(
+        "flat",
+        [
+          { id: "ghost", sprite: "npc", x: 0, y: 0, facing: "down", routine: { stops: { night: { x: 2, y: 1 } } } },
+          { id: "wall", sprite: "npc", x: 0, y: 0, facing: "down", routine: { stops: { night: { x: 9, y: 9 } } } },
+        ],
+        grid,
+        tileset,
+      ),
+    ).toEqual(['flat: "wall" is at 9,9 in the night, which nobody can stand on']);
   });
 });
 
