@@ -215,6 +215,34 @@ describe("authored options are gated, and the gate means something", () => {
     expect(after.current()?.id).toBe("bramble-kess-detail");
   });
 
+  it("carries news between two people: a gate whose flag is set elsewhere", () => {
+    // Bram asked about Tam. The answer only exists once Tam has been walked
+    // out of the maze — and that flag is set in the middle of the maze, by
+    // somebody else's conversation. This is the shape a condition is really
+    // for: what one person knows because of what another one said.
+    const host = recordingHost();
+    const before = new DialogueSession(scriptForNpc("hedge_maze", "hedge-keeper-bram")!, host);
+    expect(labels(before).some((label) => label.includes("back at the gate"))).toBe(false);
+
+    // Walking Tam out sets the flag on the way through the beat.
+    const tam = new DialogueSession(scriptForNpc("hedge_maze", "maze-picker-tam")!, host);
+    const walkIndex = labels(tam).findIndex((label) => label.includes("way out"));
+    expect(walkIndex, labels(tam).join(" | ")).toBeGreaterThanOrEqual(0);
+    tam.choose(walkIndex);
+    expect(tam.current()?.id).toBe("tam-walk");
+    expect(host.flags["tam-walked-home"]).toBeUndefined();
+    tam.advance();
+    expect(host.flags["tam-walked-home"]).toBe(true);
+    expect(host.commands.map((entry) => entry.command)).toContain("goto");
+
+    // ...and the news is on Bram's menu afterwards.
+    const after = new DialogueSession(scriptForNpc("hedge_maze", "hedge-keeper-bram")!, host);
+    const newsIndex = labels(after).findIndex((label) => label.includes("back at the gate"));
+    expect(newsIndex, labels(after).join(" | ")).toBeGreaterThanOrEqual(0);
+    expect(after.choose(newsIndex)).toBe(true);
+    expect(after.current()?.id).toBe("maze-bram-tam-home");
+  });
+
   it("never gates an option on a flag nobody sets", () => {
     // A `when` on a flag nothing writes is an option that can never appear —
     // written, placed, and unreachable. This is the same trap the quest
@@ -255,7 +283,8 @@ describe("authored options are gated, and the gate means something", () => {
       }
     }
     expect(orphans, `options gated on flags nothing sets: ${orphans.join("; ")}`).toEqual([]);
-    // And the capability is not dead code: something shipped uses it.
-    expect(gated.length, "no authored option is gated").toBeGreaterThan(0);
+    // And it is a pattern by now, not one warden's trick: at least two
+    // people in the world gate a menu option on the state of the world.
+    expect(new Set(gated).size, "fewer than two people gate an option").toBeGreaterThan(1);
   });
 });

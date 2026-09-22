@@ -4017,6 +4017,14 @@ Brambles' own ground for 210 credits and three feed — accepted, like every oth
 quest, by leaving the beat that hands it out, which is what the engine's
 `onLeave` effects are for.
 
+A second gate came the same day, on different ground, to make it a pattern
+rather than one warden's trick: Bram asks about Tam, and the answer only exists
+once Tam has been walked out of the maze — a flag set in the middle of the maze
+by somebody else's conversation. **A condition whose source is another person**
+is the shape it is really for: what this person knows because of what that one
+said. The check now requires at least two gated options in the world, and each
+gate to name a flag somebody sets.
+
 Two checks came with it, because a condition is a new way to write dead content:
 the swap is walked through the real map content (before, the offer is there and
 the question is not; after, the reverse), and **no option may be gated on a flag

@@ -1,6 +1,6 @@
 # How Vroomon fits together
 
-*Last verified against the game at **578 unit + 59 e2e** (2026-09-21). The
+*Last verified against the game at **579 unit + 59 e2e** (2026-09-21). The
 measured sections below — progression, the wild, the economy — were true when
 written; if those counts have moved a long way, re-measure before trusting the
 numbers in them.*
@@ -190,7 +190,7 @@ closed.
 cd electron
 npm test                 # engine + game   (~5s)   <- the default
 npm run test:engine      # engine + simulation core (~1.3s) 136 tests
-npm run test:game        # rules + content (~4.3s)         409 tests
+npm run test:game        # rules + content (~4.3s)         410 tests
 npm run test:balance     # measurements    (~38s)          33 tests, on demand
 npm run test:unit        # all of the above (~42s)
 npm run test:e2e:fast    # browser, no build   (~2.7m)
@@ -202,7 +202,7 @@ npm run export:sprites   # redraw every sprite as a PNG (needs a browser)
 npm run verify:sprites   # re-export and prove nothing changed (~30s)
 ```
 
-**Why the suite is split three ways.** Thirty-three of the 578 unit tests are
+**Why the suite is split three ways.** Thirty-three of the 579 unit tests are
 *measurements* — they race hundreds of cars across dozens of generations to
 answer a question about balance ("does the herd out-climb random search", "is
 tier II reachable by hunting"). They were 110 of the suite's 120 seconds of CPU.

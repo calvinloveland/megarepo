@@ -1819,6 +1819,14 @@ export const MAPS: Record<string, Tilemap> = {
           options: [
             { label: "How do I reach the middle?", next: "maze-bram-route" },
             { label: "Is anyone else inside?", next: "maze-bram-tam" },
+            // News lands on the person who asked for it: this option only
+            // exists once Tam has been walked back to the gate, and that flag
+            // is set in the middle of the maze, by somebody else.
+            {
+              label: "Tam is back at the gate.",
+              next: "maze-bram-tam-home",
+              when: { kind: "flag", flag: "tam-walked-home" },
+            },
             { label: "I will find my own way.", next: "maze-bram-own" },
           ],
         },
@@ -1843,6 +1851,17 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "mechanic",
         dialogue: {
           text: "Tam went in at first light with a basket and has not come back out. They will not thank you for carrying them. If you find them, walk them to the east gate and let them hop.",
+        },
+      },
+      {
+        id: "maze-bram-tam-home",
+        name: "Hedge Keeper Bram",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "mechanic",
+        dialogue: {
+          text: "Bram looks at the gate, then at you, and puts the shears down. \"Hopping, was it. Tam has been taking that third left since before I had the chair, and every year somebody walks them out of it. I will keep the track cut to the middle as long as I am on this hedge — that is the whole of my side of it.\"",
         },
       },
       {
@@ -1883,6 +1902,7 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "villager",
         dialogue: {
           text: "\"You do not have to carry me. I can hop.\" Tam hops, badly, all the way to the gate.",
+          setFlag: "tam-walked-home",
           onComplete: "goto:marrow_orchard:16:11",
         },
       },

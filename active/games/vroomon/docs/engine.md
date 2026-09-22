@@ -134,8 +134,11 @@ not move the player, and closes it.
 - **A conditioned menu.** Authored options carry an engine `when`, and the
   Brambles' warden is the first person in the world to use one: her job offer is
   on the menu until it is taken, and the question it raises replaces it once it
-  has been. A test walks that swap through the real content, and another refuses
-  a gate on a flag nothing sets — an option nobody can ever see.
+  has been. The second is a news gate — the hedge keeper asks after a picker,
+  and the answer exists only once she has been walked out of the maze, a flag
+  set by somebody else's conversation on another tile. Tests walk both swaps
+  through the real content, require at least two people to gate an option, and
+  refuse a gate on a flag nothing sets: an option nobody can ever see.
 - **Routine validation.** Vroomon learned the hard way that a keeper's routine
   can walk them into a hedge, that two people can be tidy at dawn and standing
   in one another at dusk, and that hours are a fraction of the day. Those checks
