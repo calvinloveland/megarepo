@@ -2806,6 +2806,22 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     );
   });
 
+  test("@smoke the picker you walked out does not ask to be walked out again", async ({ page }) => {
+    await seedAndEnterWorld(page);
+
+    // Standing in the maze's middle, in a world where the rescue has already
+    // happened. Before the greeting could be conditional this showed the
+    // original line and offered the walk out again — a second free warp to the
+    // orchard, and a line about waiting to be rescued by somebody already home.
+    await enterMapAt(page, "hedge_maze", 2, 13, "left", 0.25, { "tam-walked-home": true });
+    await page.keyboard.press("z");
+    await page.waitForTimeout(800);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText("Tam");
+    const options = await page.locator("[data-dialogue-option]").allTextContents();
+    expect(options.join(" | ")).not.toContain("I know the way out");
+    expect(options.length).toBeGreaterThan(0);
+  });
+
   test("@smoke a side quest is offered, tracked, and paid on completion", async ({ page }) => {
     await seedAndEnterWorld(page);
     await enterMapAt(page, "starter_town", 6, 7);
@@ -3006,9 +3022,10 @@ async function enterMapAt(
   y: number,
   facing: "up" | "down" | "left" | "right" = "down",
   hour = 0.25,
+  flags: Record<string, boolean> = {},
 ): Promise<void> {
   await page.evaluate(
-    async ({ mapId: id, x: px, y: py, facing: pf, hour: ph }) => {
+    async ({ mapId: id, x: px, y: py, facing: pf, hour: ph, flags: extra }) => {
       const world = await window.vroomon.loadWorldState();
       await window.vroomon.saveWorldState({
         ...world,
@@ -3021,10 +3038,10 @@ async function enterMapAt(
         playerFacing: pf,
         hunting: true,
         timeOverride: ph,
-        flags: { ...(world?.flags ?? {}), "opening-seen": true },
+        flags: { ...(world?.flags ?? {}), "opening-seen": true, ...extra },
       });
     },
-    { mapId, x, y, facing, hour },
+    { mapId, x, y, facing, hour, flags },
   );
   await page.reload();
   await page.locator("[data-status-message]").filter({ hasText: "Welcome" }).waitFor({ timeout: 20000 });
