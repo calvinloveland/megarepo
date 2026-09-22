@@ -2239,6 +2239,13 @@ export const MAPS: Record<string, Tilemap> = {
               next: "bramble-kess-detail",
               when: { kind: "flag", flag: "quest-bramble-accepted" },
             },
+            // A counter, not a flag: the ground remembers how many of its own
+            // you have beaten, so she can say so even before the job is paid.
+            {
+              label: "The gully knows me now.",
+              next: "bramble-kess-known",
+              when: { kind: "tally", key: "wildWins:bramble_maze", atLeast: 2 },
+            },
             { label: "I will cut my own line.", next: "bramble-kess-own" },
           ],
         },
@@ -2297,6 +2304,17 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "villager",
         dialogue: {
           text: "\"Any of them; they all run the same three gullies. The thorn tells you which side the sun is on, and the sun tells you which way is out, and everything else in here is a goat with an opinion.\"",
+        },
+      },
+      {
+        id: "bramble-kess-known",
+        name: "Bramble Warden Kess",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "\"Two of them, on their own ground, and you are still in one piece. The gully knows you now — that is not a figure of speech. The stock in here takes the measure of a car the first time it runs, and it does not forget quickly.\"",
         },
       },
       {

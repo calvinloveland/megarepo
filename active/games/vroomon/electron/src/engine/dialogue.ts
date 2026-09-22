@@ -19,6 +19,12 @@ export interface ScriptHost {
   countItem(item: string): number;
   coins(): number;
   /**
+   * A game-kept counter: wild races won, generations bred, favours done. A
+   * counter nobody keeps reads zero, which is the same as "not yet" — the
+   * difference from a flag is that this one can be *how many*.
+   */
+  tally(key: string): number;
+  /**
    * A game-defined verb: "shop:bakery", "warp:town:4:4", "encounter:meadow".
    * Return true when the game handled it, false when the command is unknown —
    * an unknown command is a content bug, and the session reports it rather
@@ -31,6 +37,7 @@ export type Condition =
   | { kind: "flag"; flag: string; value?: boolean }
   | { kind: "item"; item: string; count?: number }
   | { kind: "coins"; atLeast: number }
+  | { kind: "tally"; key: string; atLeast: number }
   | { kind: "all"; of: readonly Condition[] }
   | { kind: "any"; of: readonly Condition[] }
   | { kind: "not"; of: Condition };
@@ -128,6 +135,8 @@ export function evaluateCondition(condition: Condition, host: ScriptHost): boole
       return host.countItem(condition.item) >= (condition.count ?? 1);
     case "coins":
       return host.coins() >= condition.atLeast;
+    case "tally":
+      return host.tally(condition.key) >= condition.atLeast;
     case "all":
       return condition.of.every((inner) => evaluateCondition(inner, host));
     case "any":

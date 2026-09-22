@@ -43,6 +43,7 @@ function quietHost(): ScriptHost {
     setFlag: () => {},
     countItem: () => 0,
     coins: () => 0,
+    tally: () => 0,
     run: () => true,
   };
 }

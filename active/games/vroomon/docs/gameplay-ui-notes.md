@@ -4036,6 +4036,14 @@ difference between “a first-visit line, then the usual one” and “either th
 opening or that one”. Tam has two openings now, and the rescue option is gone
 with the rescue.
 
+**A condition can read a counter, not just a flag.** A flag answers “has this
+happened”; the world also keeps counts (wild races won per ground, jobs
+paid, places walked), and a keeper who has been counting can say so before the
+job is paid: Kess tells you the gully knows you once two of its own have been
+beaten on it. The engine's condition language now has `tally(key, atLeast)`, the
+host answers from whatever counters the game keeps, and the demo keeps one of
+its own to prove the whole path.
+
 Two checks came with it, because a condition is a new way to write dead content:
 the swap is walked through the real map content (before, the offer is there and
 the question is not; after, the reverse), and **no option may be gated on a flag

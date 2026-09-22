@@ -164,6 +164,7 @@ export class Game implements ScriptHost {
   private viewport: Size = { width: 0, height: 0 };
   private cameraSmoothing = 1;
   private readonly flags = new Map<string, boolean>();
+  private readonly tallies = new Map<string, number>();
   private readonly encounterRng: Rng;
   private readonly extras: Record<string, unknown> = {};
   private readonly stepMs: number;
@@ -530,6 +531,17 @@ export class Game implements ScriptHost {
 
   countItem(item: string): number {
     return this.inventory.count(item);
+  }
+
+  tally(key: string): number {
+    return this.tallies.get(key) ?? 0;
+  }
+
+  /** Add to a counter. The game's own events are what bump these. */
+  bumpTally(key: string, amount = 1): number {
+    const next = Math.max(0, this.tally(key) + amount);
+    this.tallies.set(key, next);
+    return next;
   }
 
   coins(): number {

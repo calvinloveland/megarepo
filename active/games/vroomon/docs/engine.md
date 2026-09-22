@@ -28,7 +28,7 @@ engine is testable at full speed: the demo game is played end to end in
 | `actors.ts` | Tile-by-tile movement: destination + origin + progress, so collision is exact and drawing is smooth. |
 | `camera.ts` | Centred, clamped, optionally eased. |
 | `inventory.ts` | Items and coins, as counts that never go negative. |
-| `dialogue.ts` | The conversation graph: nodes, conditions, options, effects, and a `ScriptHost` the game implements. |
+| `dialogue.ts` | The conversation graph: nodes, conditions (flags, items, coins, tallies), options, effects on entry and on leave, and a `ScriptHost` the game implements. |
 | `shop.ts` | Stock, prices, buy/sell, restock, snapshots. |
 | `maze.ts` | Maze generation (recursive backtracker), braiding, rooms, a solver, and connectivity checks. |
 | `collection.ts` | Specimens, a genome codec, breeding, the herd book, one generation of selection. |
@@ -139,6 +139,10 @@ not move the player, and closes it.
   set by somebody else's conversation on another tile. Tests walk both swaps
   through the real content, require at least two people to gate an option, and
   refuse a gate on a flag nothing sets: an option nobody can ever see.
+  A gate can read a counter rather than a flag — the ground counts the wild
+  races you have won on it, so a keeper can say the gully knows you without
+  waiting for the job to be paid — which is the difference between “has this
+  happened” and “how much of it has”.
   A node can be conditional too, with `whenFalse` as its fallback: the
   hedge maze's picker has two openings, one for a picker who needs walking
   out and one for afterwards, because without it the second meeting was a
@@ -199,11 +203,23 @@ doing them now would add a layer where the plan called for removing one:
   picks stock, but the credits are not its to own: they are `wallet: number`
   on `RunStateSnapshot`, part of the parity contract's run state, and moved by
   hand in thirteen places across four modules (`state.ts`, `economy.ts`,
-  `renderer.ts`, and the quest rewards in `side-quests.ts`). Rebuilding that on `Inventory` + `Shop`
-  means seeding an `Inventory` from a number, writing it back after every
+  `renderer.ts`, and the quest rewards in `side-quests.ts`). Rebuilding that on
+  `Inventory` + `Shop` means seeding an `Inventory` from a number, writing it
+  back after every
   trade, and building a catalog on each render — more code, with the same
-  arithmetic in it. What would pay is making the run state carry an inventory,
-  which is a persistence change touching both save formats, not a port.
+  arithmetic in it.
+
+  **Measured, so the next session does not have to re-measure it:** `wallet`
+  appears in 79 places across 18 files — `shared/parity-contract.ts` (the
+  shared type and its test), `core/economy.ts` (upgrades, supplies),
+  `core/market.ts`, `core/population.ts`, `renderer/evolution.worker.ts`,
+  `renderer/renderer.ts`, `renderer/state.ts`, `world/side-quests.ts` (reward
+  data), both HTML shells, and six test files. The migration and the port
+  have to land together, or the tree carries two sources of truth for the
+  same number: rename the field to an `Inventory`-shaped `purse` in the run
+  state, read `wallet` into it when `purse` is absent (both the localStorage
+  path and the desktop file store), and convert the thirteen hand-written
+  credit moves to `spend`/`addCoins` in the same change.
 - **The herd book.** `Collection` refuses to overfill. The Hall of Fame
   **evicts the oldest entry** when it is full, renames entries, and is
   persisted as a versioned envelope. Adopting the engine's class would mean

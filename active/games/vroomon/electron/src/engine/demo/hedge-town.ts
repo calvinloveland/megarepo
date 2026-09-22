@@ -423,8 +423,20 @@ export const HEDGE_TOWN_DIALOGUES: DialogueScriptDefinition[] = [
         text: "\"You found the middle. Everyone who does gets the same offer: a thing worth two coins, or the way you came.\"",
         options: [
           { label: "The coin, then.", next: null, effects: [{ kind: "coins", amount: 2 }] },
+          // A counter, not a flag: he has been counting what you met on the way
+          // in, and says so only once there have been a few.
+          {
+            label: "How many have you seen out here?",
+            next: "tally",
+            when: { kind: "tally", key: "wild-met", atLeast: 3 },
+          },
           { label: "Keep it.", next: null },
         ],
+      },
+      {
+        id: "tally",
+        text: "\"Three, since you came in. I count them the way the orchard counts windfalls — the ones left are the ones nobody wanted.\"",
+        next: null,
       },
     ],
   },
@@ -449,6 +461,11 @@ export const HEDGE_TOWN_CONTENT: GameContent = {
 
 export function createHedgeTownGame(seed: string | number = "hedge-town"): Game {
   const game = new Game({ ...HEDGE_TOWN_CONTENT, seed });
+  // The game's own events keep the counters: the engine has no opinion about
+  // what a meeting is worth, only about how to ask for it later.
+  game.on("encounter-resolved", () => {
+    game.bumpTally("wild-met");
+  });
   game.start("town", 3, 8, "right");
   return game;
 }

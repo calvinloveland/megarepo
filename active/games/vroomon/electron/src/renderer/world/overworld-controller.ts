@@ -137,6 +137,9 @@ export function createOverworldInputs(
     // yet, and a condition that did would simply read zero.
     countItem: () => 0,
     coins: () => 0,
+    // The world keeps counters of its own (wild wins, per ground; jobs paid;
+    // places walked) and a conversation can ask how far along any of them is.
+    tally: (key) => state.tally?.[key] ?? 0,
     run: (command, arg) => runDialogueCommand(command, arg),
   };
 

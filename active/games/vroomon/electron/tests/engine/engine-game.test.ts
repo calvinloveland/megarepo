@@ -184,6 +184,28 @@ describe("hedge town", () => {
     expect(createGameSaveRegistry().version).toBe(1);
   });
 
+  it("keeps counters, and a line can wait on one", () => {
+    // The hedge-town demo bumps \u201cwild-met\u201d on every encounter it resolves
+    // and gates the Hedger's question on three of them.
+    const game = createHedgeTownGame();
+    expect(game.tally("wild-met")).toBe(0);
+    expect(game.bumpTally("wild-met", 2)).toBe(2);
+
+    // Two meetings is not three: the question is not on the menu yet.
+    expect(game.openDialogue("hedger")).toBe(true);
+    expect(game.view().dialogue?.options).toEqual(["The coin, then.", "Keep it."]);
+    game.closeDialogue();
+
+    expect(game.bumpTally("wild-met")).toBe(3);
+    expect(game.openDialogue("hedger")).toBe(true);
+    expect(game.view().dialogue?.options).toContain("How many have you seen out here?");
+    game.closeDialogue();
+
+    // Counters never go below nothing.
+    game.bumpTally("wild-met", -10);
+    expect(game.tally("wild-met")).toBe(0);
+  });
+
   it("opens a real scene over the map, and the world holds still behind it", () => {
     const game = createHedgeTownGame();
     game.run("coins", "20");

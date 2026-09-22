@@ -18,6 +18,7 @@ const catalogue = createItemCatalog([
 
 class TestHost implements ScriptHost {
   readonly flags = new Map<string, boolean>();
+  readonly tallies = new Map<string, number>();
   readonly inventory = new Inventory({ coins: 10, items: { pebble: 3 } });
   readonly commands: string[] = [];
   handled: Record<string, (arg: string | undefined) => boolean> = {};
@@ -36,6 +37,10 @@ class TestHost implements ScriptHost {
 
   coins(): number {
     return this.inventory.coins;
+  }
+
+  tally(key: string): number {
+    return this.tallies.get(key) ?? 0;
   }
 
   run(command: string, arg?: string): boolean {
@@ -321,6 +326,18 @@ describe("dialogue", () => {
     expect(new DialogueSession(dialogue, host).current()?.text).toBe("The other greeting.");
     host.setFlag("met", true);
     expect(new DialogueSession(dialogue, host).current()?.text).toBe("The first-visit greeting.");
+  });
+
+  it("reads a game-kept counter, which can be how many", () => {
+    const host = new TestHost();
+    expect(evaluateCondition({ kind: "tally", key: "wins", atLeast: 1 }, host)).toBe(false);
+    host.tallies.set("wins", 1);
+    expect(evaluateCondition({ kind: "tally", key: "wins", atLeast: 1 }, host)).toBe(true);
+    expect(evaluateCondition({ kind: "tally", key: "wins", atLeast: 2 }, host)).toBe(false);
+    host.tallies.set("wins", 2);
+    expect(evaluateCondition({ kind: "tally", key: "wins", atLeast: 2 }, host)).toBe(true);
+    // A counter nobody keeps reads zero: "not yet", not an error.
+    expect(evaluateCondition({ kind: "tally", key: "never", atLeast: 1 }, host)).toBe(false);
   });
 
   it("evaluates the condition language", () => {

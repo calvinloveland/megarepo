@@ -12,14 +12,17 @@ import { DialogueSession, type Condition, type ScriptHost } from "../../src/engi
 
 interface RecordingHost extends ScriptHost {
   flags: Record<string, boolean>;
+  tallies: Record<string, number>;
   commands: Array<{ command: string; arg: string | undefined }>;
 }
 
 function recordingHost(): RecordingHost {
   const flags: Record<string, boolean> = {};
+  const tallies: Record<string, number> = {};
   const commands: Array<{ command: string; arg: string | undefined }> = [];
-  return {
+  const host = {
     flags,
+    tallies,
     commands,
     getFlag: (flag) => flags[flag] === true,
     setFlag: (flag, value) => {
@@ -27,11 +30,13 @@ function recordingHost(): RecordingHost {
     },
     countItem: () => 0,
     coins: () => 0,
+    tally: (key: string) => tallies[key] ?? 0,
     run: (command, arg) => {
       commands.push({ command, arg });
       return true;
     },
   };
+  return host;
 }
 
 const labels = (session: DialogueSession): string[] => session.options().map((option) => option.label);
@@ -260,6 +265,23 @@ describe("authored options are gated, and the gate means something", () => {
     expect(labels(after), "the rescue option should be gone with the rescue").not.toContain(
       "I know the way out.",
     );
+  });
+
+  it("gates an option on how much of the job is done, not just on the flag", () => {
+    // A counter says *how many*: Kess can tell you the gully knows you before
+    // the job is paid, because the ground has been counting the races.
+    const host = recordingHost();
+    host.flags["quest-bramble-accepted"] = true;
+    host.tallies["wildWins:bramble_maze"] = 1;
+    const early = new DialogueSession(scriptForNpc("bramble_maze", "bramble-warden-kess")!, host);
+    expect(labels(early).some((label) => label.includes("knows me now"))).toBe(false);
+
+    host.tallies["wildWins:bramble_maze"] = 2;
+    const later = new DialogueSession(scriptForNpc("bramble_maze", "bramble-warden-kess")!, host);
+    const index = labels(later).findIndex((label) => label.includes("knows me now"));
+    expect(index, labels(later).join(" | ")).toBeGreaterThanOrEqual(0);
+    expect(later.choose(index)).toBe(true);
+    expect(later.current()?.id).toBe("bramble-kess-known");
   });
 
   it("never gates an option on a flag nobody sets", () => {
