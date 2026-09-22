@@ -224,6 +224,7 @@ new entry that is not indexed here fails the suite.
 - [The world was stretched to fit the window (2026-09-15) ✅](#the-world-was-stretched-to-fit-the-window-2026-09-15)
 - [Two modules nobody tested, and a map to catch the next (2026-09-15) ✅](#two-modules-nobody-tested-and-a-map-to-catch-the-next-2026-09-15)
 - [Where this session left the project (2026-09-15) ✅](#where-this-session-left-the-project-2026-09-15)
+- [The engine, and the maze it bought (2026-09-21) ✅](#the-engine-and-the-maze-it-bought-2026-09-21)
 - [The last rule with no teacher: what the wild is *for* (2026-09-15) ✅](#the-last-rule-with-no-teacher-what-the-wild-is-for-2026-09-15)
 - [Six wrong assumptions in one test file (2026-09-15) ✅](#six-wrong-assumptions-in-one-test-file-2026-09-15)
 - [The wild table answers the question you came in with (2026-09-15) ✅](#the-wild-table-answers-the-question-you-came-in-with-2026-09-15)
@@ -3847,6 +3848,63 @@ cylinders early); ~20% of random 12-char DNA moves meaningfully at all, so
 there's a real signal to select on. `tests/power-path.test.ts` (7 tests)
 pins the power semantics; the DNA regression fixture and the two
 drive-integrity tests now use cars that genuinely work.
+
+## The engine, and the maze it bought (2026-09-21) ✅
+
+Vroomon is two games — a top-down RPG (walk, talk, shop, maze, hunt) and a DNA
+collection simulator — and the RPG half had been written the way the first
+level of a game always is: inside the app shell. `renderer.ts` is 7,989 lines
+and `maps.ts` is 2,959, and every new bit of content was a new special case in
+them.
+
+So this session built the missing layer: **`electron/src/engine/`**, a
+headless kernel with one rule — *nothing in it touches `window`, `document` or
+a canvas*. A renderer asks `game.view()` for the map, the camera, the actors
+with pixel positions, any open conversation and any open shop, and decides
+everything about how that looks. Sixteen small modules: deterministic RNG,
+grids and flood fill, tilesets, tile-by-tile actors, a clamped camera, an
+item bag, a dialogue graph with conditions and effects, shops, NPC schedules,
+maze generation, specimens and breeding, versioned saves, an input mapper,
+and a scene stack.
+
+The proof that it is usable rather than merely present is
+`engine/demo/hedge-town.ts`: a town with a baker who remembers you, a shop, a
+generated hedge maze, a lost child, a wild encounter table and a stranger at
+the end — authored in a few hundred lines of data, then played end to end in
+`tests/engine/engine-game.test.ts` in ten milliseconds with no browser.
+
+**The gameplay it bought, in the real game.** The **Marrow Hedge Maze** — a
+19×15 generated maze off the orchard's east hedge, with wild grass, a keeper, a
+lost picker who walks herself home, and a racer at the far end who will race
+you for the walk. `renderer/world/hedge-maze.ts` is the whole seam: it asks the
+engine for a maze and hands back `TileKind[][]` plus the gate, the landing and
+three safe spots.
+
+The rule that file exists to enforce: **a maze is a tree of corridors, and an
+NPC standing in a corridor is a wall.** A keeper dropped on the route to the
+middle cuts the maze in half, and the player never finds out why — they just
+find a dead end that should not be there. Every keeper therefore stands on a
+**dead end**, where blocking the tile costs one leaf and nothing else, and the
+three spots are chosen by distance from the gate: one near, one half-way, one
+at the far end. It is a property, so it is tested as one: flood the maze with
+that tile blocked and assert nothing else was lost.
+
+**What it cost, and what the suite caught.** Two things, both worth having:
+
+- `tests/game/coverage-map.test.ts` failed immediately with *"modules with no
+test naming them: src/renderer/world/hedge-maze.ts"*. The register pattern did
+its job — a new module cannot arrive untested, and the fix was a real test
+(determinism, connectivity, the dead-end property, the two-way wiring to the
+orchard), not a line in `UNTESTED_ON_PURPOSE`.
+- `tests/game/world.test.ts` failed with *"nowhere to put anything: hedge_maze
+(Marrow Hedge Maze, 3 people)"*. An outdoor map with people on it has to be
+able to take a bought decoration, and a generated map has no natural place to
+put one — so the generator hands out a free tile near the gate and the meadow
+lanterns hang there. A new map is a new *place*, and the content suite treats
+it like one.
+
+Nothing in the engine knows what a vroomon is. That is the point: the next
+conversation, shop or maze is data.
 
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 

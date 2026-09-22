@@ -13,6 +13,13 @@ for global workflow rules.
   lives here.
 - `electron/src/shared/` — DNA v2, parity contract, shared types. Pure modules,
   safe to import from both the main process and the renderer.
+- `electron/src/engine/` — the gameplay kernel for the top-down RPG and the
+  collection half: tile maps and collision, tile-by-tile actors, conversations
+  and shops as data, NPC schedules, maze generation, specimens and breeding,
+  versioned saves, and the scene stack. Pure TypeScript with **no DOM access**;
+  a renderer consumes `Game.view()`. New gameplay belongs here, and the demo in
+  `engine/demo/hedge-town.ts` is a complete game in one file. Docs:
+  `docs/engine.md`.
 - `electron/src/core/` — population evolution, persistence, scoring. Pure logic,
   runs in the renderer, the worker, and the Playwright shim.
 - `electron/src/simulation/` — Matter.js physics. Runs in the renderer and the
@@ -55,6 +62,9 @@ for global workflow rules.
 ## Testing
 
 - `npm test` (in `electron/`) — Vitest, all 50+ unit tests.
+- `npx vitest run tests/engine` — the engine's own suite, plus
+  `tests/engine/engine-game.test.ts`, which plays the demo game end to end
+  headlessly. Fast enough to run on every edit.
 - `npm run build` — runs `tsc` then `node scripts/copy-static.mjs`. Use this
   before `npm run test:e2e` or `npm run test:smoke` because both need `dist/`.
   The build step also uses `esbuild` to bundle the web-facing modules
