@@ -225,6 +225,7 @@ new entry that is not indexed here fails the suite.
 - [Two modules nobody tested, and a map to catch the next (2026-09-15) ✅](#two-modules-nobody-tested-and-a-map-to-catch-the-next-2026-09-15)
 - [Where this session left the project (2026-09-15) ✅](#where-this-session-left-the-project-2026-09-15)
 - [The engine, and the maze it bought (2026-09-21) ✅](#the-engine-and-the-maze-it-bought-2026-09-21)
+- [Two mazes, one builder, and the tile that was not a wall (2026-09-21) ✅](#two-mazes-one-builder-and-the-tile-that-was-not-a-wall-2026-09-21)
 - [The last rule with no teacher: what the wild is *for* (2026-09-15) ✅](#the-last-rule-with-no-teacher-what-the-wild-is-for-2026-09-15)
 - [Six wrong assumptions in one test file (2026-09-15) ✅](#six-wrong-assumptions-in-one-test-file-2026-09-15)
 - [The wild table answers the question you came in with (2026-09-15) ✅](#the-wild-table-answers-the-question-you-came-in-with-2026-09-15)
@@ -3876,7 +3877,7 @@ the end — authored in a few hundred lines of data, then played end to end in
 **The gameplay it bought, in the real game.** The **Marrow Hedge Maze** — a
 19×15 generated maze off the orchard's east hedge, with wild grass, a keeper, a
 lost picker who walks herself home, and a racer at the far end who will race
-you for the walk. `renderer/world/hedge-maze.ts` is the whole seam: it asks the
+you for the walk. `renderer/world/maze-map.ts` is the whole seam: it asks the
 engine for a maze and hands back `TileKind[][]` plus the gate, the landing and
 three safe spots.
 
@@ -3892,7 +3893,7 @@ that tile blocked and assert nothing else was lost.
 **What it cost, and what the suite caught.** Two things, both worth having:
 
 - `tests/game/coverage-map.test.ts` failed immediately with *"modules with no
-test naming them: src/renderer/world/hedge-maze.ts"*. The register pattern did
+test naming them: src/renderer/world/maze-map.ts"*. The register pattern did
 its job — a new module cannot arrive untested, and the fix was a real test
 (determinism, connectivity, the dead-end property, the two-way wiring to the
 orchard), not a line in `UNTESTED_ON_PURPOSE`.
@@ -3905,6 +3906,33 @@ it like one.
 
 Nothing in the engine knows what a vroomon is. That is the point: the next
 conversation, shop or maze is data.
+
+## Two mazes, one builder, and the tile that was not a wall (2026-09-21) ✅
+
+The hedge maze was worth generalising the moment a second one was wanted, and
+the second one wanted to be nothing like the first. `buildHedgeMaze()` is now a
+preset over `buildMazeMap({ wall, border, floor, wildTile, ... })`, and the
+orchard's maze came out byte-identical — same seed, same keeper on the same
+dead end — which is the check that a generalisation did not quietly re-roll the
+world.
+
+The second maze is **the Deep**: an old shaft in the Quarry's south-east spoil,
+17×13 of stone tunnels, `interior: true`, **no wild grass at all**. That last
+part is the interesting one. The hedge maze is a hunting ground, so it carries
+`vroomgrass`, declares Grassland stock, and needs a decor spot like any other
+place people live. The Deep is a maze you walk for the people in it, and
+"no wild tile" is a supported option rather than a special case — so it skips
+the wild-stock invariant entirely and lets the content suite say so by
+construction.
+
+One thing a second maze makes obvious that one never would: the builder's
+argument for a wall tile is *not* "a tile that looks like a hedge", it is "a
+tile that is solid", because the generator's connectivity guarantees are about
+the engine's maze and the vroomon tile grid has to agree with it. `rock` in
+this game is walkable ground — a boulder you drive over — so a maze walled with
+rock would have been a maze with no walls at all, and every invariant would
+still have passed. The Deep is walled with `wall` for that reason, and the
+comment in `maze-map.ts` says so.
 
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 

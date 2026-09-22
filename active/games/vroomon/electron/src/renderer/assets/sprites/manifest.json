@@ -995,6 +995,66 @@
     "source": "drawn"
   },
   {
+    "id": "npc:shaft-boss-rell",
+    "file": "npc_shaft-boss-rell.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:deep-rell-route",
+    "file": "npc_deep-rell-route.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:deep-rell-ode",
+    "file": "npc_deep-rell-ode.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:deep-rell-chance",
+    "file": "npc_deep-rell-chance.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:lampman-ode",
+    "file": "npc_lampman-ode.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:deep-ode-walk",
+    "file": "npc_deep-ode-walk.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:deep-ode-lamps",
+    "file": "npc_deep-ode-lamps.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:deep-ode-know",
+    "file": "npc_deep-ode-know.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:deep-runner-hob",
+    "file": "npc_deep-runner-hob.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:deep-runner-race",
+    "file": "npc_deep-runner-race.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:deep-runner-why",
+    "file": "npc_deep-runner-why.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:deep-runner-later",
+    "file": "npc_deep-runner-later.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:wanda-first-buys",
     "file": "npc_wanda-first-buys.png",
     "source": "drawn"

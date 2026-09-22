@@ -1,6 +1,6 @@
 # How Vroomon fits together
 
-*Last verified against the game at **560 unit + 58 e2e** (2026-09-21). The
+*Last verified against the game at **564 unit + 59 e2e** (2026-09-21). The
 measured sections below — progression, the wild, the economy — were true when
 written; if those counts have moved a long way, re-measure before trusting the
 numbers in them.*
@@ -99,11 +99,11 @@ house plateaus near 1,000.
 
 ## The world
 
-**24 maps** across five biomes: a town with a schoolhouse and a store, the
-ranch house and yard, an orchard, a **generated hedge maze** in its east hedge,
-two routes, two arenas with back rooms, three biome grounds, a Salt Road
-waystation with two interiors, and three road landmarks with an office and a
-shed.
+**25 maps** across five biomes: a town with a schoolhouse and a store, the
+ranch house and yard, an orchard, **two generated mazes** (the orchard's hedge
+maze, and the Quarry's Deep), two routes, two arenas with back rooms, three
+biome grounds, a Salt Road waystation with two interiors, and three road
+landmarks with an office and a shed.
 
 The RPG half of the game runs on `engine/` — a headless kernel (maps, actors,
 conversations, shops, routines, mazes, saves) that a renderer drives through
@@ -182,7 +182,7 @@ closed.
   [the engine](engine.md).
 - `renderer/` — the game: overworld, hub scenes, lab, ledger, inspector.
 - `renderer/world/` — maps, quests, routines, weather, ambience, specimens,
-  and `hedge-maze.ts`, the seam where a generated maze becomes a vroomon map.
+  and `maze-map.ts`, the seam where a generated maze becomes a vroomon map.
 
 ## Running it
 
@@ -190,7 +190,7 @@ closed.
 cd electron
 npm test                 # engine + game   (~5s)   <- the default
 npm run test:engine      # engine + simulation core (~1.3s) 134 tests
-npm run test:game        # rules + content (~4.3s)         393 tests
+npm run test:game        # rules + content (~4.3s)         397 tests
 npm run test:balance     # measurements    (~38s)          33 tests, on demand
 npm run test:unit        # all of the above (~42s)
 npm run test:e2e:fast    # browser, no build   (~2.7m)
@@ -202,7 +202,7 @@ npm run export:sprites   # redraw every sprite as a PNG (needs a browser)
 npm run verify:sprites   # re-export and prove nothing changed (~30s)
 ```
 
-**Why the suite is split three ways.** Thirty-three of the 560 unit tests are
+**Why the suite is split three ways.** Thirty-three of the 564 unit tests are
 *measurements* — they race hundreds of cars across dozens of generations to
 answer a question about balance ("does the herd out-climb random search", "is
 tier II reachable by hunting"). They were 110 of the suite's 120 seconds of CPU.

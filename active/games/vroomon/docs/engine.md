@@ -87,10 +87,11 @@ conversation is a content bug and should read like one.
   now run in `defineMap`, so any game built on the engine gets them for free
   and no game has to re-learn them one map at a time.
 
-- **The Marrow Hedge Maze** (`renderer/world/hedge-maze.ts`) is generated, not
-  hand-drawn: `buildHedgeMaze()` asks the engine for a maze and returns
-  `TileKind[][]`, the gate, the landing and three safe spots. `maps.ts` wires
-  it to the orchard.
+- **The Marrow Hedge Maze and the Quarry's Deep** (`renderer/world/maze-map.ts`)
+  are generated, not hand-drawn: `buildHedgeMaze()` and `buildDeepMaze()` are
+  two sets of options over one `buildMazeMap()`, which returns `TileKind[][]`
+  plus the gate, the landing and three safe spots. `maps.ts` wires each to its
+  host, and `decor.ts` takes the free tile the generator hands out.
 - The interesting rule in that file is **where people may stand**. A maze is a
   tree of corridors; a keeper standing in a corridor is a wall, and a keeper
   dropped on the route to the middle cuts the maze in half with no error
@@ -101,7 +102,8 @@ conversation is a content bug and should read like one.
   nothing else was lost.
 - The hedge maze's wild grass is Grassland, declared in
   `core/wild.ts` next to every other hunting ground — the maze is a hunting
-  ground, not a corridor.
+  ground, not a corridor. The Deep has no grass at all: it is a maze you walk
+  for the people in it, and the builder supports that by taking no wild tile.
 
 ## What is not ported yet
 

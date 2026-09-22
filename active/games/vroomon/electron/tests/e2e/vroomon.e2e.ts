@@ -2774,6 +2774,38 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     );
   });
 
+  test("@smoke the Deep is a second maze: down the Quarry shaft, back up again", async ({ page }) => {
+    await seedAndEnterWorld(page);
+
+    // The old shaft in the Quarry's south-east spoil drops into the Deep.
+    await enterMapAt(page, "rocky_map", 14, 9, "down");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText(
+      "Canyon Quarry",
+    );
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText("The Deep");
+
+    // A shaft boss on a dead end, with a lampman and a racer further in.
+    await enterMapAt(page, "the_deep", 8, 9, "right");
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText(
+      "Shaft Boss Rell",
+    );
+    await expect(page.locator("[data-dialogue-option]")).toHaveCount(3);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+
+    // ...and the gate is one step inside the arrival, so you can leave.
+    await enterMapAt(page, "the_deep", 1, 2, "down");
+    await page.keyboard.press("ArrowUp");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText(
+      "Canyon Quarry",
+    );
+  });
+
   test("@smoke a side quest is offered, tracked, and paid on completion", async ({ page }) => {
     await seedAndEnterWorld(page);
     await enterMapAt(page, "starter_town", 6, 7);
