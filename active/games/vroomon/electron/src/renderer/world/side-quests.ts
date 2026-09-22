@@ -526,6 +526,29 @@ export const SIDE_QUESTS: SideQuest[] = [
     offer:
       "I've a crate that needs eyes on the Highlands road. Walk it and the fee's yours.",
   },
+  {
+    // The Brambles' own job. Its giver's menu uses the engine's first authored
+    // condition: the offer is there until it is taken, and the question it
+    // raises is there once it has been.
+    id: "keep-the-track",
+    title: "Keep The Track Open",
+    giver: "Bramble Warden Kess",
+    mapId: "bramble_maze",
+    acceptFlag: "quest-bramble-accepted",
+    objective: {
+      kind: "win-wild-on",
+      mapId: "bramble_maze",
+      count: 2,
+      label: "hill wild beaten in the Thorn Gully",
+    },
+    reward: {
+      wallet: 210,
+      feed: 3,
+      thanks: "Two of the gully's own, on the gully's ground. The track stays open another year — take this for the walking.",
+    },
+    offer:
+      "Two of the hill wild beaten on this ground and I will write the track in the book as kept. They have had the gullies to themselves for years.",
+  },
 ];
 
 export function findSideQuest(id: string): SideQuest | undefined {

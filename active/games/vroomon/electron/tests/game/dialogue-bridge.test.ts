@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { MAPS } from "../../src/renderer/world/maps.js";
@@ -7,7 +8,7 @@ import {
   scriptForText,
   toEngineNode,
 } from "../../src/renderer/world/dialogue-bridge.js";
-import { DialogueSession, type ScriptHost } from "../../src/engine/dialogue.js";
+import { DialogueSession, type Condition, type ScriptHost } from "../../src/engine/dialogue.js";
 
 interface RecordingHost extends ScriptHost {
   flags: Record<string, boolean>;
@@ -160,5 +161,101 @@ describe("the dialogue bridge", () => {
 
     session.advance();
     expect(host.commands[0]).toMatchObject({ command: "join-faction", arg: "skimmers" });
+  });
+});
+
+/** Every flag a condition reads, including inside all/any/not. */
+function flagsRead(condition: Condition | undefined, out: string[] = []): string[] {
+  if (!condition) {
+    return out;
+  }
+  switch (condition.kind) {
+    case "flag":
+      out.push(condition.flag);
+      break;
+    case "all":
+    case "any":
+      for (const inner of condition.of) {
+        flagsRead(inner, out);
+      }
+      break;
+    case "not":
+      flagsRead(condition.of, out);
+      break;
+    default:
+      break;
+  }
+  return out;
+}
+
+describe("authored options are gated, and the gate means something", () => {
+  it("hides the job offer until it is taken, then answers about it", () => {
+    // The Brambles' warden is the world's first conditioned menu: the offer is
+    // there until the job is taken and the question about it is there after.
+    const host = recordingHost();
+    const before = new DialogueSession(scriptForNpc("bramble_maze", "bramble-warden-kess")!, host);
+    const offerIndex = labels(before).findIndex((label) => label.includes("keep the track open"));
+    expect(offerIndex, labels(before).join(" | ")).toBeGreaterThanOrEqual(0);
+    expect(labels(before).some((label) => label.includes("Which gullies"))).toBe(false);
+
+    // Taking it shows the beat that hands the job out...
+    expect(before.choose(offerIndex)).toBe(true);
+    expect(before.current()?.id).toBe("bramble-kess-job");
+    expect(host.flags["quest-bramble-accepted"]).toBeUndefined();
+    // ...and accepting is leaving that beat.
+    before.advance();
+    expect(host.flags["quest-bramble-accepted"]).toBe(true);
+
+    // Which flips the menu: no offer, and the question it raises.
+    const after = new DialogueSession(scriptForNpc("bramble_maze", "bramble-warden-kess")!, host);
+    expect(labels(after).some((label) => label.includes("keep the track open"))).toBe(false);
+    const detailIndex = labels(after).findIndex((label) => label.includes("Which gullies"));
+    expect(detailIndex, labels(after).join(" | ")).toBeGreaterThanOrEqual(0);
+    expect(after.choose(detailIndex)).toBe(true);
+    expect(after.current()?.id).toBe("bramble-kess-detail");
+  });
+
+  it("never gates an option on a flag nobody sets", () => {
+    // A `when` on a flag nothing writes is an option that can never appear —
+    // written, placed, and unreachable. This is the same trap the quest
+    // contracts catch for accept flags, applied to menu conditions.
+    const written = new Set<string>();
+    for (const map of Object.values(MAPS)) {
+      for (const npc of map.npcs) {
+        if (npc.dialogue?.setFlag) {
+          written.add(npc.dialogue.setFlag);
+        }
+      }
+    }
+    for (const file of [
+      "src/renderer/renderer.ts",
+      "src/renderer/world/overworld-controller.ts",
+    ]) {
+      const source = readFileSync(file, "utf8");
+      for (const match of source.matchAll(/setFlag\(\s*"([^"]+)"/g)) {
+        written.add(match[1]!);
+      }
+    }
+
+    const gated: string[] = [];
+    const orphans: string[] = [];
+    for (const map of Object.values(MAPS)) {
+      for (const npc of map.npcs) {
+        for (const option of npc.dialogue?.options ?? []) {
+          const flags = flagsRead(option.when);
+          if (flags.length > 0) {
+            gated.push(`${map.id}/${npc.id}`);
+          }
+          for (const flag of flags) {
+            if (!written.has(flag)) {
+              orphans.push(`${map.id}/${npc.id} "${option.label}" waits on ${flag}`);
+            }
+          }
+        }
+      }
+    }
+    expect(orphans, `options gated on flags nothing sets: ${orphans.join("; ")}`).toEqual([]);
+    // And the capability is not dead code: something shipped uses it.
+    expect(gated.length, "no authored option is gated").toBeGreaterThan(0);
   });
 });

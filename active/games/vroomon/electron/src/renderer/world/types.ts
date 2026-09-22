@@ -1,4 +1,4 @@
-import type { DialogueSession } from "../../engine/dialogue.js";
+import type { Condition, DialogueSession } from "../../engine/dialogue.js";
 
 export type TileKind =
   | "grass"
@@ -86,6 +86,12 @@ export interface DialogueNode {
 export interface DialogueOption {
   label: string;
   next: string;
+  /**
+   * Only offer this when the condition holds. The engine evaluates it (a flag,
+   * a count, an `all`/`any`/`not` around them), so a giver can answer a
+   * question that only makes sense once you have taken the job.
+   */
+  when?: Condition;
 }
 
 export interface Tilemap {

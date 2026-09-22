@@ -227,6 +227,7 @@ new entry that is not indexed here fails the suite.
 - [The engine, and the maze it bought (2026-09-21) ✅](#the-engine-and-the-maze-it-bought-2026-09-21)
 - [Three mazes, one builder, and the tile that was not a wall (2026-09-21) ✅](#three-mazes-one-builder-and-the-tile-that-was-not-a-wall-2026-09-21)
 - [The dialogue walk moved into the engine (2026-09-21) ✅](#the-dialogue-walk-moved-into-the-engine-2026-09-21)
+- [The first conditioned menu, and the job behind it (2026-09-21) ✅](#the-first-conditioned-menu-and-the-job-behind-it-2026-09-21)
 - [The last rule with no teacher: what the wild is *for* (2026-09-15) ✅](#the-last-rule-with-no-teacher-what-the-wild-is-for-2026-09-15)
 - [Six wrong assumptions in one test file (2026-09-15) ✅](#six-wrong-assumptions-in-one-test-file-2026-09-15)
 - [The wild table answers the question you came in with (2026-09-15) ✅](#the-wild-table-answers-the-question-you-came-in-with-2026-09-15)
@@ -3993,6 +3994,34 @@ checked first, and no test or helper depended on the value. The gate was the e2e
 suite, since conversations are how every quest, faction, race and warp is
 reached: **41 smoke and 58 e2e walks pass unchanged on the first run after the
 port**, which is the result a refactor of the most-tested surface should have.
+
+## The first conditioned menu, and the job behind it (2026-09-21) ✅
+
+The dialogue port handed the engine's conditions to the content, and for a day
+nothing used them: every authored option was unconditional, so `when` was a
+capability with no proof. The Brambles' warden now has the world's first gated
+menu, and it is a shape a giver actually wants: **the offer is on the menu until
+it is taken, and the question it raises replaces it once it has been.**
+
+```
+Bramble Warden Kess
+  Is there a way through?
+  What lives in here?
+  Somebody should keep the track open.        <- before the job is taken
+  Which gullies do you want walked?           <- after it is accepted
+  I will cut my own line.
+```
+
+Behind it is a real job — **Keep The Track Open**, two hill wild beaten on the
+Brambles' own ground for 210 credits and three feed — accepted, like every other
+quest, by leaving the beat that hands it out, which is what the engine's
+`onLeave` effects are for.
+
+Two checks came with it, because a condition is a new way to write dead content:
+the swap is walked through the real map content (before, the offer is there and
+the question is not; after, the reverse), and **no option may be gated on a flag
+nothing sets** — a gate like that is an option no player can ever see, which is
+the same failure the quest contracts already catch for accept flags.
 
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 

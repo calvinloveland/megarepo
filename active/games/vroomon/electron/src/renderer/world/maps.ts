@@ -2165,6 +2165,19 @@ export const MAPS: Record<string, Tilemap> = {
           options: [
             { label: "Is there a way through?", next: "bramble-kess-route" },
             { label: "What lives in here?", next: "bramble-kess-stock" },
+            // The one job on this ground, and the one place a condition is
+            // used: the offer is only there until it is taken, and the question
+            // it raises afterwards is only there once it has been.
+            {
+              label: "Somebody should keep the track open.",
+              next: "bramble-kess-job",
+              when: { kind: "not", of: { kind: "flag", flag: "quest-bramble-accepted" } },
+            },
+            {
+              label: "Which gullies do you want walked?",
+              next: "bramble-kess-detail",
+              when: { kind: "flag", flag: "quest-bramble-accepted" },
+            },
             { label: "I will cut my own line.", next: "bramble-kess-own" },
           ],
         },
@@ -2200,6 +2213,29 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "villager",
         dialogue: {
           text: "Everyone does, the first time. The second time they take the wall.",
+        },
+      },
+      {
+        id: "bramble-kess-job",
+        name: "Bramble Warden Kess",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "\"Two of the hill wild, on this ground, and I will write the track in the book as kept. They are faster than they look and they have had the gullies to themselves for years, so do not bring the first thing that rolls.\"",
+          setFlag: "quest-bramble-accepted",
+        },
+      },
+      {
+        id: "bramble-kess-detail",
+        name: "Bramble Warden Kess",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "\"Any of them; they all run the same three gullies. The thorn tells you which side the sun is on, and the sun tells you which way is out, and everything else in here is a goat with an opinion.\"",
         },
       },
       {

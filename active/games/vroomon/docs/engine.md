@@ -131,6 +131,11 @@ not move the player, and closes it.
 - **A generated line.** The feud briefing that replaces an arena's "three,
   two, one… go" is `session.replaceText(nodeId, text)`: the game owns the words
   for a beat it computed, the session owns which node is on screen.
+- **A conditioned menu.** Authored options carry an engine `when`, and the
+  Brambles' warden is the first person in the world to use one: her job offer is
+  on the menu until it is taken, and the question it raises replaces it once it
+  has been. A test walks that swap through the real content, and another refuses
+  a gate on a flag nothing sets — an option nobody can ever see.
 - **Routine validation.** Vroomon learned the hard way that a keeper's routine
   can walk them into a hedge, that two people can be tidy at dawn and standing
   in one another at dusk, and that hours are a fraction of the day. Those checks
