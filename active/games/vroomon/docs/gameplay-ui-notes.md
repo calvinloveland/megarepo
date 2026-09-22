@@ -4044,6 +4044,13 @@ beaten on it. The engine's condition language now has `tally(key, atLeast)`, the
 host answers from whatever counters the game keeps, and the demo keeps one of
 its own to prove the whole path.
 
+**And a rematch.** The same counter makes the world's first repeatable race: the
+world already counts a race result per rival, so the Bramble Runner offers his
+gap again once you have beaten him on it — “I said no second run, and then you
+beat me. There is a difference.” — and the option starts a real race with his own
+car rather than describing one. A rival who remembers is worth more than a
+rival who resets.
+
 Two checks came with it, because a condition is a new way to write dead content:
 the swap is walked through the real map content (before, the offer is there and
 the question is not; after, the reverse), and **no option may be gated on a flag

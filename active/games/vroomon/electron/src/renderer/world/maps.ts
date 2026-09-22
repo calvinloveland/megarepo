@@ -2378,6 +2378,14 @@ export const MAPS: Record<string, Tilemap> = {
           options: [
             { label: "Line it up.", next: "bramble-runner-race" },
             { label: "Why race in a thorn gully?", next: "bramble-runner-why" },
+            // The world's first rematch: a rival you have beaten on his own
+            // ground offers the run again, and it counts like any other race.
+            // The gate is the race result the world already keeps.
+            {
+              label: "You said no second run.",
+              next: "bramble-runner-again",
+              when: { kind: "tally", key: "lastrace:The Bramble Runner", atLeast: 1 },
+            },
             { label: "Not today.", next: "bramble-runner-later" },
           ],
         },
@@ -2391,6 +2399,19 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "rider",
         dialogue: {
           text: "\"Post to post and no second run. Go.\"",
+          onComplete: "trainer",
+          rivalDna: "Lhn4yi8zKRd2",
+        },
+      },
+      {
+        id: "bramble-runner-again",
+        name: "The Bramble Runner",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "\"I said no second run, and then you beat me. There is a difference. Post to post, same gap, and this one I am keeping.\"",
           onComplete: "trainer",
           rivalDna: "Lhn4yi8zKRd2",
         },

@@ -267,6 +267,29 @@ describe("authored options are gated, and the gate means something", () => {
     );
   });
 
+  it("offers a rematch once the race has been won, and races for real", () => {
+    // The world already counts race results per rival; a runner who has been
+    // beaten offers the run again, and that option starts a real race rather
+    // than describing one.
+    const host = recordingHost();
+    const before = new DialogueSession(
+      scriptForNpc("bramble_maze", "bramble-runner-moss")!,
+      host,
+    );
+    expect(labels(before).some((label) => label.includes("second run"))).toBe(false);
+
+    host.tallies["lastrace:The Bramble Runner"] = 1;
+    const after = new DialogueSession(scriptForNpc("bramble_maze", "bramble-runner-moss")!, host);
+    const rematch = labels(after).findIndex((label) => label.includes("second run"));
+    expect(rematch, labels(after).join(" | ")).toBeGreaterThanOrEqual(0);
+    expect(after.choose(rematch)).toBe(true);
+    expect(after.current()?.id).toBe("bramble-runner-again");
+
+    // ...and leaving that beat starts the race, with an authored car.
+    after.advance();
+    expect(host.commands.at(-1)).toEqual({ command: "trainer", arg: "Lhn4yi8zKRd2" });
+  });
+
   it("gates an option on how much of the job is done, not just on the flag", () => {
     // A counter says *how many*: Kess can tell you the gully knows you before
     // the job is paid, because the ground has been counting the races.
