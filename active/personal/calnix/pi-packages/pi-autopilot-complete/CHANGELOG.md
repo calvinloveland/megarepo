@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.1 (2026-09-21)
+
+### Fixed
+- **Iteration count now resets at the safety limit**: Hitting the
+  `MAX_SUPER_AUTOPILOT_ITERATIONS` (50) cap left `superAutopilotIterations`
+  pinned at `50/50`. Any later `complete({ futureWork: [...] })` call immediately
+  re-tripped the cap, so the loop could never make progress after the first stop.
+  The counter (and the item/`lastFutureWork`/nudge state) is now reset when the
+  limit branch fires in `agent_end`, and the status bar returns to `0/50`.
+- **Esc (abort) no longer counts as a nudge**: Aborting a run made `agent_end`
+  fire with `completedWithFutureWork === false`, which triggered the autopilot
+  nudge and its `triggerTurn` continuation. In super autopilot mode the nudge cap
+  is 50, so a single Esc just queued another turn and the user had to interrupt
+  the loop once per allowed nudge (up to 50 times). `agent_end` now detects
+  aborted runs (`ctx.signal.aborted`, falling back to `stopReason === "aborted"`
+  on the final assistant message) and skips both the nudge and the
+  super-autopilot bookkeeping, resetting `autopilotNudges` so the next user
+  message gets a fresh budget.
+
+### Changed
+- Extension version bumped to `0.5.1`
+- Added regression tests for the safety-limit reset and Esc-abort suppression
+
 ## 0.5.0 (2026-06-12)
 
 ### Added

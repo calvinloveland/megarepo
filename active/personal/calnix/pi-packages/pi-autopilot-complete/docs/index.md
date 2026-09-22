@@ -18,7 +18,7 @@ The `complete` tool now has a single required field: `futureWork: string[]`.
 
 | `futureWork` | Behavior |
 |---|---|
-| `["Refactor auth", "Add tests"]` | Extension queues a `followUp` **custom message** during the `complete` tool call. Pi converts it to a user-role message for the next cycle before the run goes idle. |
+| `["Refactor auth", "Add tests"]` | The tool result contains a `=== NEXT TASK ===` block and does **not** terminate. The model sees the result and keeps working in the same agent turn. |
 | `[]` | Task marked complete. Run terminates (`terminate: true`). |
 
 Optional `summary` field lets the agent log what was accomplished.
@@ -87,16 +87,28 @@ Automatically suppresses when TDD mode is active.
 Super autopilot automates the "what's next? → implement → repeat" workflow:
 
 1. **Agent completes a cycle** and calls `complete({ futureWork: ["next task", ...] })`
-2. **Complete tool queues** a `followUp` `=== NEXT TASK ===` message from inside tool execution
-3. **Pi consumes that follow-up automatically** before the run goes idle or asks the user for input
+2. **Complete tool returns** a non-terminating `=== NEXT TASK ===` tool result
+3. **The model sees that result** and continues working in the same agent turn
 4. **Agent implements the next task** and calls `complete(...)` again
 5. **Cycle repeats** until the agent calls `complete({ futureWork: [] })`
 
 In super autopilot mode:
-- Non-empty futureWork → extension queues the next cycle mechanically via Pi's follow-up queue
+- Non-empty futureWork → the tool result drives the next cycle in the same turn
 - Empty futureWork → loop stops, task is complete
 
-Max 50 iterations per session to prevent runaway loops.
+Max 50 iterations between user messages to prevent runaway loops. Reaching the cap
+resets the counter back to `0/50`, so the next message starts a fresh run.
+
+### Runtime safety
+
+- **50-iteration cap.** Super autopilot stops after `MAX_SUPER_AUTOPILOT_ITERATIONS`
+  (50) cycles. Hitting the cap resets the iteration and item counters and returns the
+  status bar to `🚀 super autopilot 0/50`, so a later `complete(...)` call is no longer
+  instantly re-capped.
+- **Esc aborts the loop.** Pressing Esc aborts the run; the extension detects the
+  aborted assistant message and skips the autopilot nudge, so super autopilot does
+  **not** queue another turn. One Esc press stops the loop — send a new message to
+  resume.
 
 ```
 /superautopilot on       # Enable (also enables regular autopilot)

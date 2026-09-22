@@ -511,6 +511,47 @@ test("nudge: counter resets on user input, not on nudge-triggered turns", async 
 	assert.equal(sentMessages.length, 1, "nudge available again after user input");
 });
 
+test("agent_end: does NOT nudge when the run was aborted (Esc)", async () => {
+	await resetState();
+
+	await pi._triggerEvent(
+		"before_agent_start",
+		{ type: "before_agent_start", prompt: "test", systemPrompt: "base", systemPromptOptions: {} },
+		createMockCtx({ hasUI: true }),
+	);
+
+	sentMessages.length = 0;
+	await pi._triggerEvent(
+		"agent_end",
+		{ type: "agent_end", messages: [{ role: "assistant", stopReason: "aborted", content: [] }] },
+		createMockCtx({ hasUI: true }),
+	);
+	assert.equal(sentMessages.length, 0, "aborted run must not queue a nudge");
+
+	// A subsequent natural stop should get a fresh nudge budget again
+	sentMessages.length = 0;
+	await pi._triggerEvent("agent_end", { type: "agent_end", messages: [] }, createMockCtx({ hasUI: true }));
+	assert.equal(sentMessages.length, 1, "nudge works again after an abort reset");
+});
+
+test("agent_end: detects abort from ctx.signal even without an aborted message", async () => {
+	await resetState();
+
+	await pi._triggerEvent(
+		"before_agent_start",
+		{ type: "before_agent_start", prompt: "test", systemPrompt: "base", systemPromptOptions: {} },
+		createMockCtx({ hasUI: true }),
+	);
+
+	sentMessages.length = 0;
+	await pi._triggerEvent(
+		"agent_end",
+		{ type: "agent_end", messages: [{ role: "toolResult", toolName: "bash", isError: true, content: [] }] },
+		createMockCtx({ hasUI: true, signal: { aborted: true } }),
+	);
+	assert.equal(sentMessages.length, 0, "aborted signal must suppress the nudge");
+});
+
 test("turn_start resets complete state for queued follow-up cycles", async () => {
 	await resetState();
 	const tool = pi._getTool("complete");
@@ -772,6 +813,66 @@ test("super autopilot: stops queueing follow-ups at the 50-iteration safety limi
 	);
 	assert.equal(capped.terminate, true, "limit-reached result should terminate");
 	assert.equal(capped.details.limitReached, true, "should flag safety limit in details");
+});
+
+test("super autopilot: iteration counter resets after the safety limit is hit", async () => {
+	await resetState();
+	const sc = pi._getCommand("superautopilot");
+	const tool = pi._getTool("complete");
+
+	await sc.handler("on", createMockCtx());
+	await pi._triggerEvent(
+		"before_agent_start",
+		{ type: "before_agent_start", prompt: "seed", systemPrompt: "", systemPromptOptions: {} },
+		createMockCtx(),
+	);
+
+	for (let i = 0; i < 50; i++) {
+		await tool.execute(`call_${i}`, { futureWork: [`Task ${i + 1}`] }, undefined, undefined, createMockCtx());
+		await pi._triggerEvent("turn_start", { type: "turn_start", turnIndex: i + 1, timestamp: Date.now() }, createMockCtx());
+	}
+
+	const capped = await tool.execute("call_limit", { futureWork: ["Task 51"] }, undefined, undefined, createMockCtx());
+	assert.equal(capped.terminate, true, "51st call should hit the cap");
+
+	// agent_end fires after the terminating tool call — counter should reset
+	notifications.length = 0;
+	await pi._triggerEvent("agent_end", { type: "agent_end", messages: [] }, createMockCtx({ hasUI: true }));
+	assert.ok(
+		notifications.some((n) => n.type === "warning" && n.message.includes("safety limit")),
+		"should warn that the safety limit reset the counter",
+	);
+	assert.equal(statusBar.get("autopilot"), "🚀 super autopilot 0/50", "status should reset to 0/50");
+
+	// A fresh complete call should be counted again, not instantly capped
+	await pi._triggerEvent(
+		"before_agent_start",
+		{ type: "before_agent_start", prompt: "again", systemPrompt: "", systemPromptOptions: {} },
+		createMockCtx(),
+	);
+	const fresh = await tool.execute("call_fresh", { futureWork: ["Fresh task"] }, undefined, undefined, createMockCtx());
+	assert.equal(fresh.terminate, undefined, "fresh run should not immediately hit the cap");
+	assert.equal(fresh.details.limitReached, undefined);
+});
+
+test("super autopilot: Esc abort does not restart the loop", async () => {
+	await resetState();
+	const sc = pi._getCommand("superautopilot");
+
+	await sc.handler("on", createMockCtx());
+	await pi._triggerEvent(
+		"before_agent_start",
+		{ type: "before_agent_start", prompt: "test", systemPrompt: "base", systemPromptOptions: {} },
+		createMockCtx({ hasUI: true }),
+	);
+
+	sentMessages.length = 0;
+	await pi._triggerEvent(
+		"agent_end",
+		{ type: "agent_end", messages: [{ role: "assistant", stopReason: "aborted", content: [] }] },
+		createMockCtx({ hasUI: true }),
+	);
+	assert.equal(sentMessages.length, 0, "aborted super-autopilot run must not queue a nudge/continuation");
 });
 
 // ── /max-nudges command ──

@@ -40,7 +40,7 @@ function createLogger(name: string) {
 }
 
 // ── Extension constants and logging ──
-const EXTENSION_VERSION = "0.5.0";
+const EXTENSION_VERSION = "0.5.1";
 const log = createLogger("autopilot-complete");
 log("=== Extension loaded v" + EXTENSION_VERSION + " ===");
 
@@ -109,6 +109,30 @@ function refreshAutopilotState(ctx: { sessionManager: { getEntries: () => any[] 
 			}
 		}
 	}
+}
+
+/**
+ * Detect a user/model abort (Esc) from an agent_end event.
+ *
+ * An aborted run finalizes with an assistant message whose stopReason is
+ * "aborted", and the run's abort signal (`ctx.signal`) is also aborted while
+ * the run is still active. On abort we must not nudge or auto-continue,
+ * otherwise every Esc press queues another turn and the user has to interrupt
+ * the loop once per allowed nudge.
+ */
+function wasRunAborted(
+	event: { messages?: any[] } | undefined,
+	ctx?: { signal?: { aborted?: boolean } },
+): boolean {
+	if (ctx?.signal?.aborted) return true;
+	const messages = event?.messages ?? [];
+	for (let i = messages.length - 1; i >= 0; i -= 1) {
+		const message = messages[i];
+		if (message?.role === "assistant") {
+			return message.stopReason === "aborted";
+		}
+	}
+	return false;
 }
 
 function setAutopilotStatus(ctx: { hasUI: boolean; ui: { setStatus: (key: string, value?: string) => void } }) {
@@ -315,7 +339,7 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 		},
 	});
 
-	pi.on("agent_end", async (_event, ctx) => {
+	pi.on("agent_end", async (event, ctx) => {
 		log(
 			"=== agent_end ===",
 			"super:", superAutopilotEnabled,
@@ -323,9 +347,22 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 			"lastFW:", lastFutureWork,
 			"isIdle:", ctx.isIdle?.(),
 			"hasPending:", ctx.hasPendingMessages?.(),
+			"aborted:", wasRunAborted(event, ctx),
 		);
 		refreshAutopilotState(ctx);
 		log("agent_end: after refresh — super:", superAutopilotEnabled, "completed:", completedWithFutureWork, "lastFW:", lastFutureWork);
+
+		// ── Abort (Esc) handling ──
+		// The user interrupted the run. Never nudge or auto-continue here, or the
+		// loop restarts and the user must abort it again for every allowed nudge.
+		if (wasRunAborted(event, ctx)) {
+			log("agent_end: run aborted — suppressing nudge and resetting nudge counter");
+			autopilotNudges = 0;
+			if (superAutopilotEnabled) {
+				setAutopilotStatus(ctx);
+			}
+			return;
+		}
 
 		// ── Super autopilot: final run bookkeeping ──
 		// Auto-follow-up turns happen inside a single agent run, so agent_end only
@@ -334,9 +371,19 @@ REQUIRED: \`futureWork\` — array of remaining task descriptions.
 			const fw = lastFutureWork;
 
 			if (superAutopilotLimitReached) {
-				log("agent_end: super autopilot stopped at safety limit");
+				log("agent_end: super autopilot stopped at safety limit — resetting iteration counters");
+				// Reset the budget so the next user message starts a fresh 50-iteration
+				// run instead of leaving the counter stuck at N/N forever.
+				superAutopilotIterations = 0;
+				superAutopilotItemsCompleted = 0;
+				lastFutureWork = null;
+				superAutopilotLimitReached = false;
+				autopilotNudges = 0;
 				if (ctx.hasUI) {
-					ctx.ui.notify(`Super autopilot reached the ${MAX_SUPER_AUTOPILOT_ITERATIONS}-iteration safety limit.`, "warning");
+					ctx.ui.notify(
+						`Super autopilot reached the ${MAX_SUPER_AUTOPILOT_ITERATIONS}-iteration safety limit. Iteration count reset — send a message to continue.`,
+						"warning",
+					);
 					setAutopilotStatus(ctx);
 				}
 				return;
