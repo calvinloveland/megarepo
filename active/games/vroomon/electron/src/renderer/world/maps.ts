@@ -2076,7 +2076,7 @@ export const MAPS: Record<string, Tilemap> = {
         x: 8,
         y: 8,
         facing: "up",
-        sprite: "sign",
+        sprite: "wreck",
         dialogue: {
           text: "Four plates on one chassis, two wheels pinned at their centres, one cylinder, five gearsets. Everything a vroomon needs, in the wrong order: the engine sits past both wheels, so nothing it makes ever arrives.",
         },

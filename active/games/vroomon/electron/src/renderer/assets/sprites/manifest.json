@@ -1020,6 +1020,31 @@
     "source": "drawn"
   },
   {
+    "id": "npc:fitter-odile",
+    "file": "npc_fitter-odile.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:odile-why",
+    "file": "npc_odile-why.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:odile-job",
+    "file": "npc_odile-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:odile-shrug",
+    "file": "npc_odile-shrug.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:stricken-vroomon",
+    "file": "npc_stricken-vroomon.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:oxide-trader",
     "file": "npc_oxide-trader.png",
     "source": "drawn"

@@ -29,6 +29,7 @@ export const SPRITE_PALETTE = {
     charcoal: "#3a3a3a", // gym-leader
     brown: "#5a4530", // sign
     gray: "#444444", // default
+    steel: "#6a7480", // vehicle hulls, so a wreck reads against dirt
   },
   accent: {
     white: "#f0f0f0", // professor

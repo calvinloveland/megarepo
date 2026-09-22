@@ -397,6 +397,61 @@ export function drawPlayer(
   ctx.fillRect(cx + 1 * u, cy + 14 * u - footOffset, 5 * u, 3 * u);
 }
 
+/**
+ * A vroomon that will not move. Two plates on the ground, one wheel still
+ * pinned, one rolled clear of the chassis — because the failure this prop
+ * illustrates is about the ORDER of the parts, and a car missing a wheel would
+ * be a different lesson.
+ */
+export function drawWreck(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  size: number,
+): void {
+  const u = size / 32;
+  const cx = px + size / 2;
+  const base = py + size * 0.72;
+
+  ctx.save();
+  ctx.fillStyle = PAL.shadow;
+  ctx.beginPath();
+  ctx.ellipse(cx, base + 2 * u, 12 * u, 3 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // The chassis, sitting slightly askew on the ground.
+  ctx.translate(cx, base - 3 * u);
+  ctx.rotate(-0.06);
+  ctx.fillStyle = PAL.body.steel;
+  ctx.fillRect(-11 * u, -5 * u, 13 * u, 5 * u);
+  ctx.fillStyle = PAL.body.maroon;
+  ctx.fillRect(-1 * u, -4 * u, 10 * u, 4 * u);
+  ctx.strokeStyle = PAL.ink.feet;
+  ctx.lineWidth = Math.max(1, u);
+  ctx.strokeRect(-11 * u, -5 * u, 13 * u, 5 * u);
+  ctx.strokeRect(-1 * u, -4 * u, 10 * u, 4 * u);
+
+  // One wheel pinned at its centre, one lying flat beside the car.
+  ctx.fillStyle = PAL.ink.feet;
+  ctx.beginPath();
+  ctx.arc(-8 * u, 1 * u, 3 * u, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = PAL.accent.gray;
+  ctx.beginPath();
+  ctx.arc(-8 * u, 1 * u, 1.4 * u, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.fillStyle = PAL.ink.feet;
+  ctx.beginPath();
+  ctx.ellipse(cx + 10 * u, base - 1 * u, 3.4 * u, 1.6 * u, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = PAL.accent.gray;
+  ctx.beginPath();
+  ctx.ellipse(cx + 10 * u, base - 1 * u, 1.6 * u, 0.7 * u, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 export function drawNpc(
   ctx: CanvasRenderingContext2D,
   sprite: string,
@@ -407,6 +462,10 @@ export function drawNpc(
   step: number,
   npcId?: string,
 ): void {
+  if (sprite === "wreck") {
+    drawWreck(ctx, px, py, size);
+    return;
+  }
   const parts = NPC_PARTS[sprite] ?? NPC_PARTS.default!;
   // A slow breath (a pixel, a couple of seconds long) so a standing NPC is
   // alive rather than a decal. The phase comes from the id, so neighbours are

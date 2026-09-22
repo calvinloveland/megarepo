@@ -543,7 +543,9 @@ describe("world reachability", () => {
         if (interactive) {
           continue;
         }
-        if (npc.sprite === "sign" || /^The\s/.test(npc.name)) {
+        // Props are read, not met: a sign, a wreck, or anything named like an
+        // object. A vehicle on the roadside is scenery in the same way.
+        if (npc.sprite === "sign" || npc.sprite === "wreck" || /^The\s|^A\s/.test(npc.name)) {
           continue;
         }
         found.push(`${map.id}/${npc.id}`);
