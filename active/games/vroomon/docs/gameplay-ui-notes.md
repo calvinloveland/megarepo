@@ -4051,6 +4051,13 @@ beat me. There is a difference.” — and the option starts a real race with hi
 car rather than describing one. A rival who remembers is worth more than a
 rival who resets.
 
+**Then all three.** One rival who remembers is a demonstration; three is a habit.
+The hedge maze's Hedger and the Quarry's Deep Runner now have rematches gated on
+the same counter, and all three runners have authored greetings for after a win
+and after a loss — a mechanism the greeting system has had all along and that
+nobody had written for any of them, so a beaten rival used to say the same
+sentence he said when you had never met.
+
 Two checks came with it, because a condition is a new way to write dead content:
 the swap is walked through the real map content (before, the offer is there and
 the question is not; after, the reverse), and **no option may be gated on a flag

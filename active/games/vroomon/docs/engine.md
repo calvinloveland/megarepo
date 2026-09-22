@@ -220,6 +220,17 @@ doing them now would add a layer where the plan called for removing one:
   state, read `wallet` into it when `purse` is absent (both the localStorage
   path and the desktop file store), and convert the thirteen hand-written
   credit moves to `spend`/`addCoins` in the same change.
+
+  The run-state side — as opposed to the quest reward data, which keeps its
+  `wallet?: number` name and is applied in one place — is 43 references in
+  seven files: `core/economy.ts:189,196` (upgrade purchase),
+  `core/market.ts:104-105` (`canAfford`, whose parameter becomes the purse),
+  `core/population.ts:402` (race income), `renderer/evolution.worker.ts:75-76`
+  (the worker's own income arithmetic), `renderer/state.ts:387,395,472,484`
+  (decor and rename), and `renderer/renderer.ts` (the rest: the market's
+  buy/sell, the four wallet readouts, the ranch store's feed and upgrades, and
+  the quest payout at 4808). The HTML shells keep their `data-*-wallet`
+  attribute names — those are DOM handles, not fields.
 - **The herd book.** `Collection` refuses to overfill. The Hall of Fame
   **evicts the oldest entry** when it is full, renames entries, and is
   persisted as a versioned envelope. Adopting the engine's class would mean

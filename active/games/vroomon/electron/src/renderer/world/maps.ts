@@ -1978,11 +1978,21 @@ export const MAPS: Record<string, Tilemap> = {
         y: HEDGE_MAZE.hollow.y,
         facing: "down",
         sprite: "rider",
+        // Rivals remember, if somebody writes down what they remember.
+        greetings: {
+          "after:loss": "The Hedger is winding a spring back into place. \"Again? You know which end of the hedge you came out of, at least.\"",
+          "after:win": "The Hedger looks at the run you just put in and does not say anything for a moment. \"Right. I have been in here long enough that I stopped counting laps and started counting reasons.\"",
+        },
         dialogue: {
           text: "The far end of the maze is a dead end with a workbench in it and somebody who has been living off windfalls for a week. \"You walked it. Good. Everyone who reaches the middle gets the same offer — I will race you on the orchard grass for the right to say you did.\"",
           options: [
             { label: "Line it up.", next: "maze-hedger-race" },
             { label: "How long have you been here?", next: "maze-hedger-week" },
+            {
+              label: "Your line, other way round this time?",
+              next: "maze-hedger-again",
+              when: { kind: "tally", key: "lastrace:The Hedger", atLeast: 1 },
+            },
             { label: "Not today.", next: "maze-hedger-later" },
           ],
         },
@@ -1996,6 +2006,19 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "rider",
         dialogue: {
           text: "\"Flat out and no second lap. Go.\"",
+          onComplete: "trainer",
+          rivalDna: "A9gpwYaIPmdg",
+        },
+      },
+      {
+        id: "maze-hedger-again",
+        name: "The Hedger",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "\"Other way round, then. The hedge does not care and neither do I — but the corners come at you from a different side, and that is the only part of this I still cannot breed for.\"",
           onComplete: "trainer",
           rivalDna: "A9gpwYaIPmdg",
         },
@@ -2149,11 +2172,20 @@ export const MAPS: Record<string, Tilemap> = {
         y: DEEP_MAZE.hollow.y,
         facing: "down",
         sprite: "rider",
+        greetings: {
+          "after:loss": "The Deep Runner has the bonnet up and a lamp hooked over it. \"You came back down. Most people take a win as a reason not to.\"",
+          "after:win": "The Deep Runner is not sitting on the bonnet this time. \"That was the same floor I have run every day of my life, and you did it once. Say the word and we do it again.\"",
+        },
         dialogue: {
           text: "The far gallery is a dead end with a car in it and somebody sitting on the bonnet. \"Underground circuit. No sky, no grass, no wind — the same floor every single day, so the only thing that changes is what you built. You found me. Now beat me.\"",
           options: [
             { label: "Line it up.", next: "deep-runner-race" },
             { label: "Why race down here?", next: "deep-runner-why" },
+            {
+              label: "Once more, on the stone.",
+              next: "deep-runner-again",
+              when: { kind: "tally", key: "lastrace:The Deep Runner", atLeast: 1 },
+            },
             { label: "Not today.", next: "deep-runner-later" },
           ],
         },
@@ -2167,6 +2199,19 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "rider",
         dialogue: {
           text: "\"Stone floor, first lamp to the last. Go.\"",
+          onComplete: "trainer",
+          rivalDna: "RuAp2owjBaqK",
+        },
+      },
+      {
+        id: "deep-runner-again",
+        name: "The Deep Runner",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "\"Lamps to the far wall and back. The dark does not move for anybody, so it is the same race it always was — except that now we both know what you can do.\"",
           onComplete: "trainer",
           rivalDna: "RuAp2owjBaqK",
         },
@@ -2373,6 +2418,10 @@ export const MAPS: Record<string, Tilemap> = {
         y: BRAMBLE_MAZE.hollow.y,
         facing: "down",
         sprite: "rider",
+        greetings: {
+          "after:loss": "The Bramble Runner is picking thorn out of a wheel. \"Down here they say a gully remembers. I am starting to think it is just the two of us who do.\"",
+          "after:win": "The Bramble Runner watches you come back down the gully and does not offer the posts this time. \"That gap has been mine since I was a boy. Say what you want from it.\"",
+        },
         dialogue: {
           text: "At the far end, where the gully stops, somebody has cut a straight run through the thorns and marked it with two posts. \"Hill descent. Two posts, one lap, and the thorn does not move for anybody. Half the Mesa's champions learned to hold a line in this gap.\"",
           options: [

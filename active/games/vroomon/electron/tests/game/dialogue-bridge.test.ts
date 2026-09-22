@@ -267,6 +267,35 @@ describe("authored options are gated, and the gate means something", () => {
     );
   });
 
+  it("gives every maze runner a rematch and a memory", () => {
+    // Three rivals, one pattern: the world counts the race, the counter gates
+    // the rematch, and an authored greeting says who you are to them.
+    const runners: Array<{ mapId: string; npcId: string; rival: string; label: string }> = [
+      { mapId: "bramble_maze", npcId: "bramble-runner-moss", rival: "The Bramble Runner", label: "second run" },
+      { mapId: "hedge_maze", npcId: "maze-hedger-vane", rival: "The Hedger", label: "other way round" },
+      { mapId: "the_deep", npcId: "deep-runner-hob", rival: "The Deep Runner", label: "Once more" },
+    ];
+    for (const runner of runners) {
+      const host = recordingHost();
+      const cold = new DialogueSession(scriptForNpc(runner.mapId, runner.npcId)!, host);
+      expect(labels(cold).some((label) => label.includes(runner.label)), runner.rival).toBe(false);
+
+      host.tallies[`lastrace:${runner.rival}`] = 1;
+      const warm = new DialogueSession(scriptForNpc(runner.mapId, runner.npcId)!, host);
+      const index = labels(warm).findIndex((label) => label.includes(runner.label));
+      expect(index, `${runner.rival}: ${labels(warm).join(" | ")}`).toBeGreaterThanOrEqual(0);
+      expect(warm.choose(index)).toBe(true);
+      warm.advance();
+      expect(host.commands.at(-1)?.command, runner.rival).toBe("trainer");
+
+      // ...and the greeting changes with the result, which the greeting system
+      // has always supported and nobody had written for these three.
+      const npc = MAPS[runner.mapId]!.npcs.find((candidate) => candidate.id === runner.npcId)!;
+      expect(npc.greetings?.["after:win"], runner.rival).toBeTruthy();
+      expect(npc.greetings?.["after:loss"], runner.rival).toBeTruthy();
+    }
+  });
+
   it("offers a rematch once the race has been won, and races for real", () => {
     // The world already counts race results per rival; a runner who has been
     // beaten offers the run again, and that option starts a real race rather
