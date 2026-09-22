@@ -1,6 +1,6 @@
 # How Vroomon fits together
 
-*Last verified against the game at **581 unit + 59 e2e** (2026-09-21). The
+*Last verified against the game at **581 unit + 60 e2e** (2026-09-21). The
 measured sections below — progression, the wild, the economy — were true when
 written; if those counts have moved a long way, re-measure before trusting the
 numbers in them.*
