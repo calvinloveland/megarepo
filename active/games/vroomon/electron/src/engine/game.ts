@@ -45,7 +45,7 @@ import { Shop, type ShopDefinition, type ShopOffer, type ShopState, type TradeRe
 import type { Specimen } from "./collection.js";
 import { createRng, type Rng } from "./rng.js";
 import { createSaveRegistry, decodeSave, encodeSave, type SaveRegistry } from "./save.js";
-import { SceneStack, type Scene } from "./scene.js";
+import { SceneStack, type Scene, type SceneView } from "./scene.js";
 import type { GameAction } from "./input.js";
 
 export interface EncounterTable {
@@ -64,6 +64,11 @@ export interface GameContent {
   encounters?: readonly EncounterTable[];
   /** Game-defined dialogue verbs. Return false when the command is unknown. */
   commands?: Record<string, (arg: string | undefined, game: Game) => boolean>;
+  /**
+   * Actions nothing else wanted — a menu key, a map key. Return true when the
+   * game handled it. This is how a game opens its own scenes.
+   */
+  onAction?: (action: GameAction, game: Game) => boolean;
   seed?: string | number;
   stepMs?: number;
   tileSize?: number;
@@ -104,6 +109,8 @@ export interface GameView {
   shop: { id: string; name: string; offers: ShopOffer[]; coins: number } | null;
   encounter: { table: string; entry: string } | null;
   sceneId: string | null;
+  /** The top scene's own panel description, when it has one. */
+  scene: SceneView | null;
   clock: { ms: number; fraction: number; phase: DayPhase };
 }
 
@@ -137,6 +144,7 @@ interface ResolvedContent {
   catalogue: ItemCatalog;
   encounters: Map<string, EncounterTable>;
   commands: Record<string, (arg: string | undefined, game: Game) => boolean>;
+  onAction: ((action: GameAction, game: Game) => boolean) | null;
 }
 
 export class Game implements ScriptHost {
@@ -234,6 +242,7 @@ export class Game implements ScriptHost {
       encounters,
       catalogue: createItemCatalog(content.items ?? []),
       commands: content.commands ?? {},
+      onAction: content.onAction ?? null,
     };
     this.mapsById = mapsById;
     this.inventory = new Inventory();
@@ -368,7 +377,7 @@ export class Game implements ScriptHost {
         this.interact();
         return true;
       default:
-        return false;
+        return this.content.onAction?.(action, this) ?? false;
     }
   }
 
@@ -754,6 +763,7 @@ export class Game implements ScriptHost {
     const shopRuntime = this.activeShopId ? this.shop(this.activeShopId) : null;
     const node = this.dialogue?.current() ?? null;
     const visible = this.dialogue?.options() ?? [];
+    const active = this.activeScene();
 
     return {
       map,
@@ -777,7 +787,8 @@ export class Game implements ScriptHost {
           }
         : null,
       encounter: this.encounterValue,
-      sceneId: this.activeScene()?.id ?? null,
+      sceneId: active?.id ?? null,
+      scene: active?.view?.() ?? null,
       clock: {
         ms: this.clockMsValue,
         fraction: this.dayFraction,

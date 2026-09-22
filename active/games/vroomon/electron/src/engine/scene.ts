@@ -17,6 +17,28 @@ export interface SceneHost {
   top(): Scene | null;
 }
 
+/** One line of a scene's panel: a label, and an optional detail on the right. */
+export interface SceneRow {
+  label: string;
+  detail?: string;
+  /** Greyed out, and not selectable — for something you cannot use yet. */
+  disabled?: boolean;
+}
+
+/**
+ * What a scene wants drawn, in neutral terms: a title, some rows, a footer.
+ * The engine hands this to the app through `Game.view()`, and the app decides
+ * whether a row is a line of text, a button or a shop card. A scene that has
+ * nothing to draw (a title screen that owns the whole canvas, a minigame) can
+ * return null and paint itself.
+ */
+export interface SceneView {
+  id: string;
+  title: string;
+  rows?: readonly SceneRow[];
+  footer?: string;
+}
+
 export interface Scene {
   readonly id: string;
   /** A modal scene blocks the map underneath it. Defaults to true. */
@@ -26,6 +48,8 @@ export interface Scene {
   update?(deltaMs: number): void;
   /** Return true when the scene used the action, false to let it fall through. */
   input?(action: GameAction): boolean;
+  /** What to draw, or null when the scene paints itself. */
+  view?(): SceneView | null;
 }
 
 export class SceneStack implements SceneHost {

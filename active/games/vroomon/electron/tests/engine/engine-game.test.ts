@@ -184,6 +184,33 @@ describe("hedge town", () => {
     expect(createGameSaveRegistry().version).toBe(1);
   });
 
+  it("opens a real scene over the map, and the world holds still behind it", () => {
+    const game = createHedgeTownGame();
+    game.run("coins", "20");
+    game.run("give", "bread:2");
+
+    expect(game.input("menu")).toBe(true);
+    const view = game.view();
+    expect(view.sceneId).toBe("bag");
+    expect(view.scene?.title).toBe("Bag");
+    expect(view.scene?.rows?.map((row) => `${row.label}=${row.detail}`)).toEqual([
+      "Coins=20 cr",
+      "Hearth Loaf=x2",
+    ]);
+    expect(view.scene?.footer).toContain("Escape");
+
+    // Movement is swallowed, not queued: the map behind a modal scene is still.
+    expect(game.input("right")).toBe(true);
+    game.update(200);
+    expect(game.playerState.x).toBe(3);
+    expect(game.tryMove("left")).toBe(false);
+
+    expect(game.input("cancel")).toBe(true);
+    expect(game.view().sceneId).toBeNull();
+    expect(game.view().scene).toBeNull();
+    expect(game.tryMove("left")).toBe(true);
+  });
+
   it("freezes the map behind a pushed scene", () => {
     const game = createHedgeTownGame();
     let inputCount = 0;

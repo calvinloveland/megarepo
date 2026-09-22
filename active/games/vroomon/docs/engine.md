@@ -79,6 +79,35 @@ and games can register their own with `commands`. An unknown command is
 reported in `session.diagnostics` rather than swallowed, because a typo in a
 conversation is a content bug and should read like one.
 
+A screen is a `Scene` pushed over the map. It describes what it wants drawn and
+the app draws it; a modal scene stops the world behind it, so the movement keys
+do not reach the map:
+
+```ts
+game.pushScene({
+  id: "bag",
+  view: () => ({
+    id: "bag",
+    title: "Bag",
+    rows: [
+      { label: "Coins", detail: `${game.coins()} cr` },
+      ...game.inventory.items().map(({ item, count }) => ({ label: item, detail: `x${count}` })),
+    ],
+    footer: "Escape to close",
+  }),
+  input: (action) => {
+    if (action === "cancel") { game.popScene(); return true; }
+    return false;
+  },
+});
+```
+
+`onAction` in the content is how a key opens it (`menu` here); everything the
+map and the overlays did not want arrives there. `Game.view().scene` comes back
+with the rows. `demo/hedge-town.ts` ships exactly this bag, and
+`tests/engine/engine-game.test.ts` opens it, checks that the movement keys do
+not move the player, and closes it.
+
 ## Where Vroomon uses it
 
 - **Routine validation.** Vroomon learned the hard way that a keeper's routine
@@ -113,11 +142,9 @@ old footing, in order of how much it would buy:
 1. **`renderer.ts`'s overworld state machine.** `world-state.ts` and
    `overworld-controller.ts` implement dialogue, flags and movement in
    vroomon's own terms. They work, and they are the largest remaining
-   duplication of the engine.
-2. **The shop counter.** `core/market.ts` prices and trades without an
-   `Inventory`.
-3. **The herd book.** `Collection` (capacity, provenance, `descendantsOf`) is
-   the shape `heritage.ts` and the Hall of Fame already implement by hand.
+   duplication of the engine: Vroomon's `DialogueNode` (text, `next`,
+   `options`, `setFlag`, `onComplete`, `rivalDna`) maps cleanly onto the engine
+   graph, and the six `onComplete` verbs would become registered commands.
 
 Already moved:
 
@@ -126,6 +153,29 @@ Already moved:
   back through the day for a missing slot (and forward, when there is nothing
   earlier), and the wrapping shift. Standing and greetings stayed, because
   those are about *this* world knowing *this* rancher.
+- **Maze generation** — `renderer/world/maze-map.ts` is one option set with two
+  users (the orchard's hedge maze and the Quarry's Deep).
+
+## Two ports that look obvious and are not
+
+Both of these were on the list. Measured, they are not deletions yet, and
+doing them now would add a layer where the plan called for removing one:
+
+- **The wallet and the trade counter.** `core/market.ts` prices specimens and
+  picks stock, but the credits are not its to own: they are `wallet: number`
+  on `RunStateSnapshot`, part of the parity contract's run state, and moved by
+  hand in thirteen places across four modules (`state.ts`, `economy.ts`,
+  `renderer.ts`, and the quest rewards in `side-quests.ts`). Rebuilding that on `Inventory` + `Shop`
+  means seeding an `Inventory` from a number, writing it back after every
+  trade, and building a catalog on each render — more code, with the same
+  arithmetic in it. What would pay is making the run state carry an inventory,
+  which is a persistence change touching both save formats, not a port.
+- **The herd book.** `Collection` refuses to overfill. The Hall of Fame
+  **evicts the oldest entry** when it is full, renames entries, and is
+  persisted as a versioned envelope. Adopting the engine's class would mean
+  adding eviction and rename to it first — engine API invented for one game's
+  storage policy. `heritage.ts` and the Hall of Fame keep their own shape until
+  a second game wants the same one.
 
 The migration order matters less than the rule: new gameplay should reach for
 the engine first, and each port should delete the duplicate rather than wrap

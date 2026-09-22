@@ -18,6 +18,7 @@ import type { DialogueScriptDefinition } from "../dialogue.js";
 import type { ShopDefinition } from "../shop.js";
 import type { ItemDefinition } from "../inventory.js";
 import { Game, type EncounterTable, type GameContent } from "../game.js";
+import type { Scene, SceneView } from "../scene.js";
 
 /** Tile ids are words; the maps below are drawn with single characters. */
 export const HEDGE_TOWN_TILES: TileDefinition[] = [
@@ -229,6 +230,43 @@ export const HEDGE_TOWN_ITEMS: ItemDefinition[] = [
   { id: "lantern", name: "Hedge Lantern", description: "Lights the maze at dusk.", value: 12 },
 ];
 
+const ITEM_NAMES = new Map(HEDGE_TOWN_ITEMS.map((item) => [item.id, item.name]));
+
+/**
+ * A real screen over the map, not a test fixture: coins and what is in the bag.
+ *
+ * It is the demo's proof that the scene stack carries gameplay — the menu key
+ * opens it, it swallows the movement keys while it is up so the world behind it
+ * holds still, and Escape closes it. A scene describes what it wants drawn and
+ * the app draws it; nothing here knows about a canvas.
+ */
+export function createBagScene(game: Game): Scene {
+  return {
+    id: "bag",
+    view: (): SceneView => ({
+      id: "bag",
+      title: "Bag",
+      rows: [
+        { label: "Coins", detail: `${game.coins()} cr` },
+        ...game.inventory.items().map(({ item, count }) => ({
+          label: ITEM_NAMES.get(item) ?? item,
+          detail: `x${count}`,
+        })),
+      ],
+      footer: "Escape to close",
+    }),
+    input: (action) => {
+      if (action === "cancel" || action === "menu") {
+        game.popScene();
+        return true;
+      }
+      // A modal scene still has to say it did not use the key; the stack keeps
+      // it from reaching the map either way.
+      return false;
+    },
+  };
+}
+
 export const HEDGE_TOWN_SHOPS: ShopDefinition[] = [
   {
     id: "bakery",
@@ -400,6 +438,13 @@ export const HEDGE_TOWN_CONTENT: GameContent = {
   items: HEDGE_TOWN_ITEMS,
   encounters: HEDGE_TOWN_ENCOUNTERS,
   seed: "hedge-town",
+  onAction: (action, game) => {
+    if (action === "menu") {
+      game.pushScene(createBagScene(game));
+      return true;
+    }
+    return false;
+  },
 };
 
 export function createHedgeTownGame(seed: string | number = "hedge-town"): Game {

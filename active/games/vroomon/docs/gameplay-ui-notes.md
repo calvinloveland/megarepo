@@ -3907,6 +3907,20 @@ it like one.
 Nothing in the engine knows what a vroomon is. That is the point: the next
 conversation, shop or maze is data.
 
+The one part of the engine that was still only exercised by tests is the scene
+stack, so the demo got a **bag screen** — coins and what you are carrying, on
+the `menu` key, modal, closed with Escape. A scene describes what it wants
+drawn (`title`, `rows`, `footer`) and the app draws it; the engine never sees a
+canvas. The test opens it, asserts the movement keys do *not* move the player
+behind it, and closes it.
+
+Two ports that looked obvious are **not done, on purpose**, and the reason is
+recorded in `docs/engine.md` rather than left as a TODO: the wallet
+(`RunStateSnapshot.wallet`, a number moved by hand in thirteen places across
+four modules) and the herd book (the Hall of Fame evicts the oldest entry when
+full; the engine's `Collection` refuses). Both would have added a layer instead
+of removing one — more code, with the same arithmetic in it.
+
 ## Two mazes, one builder, and the tile that was not a wall (2026-09-21) ✅
 
 The hedge maze was worth generalising the moment a second one was wanted, and
