@@ -341,10 +341,41 @@ describe("schedule", () => {
     expect(resolveRoutine({ stops: {} }, 0)).toBeNull();
   });
 
+  it("borrows from later in the day, then from the caller's own tile", () => {
+    // A watch that only starts in the evening is still somewhere at dawn: it
+    // borrows the evening, and a person with no routine at all stays put.
+    expect(resolveRoutine({ stops: { night: { x: 9, y: 9 } } }, 0.05)).toEqual({ x: 9, y: 9 });
+    expect(resolveRoutine({ stops: {} }, 0.05, { x: 2, y: 3 })).toEqual({ x: 2, y: 3 });
+    expect(resolveRoutine({ stops: {} }, 0.05)).toBeNull();
+    // An explicit null is off duty, and beats the fallback.
+    expect(resolveRoutine({ stops: { night: null } }, 0.9, { x: 2, y: 3 })).toBeNull();
+  });
+
   it("names the five phases of the day", () => {
     expect(phaseIndex(0)).toBe(0);
     expect(phaseIndex(0.999)).toBe(4);
     expect(phaseName(0.5)).toBe("afternoon");
     expect(phaseName(-1)).toBe("dawn");
+    // The boundaries are the day Vroomon walks by: a short dawn, a long
+    // morning. A boundary belongs to the phase it opens.
+    expect(phaseName(0.05)).toBe("dawn");
+    expect(phaseName(0.2)).toBe("morning");
+    expect(phaseName(0.7)).toBe("dusk");
+    expect(phaseName(0.9)).toBe("night");
+    expect(phaseIndex(0.12)).toBe(1);
+    expect(phaseIndex(0.38)).toBe(2);
+    expect(phaseIndex(0.78)).toBe(4);
+  });
+
+  it("takes a different day when a game runs a different clock", () => {
+    const boundaries = [0, 0.25, 0.5, 0.75, 0.9];
+    expect(phaseName(0.3, boundaries)).toBe("morning");
+    expect(phaseName(0.3)).toBe("morning");
+    expect(phaseName(0.95, boundaries)).toBe("night");
+    expect(phaseName(0.95)).toBe("night");
+    expect(phaseName(0.42, boundaries)).toBe("morning");
+    expect(phaseName(0.42)).toBe("afternoon");
+    expect(phaseName(0.2, boundaries)).toBe("dawn");
+    expect(phaseName(0.2)).toBe("morning");
   });
 });

@@ -23,7 +23,7 @@ engine is testable at full speed: the demo game is played end to end in
 | `grid.ts` | `Grid<T>`, tile keys, flood fill, shortest path. |
 | `tiles.ts` | Tile definitions: solid, encounter table, tags. A map naming an unknown tile is a startup error. |
 | `direction.ts` | Facing and its vectors. |
-| `schedule.ts` | NPC routines: where a person stands at each phase of the day, and when they are off duty. |
+| `schedule.ts` | NPC routines: where a person stands at each phase of the day, when they are off duty, and where the phases start (configurable — a five-minute day and a twenty-minute one do not have the same afternoon). |
 | `map.ts` | `defineMap` (validating), warps, reachability, whole-graph checks — including the routine checks: a stop on a tile nobody can stand on, and two people in one tile at any hour of the day. |
 | `actors.ts` | Tile-by-tile movement: destination + origin + progress, so collision is exact and drawing is smooth. |
 | `camera.ts` | Centred, clamped, optionally eased. |
@@ -112,12 +112,18 @@ old footing, in order of how much it would buy:
    `overworld-controller.ts` implement dialogue, flags and movement in
    vroomon's own terms. They work, and they are the largest remaining
    duplication of the engine.
-2. **`routines.ts`.** It does what `schedule.ts` does, with vroomon's phase
-   helpers baked in.
-3. **The shop counter.** `core/market.ts` prices and trades without an
+2. **The shop counter.** `core/market.ts` prices and trades without an
    `Inventory`.
-4. **The herd book.** `Collection` (capacity, provenance, `descendantsOf`) is
+3. **The herd book.** `Collection` (capacity, provenance, `descendantsOf`) is
    the shape `heritage.ts` and the Hall of Fame already implement by hand.
+
+Already moved:
+
+- **NPC routines** — `renderer/world/routines.ts` is now an adapter, not a
+  second implementation: `engine/schedule.ts` owns the five phases, the walk
+  back through the day for a missing slot (and forward, when there is nothing
+  earlier), and the wrapping shift. Standing and greetings stayed, because
+  those are about *this* world knowing *this* rancher.
 
 The migration order matters less than the rule: new gameplay should reach for
 the engine first, and each port should delete the duplicate rather than wrap

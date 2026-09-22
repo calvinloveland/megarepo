@@ -14,6 +14,30 @@ export const DAY_PHASES = ["dawn", "morning", "afternoon", "dusk", "night"] as c
 
 export type DayPhase = (typeof DAY_PHASES)[number];
 
+/**
+ * Where the day changes its name, as fractions of it. The defaults are the day
+ * Vroomon walks by — a short dawn, a long morning — and they are configuration
+ * rather than a constant because a five-minute day and a twenty-minute one do
+ * not have the same afternoon. One entry per phase, ascending, starting at 0.
+ */
+export const DEFAULT_PHASE_BOUNDARIES: readonly number[] = [0, 0.12, 0.38, 0.6, 0.78];
+
+function assertBoundaries(boundaries: readonly number[]): void {
+  if (boundaries.length !== DAY_PHASES.length) {
+    throw new Error(`a day has ${DAY_PHASES.length} phases; got ${boundaries.length} boundaries`);
+  }
+  if (boundaries[0] !== 0) {
+    throw new Error("the day starts at 0");
+  }
+  for (let index = 1; index < boundaries.length; index += 1) {
+    if (!(boundaries[index]! > boundaries[index - 1]!)) {
+      throw new Error(`phase boundaries must ascend, got ${boundaries.join(", ")}`);
+    }
+  }
+}
+
+assertBoundaries(DEFAULT_PHASE_BOUNDARIES);
+
 export interface RoutineStop {
   x: number;
   y: number;
@@ -38,10 +62,19 @@ export interface Routine {
 }
 
 /**
- * Resolve a routine at a fractional phase (0..1). Returns null when the person
- * is off duty, or when the routine offers nothing at or before this phase.
+ * Resolve a routine at a fractional phase (0..1).
+ *
+ * A missing slot walks *back* through the day first — a night watch stays where
+ * the evening left them — then *forward* (a dawn with nothing before it borrows
+ * from later), then falls back to the caller's stop, usually the person's own
+ * tile. An explicit `null` means off duty from here on, and stops the walk.
+ * Returns null when the person is not about at all.
  */
-export function resolveRoutine(routine: Routine, phase: number): RoutineStop | null {
+export function resolveRoutine(
+  routine: Routine,
+  phase: number,
+  fallback: RoutineStop | null = null,
+): RoutineStop | null {
   if (!isOnDuty(routine, phase)) {
     return null;
   }
@@ -54,22 +87,45 @@ export function resolveRoutine(routine: Routine, phase: number): RoutineStop | n
     if (slot === null) {
       return null;
     }
-    if (Array.isArray(slot)) {
-      const stops = slot as readonly RoutineStop[];
-      if (stops.length === 0) {
-        return null;
-      }
-      // Alternate between patrol stops on a slow beat so a guard walks a line
-      // rather than teleporting between two tiles every frame.
-      return stops[Math.floor(phase * 8) % stops.length]!;
+    return pickStop(slot, phase);
+  }
+
+  for (let cursor = index + 1; cursor < DAY_PHASES.length; cursor += 1) {
+    const slot = routine.stops[DAY_PHASES[cursor]!];
+    if (slot === undefined || slot === null) {
+      continue;
     }
+    return pickStop(slot, phase);
+  }
+
+  return fallback;
+}
+
+function pickStop(slot: Exclude<RoutineSlot, null>, phase: number): RoutineStop | null {
+  if (!Array.isArray(slot)) {
     return slot as RoutineStop;
   }
-  return null;
+  const stops = slot as readonly RoutineStop[];
+  if (stops.length === 0) {
+    return null;
+  }
+  // Alternate between patrol stops on a slow beat so a guard walks a line
+  // rather than teleporting between two tiles every frame.
+  return stops[Math.floor(phase * 8) % stops.length]!;
 }
 
 export function isOnDuty(routine: Routine, phase: number): boolean {
-  const hours = routine.hours;
+  return isWithinHours(routine.hours, phase);
+}
+
+/**
+ * Is this person about? `hours` is a phase range, and it wraps: a night watch
+ * from 0.78 to 0.12 is out from dusk through dawn. No hours means always.
+ */
+export function isWithinHours(
+  hours: { from: number; to: number } | undefined,
+  phase: number,
+): boolean {
   if (!hours) {
     return true;
   }
@@ -82,14 +138,26 @@ export function isOnDuty(routine: Routine, phase: number): boolean {
 }
 
 /**
- * Which named phase a fraction of the day falls in. Five equal windows, which
- * is coarse on purpose: a routine is authored in words, not minutes.
+ * Which named phase a fraction of the day falls in: the last boundary at or
+ * before it. Coarse on purpose — a routine is authored in words, not minutes.
  */
-export function phaseIndex(phase: number): number {
-  const clamped = Math.min(0.999, Math.max(0, phase));
-  return Math.min(DAY_PHASES.length - 1, Math.floor(clamped * DAY_PHASES.length));
+export function phaseIndex(
+  phase: number,
+  boundaries: readonly number[] = DEFAULT_PHASE_BOUNDARIES,
+): number {
+  const clamped = Math.min(0.999999, Math.max(0, phase));
+  let index = 0;
+  for (let cursor = 0; cursor < boundaries.length; cursor += 1) {
+    if (clamped >= boundaries[cursor]!) {
+      index = cursor;
+    }
+  }
+  return Math.min(DAY_PHASES.length - 1, index);
 }
 
-export function phaseName(phase: number): DayPhase {
-  return DAY_PHASES[phaseIndex(phase)]!;
+export function phaseName(
+  phase: number,
+  boundaries: readonly number[] = DEFAULT_PHASE_BOUNDARIES,
+): DayPhase {
+  return DAY_PHASES[phaseIndex(phase, boundaries)]!;
 }

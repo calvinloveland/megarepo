@@ -6,9 +6,22 @@
 // depending on what you have actually done: nobody knows you yet, you have
 // Brands, or you have a champion in the Hall.
 //
+// The day itself lives in the engine (`engine/schedule.ts`): the five phases,
+// where one ends and the next begins, the walk back through the day for a
+// missing slot, and the wrapping shift. It was written here first and then
+// again there, which is the cost of an engine arriving late; this module is now
+// the adapter that keeps Vroomon's own authored shape — a bare
+// `Partial<Record<phase, stop>>` — reading the same way.
+//
 // Pure functions of (npc, clock, world), so the routines are testable without
 // a canvas or a browser clock.
 
+import {
+  isWithinHours,
+  phaseName,
+  resolveRoutine,
+  type DayPhase,
+} from "../../engine/schedule.js";
 import type { NpcDefinition } from "./types.js";
 
 /** A place an NPC stands at a time of day. */
@@ -20,74 +33,51 @@ export interface RoutineStop {
 }
 
 /**
- * An NPC's day, keyed by the same words the ambience layer uses for the
- * clock (`dawn` / `morning` / `afternoon` / `dusk` / `night`). Missing slots
- * fall back to the stall before them, then to the NPC's own tile.
+ * An NPC's day, keyed by the same words the ambience layer uses for the clock
+ * (`dawn` / `morning` / `afternoon` / `dusk` / `night`). Missing slots fall
+ * back to the stall before them, then to the one after, then to the NPC's own
+ * tile.
  */
-export type Routine = Partial<Record<"dawn" | "morning" | "afternoon" | "dusk" | "night", RoutineStop>>;
-
-const ORDER: Array<keyof Routine> = ["dawn", "morning", "afternoon", "dusk", "night"];
+export type Routine = Partial<Record<DayPhase, RoutineStop>>;
 
 /** Which part of the day a routine slot is for, from a 0..1 phase. */
-export function slotForPhase(phase: number): keyof Routine {
-  if (phase < 0.12) return "dawn";
-  if (phase < 0.38) return "morning";
-  if (phase < 0.6) return "afternoon";
-  if (phase < 0.78) return "dusk";
-  return "night";
+export function slotForPhase(phase: number): DayPhase {
+  return phaseName(phase);
 }
 
 /**
  * Where this NPC is standing right now. Without a routine they never move;
- * with one, a missing slot walks *back* through the day (a night watch stays
- * where the evening left them) and finally to their own tile.
+ * with one, a missing slot walks back through the day (a night watch stays
+ * where the evening left them), then forward, then to their own tile.
  */
 export function npcPositionAt(
   npc: Pick<NpcDefinition, "x" | "y" | "facing" | "routine" | "hours">,
   phase: number,
 ): { x: number; y: number; facing: "up" | "down" | "left" | "right" } | null {
-  if (!isOnShift(npc.hours, phase)) {
+  const stop = resolveRoutine(
+    {
+      stops: npc.routine ?? {},
+      ...(npc.hours ? { hours: npc.hours } : {}),
+    },
+    phase,
+    { x: npc.x, y: npc.y, facing: npc.facing },
+  );
+  if (!stop) {
     return null;
   }
-  const routine = npc.routine;
-  if (!routine) {
-    return { x: npc.x, y: npc.y, facing: npc.facing };
-  }
-
-  const slot = slotForPhase(phase);
-  const index = ORDER.indexOf(slot);
-  for (let step = index; step >= 0; step -= 1) {
-    const stop = routine[ORDER[step]!];
-    if (stop) {
-      return { x: stop.x, y: stop.y, facing: stop.facing ?? npc.facing };
-    }
-  }
-  // Nothing earlier in the day: borrow from later, then give up and stand still.
-  for (let step = index; step < ORDER.length; step += 1) {
-    const stop = routine[ORDER[step]!];
-    if (stop) {
-      return { x: stop.x, y: stop.y, facing: stop.facing ?? npc.facing };
-    }
-  }
-  return { x: npc.x, y: npc.y, facing: npc.facing };
+  return { x: stop.x, y: stop.y, facing: stop.facing ?? npc.facing };
 }
 
 /**
- * Is this person about? `hours` is a phase range, and it wraps: a night
- * watch from 0.78 to 0.12 is out from dusk through dawn. People without
- * hours are always about.
+ * Is this person about? `hours` is a phase range, and it wraps: a night watch
+ * from 0.78 to 0.12 is out from dusk through dawn. People without hours are
+ * always about.
  */
 export function isOnShift(
   hours: { from: number; to: number } | undefined,
   phase: number,
 ): boolean {
-  if (!hours) {
-    return true;
-  }
-  if (hours.from <= hours.to) {
-    return phase >= hours.from && phase <= hours.to;
-  }
-  return phase >= hours.from || phase <= hours.to;
+  return isWithinHours(hours, phase);
 }
 
 /** How well the world knows this rancher. */
