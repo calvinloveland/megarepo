@@ -4025,6 +4025,17 @@ is the shape it is really for: what this person knows because of what that one
 said. The check now requires at least two gated options in the world, and each
 gate to name a flag somebody sets.
 
+**A conditional opening, and a bug it caught.** Options were not the only
+thing that needed a condition. Tam's greeting was written for a picker who has
+not been walked out yet, and after the rescue the same line — and the same “I
+know the way out” option — was still there, so a second conversation offered
+a second free warp to the orchard and a line about waiting to be rescued by
+somebody who was already home. A node can now carry `when` with its own
+fallback (`whenFalse`, `elseNext` in the authored shape), which is the
+difference between “a first-visit line, then the usual one” and “either this
+opening or that one”. Tam has two openings now, and the rescue option is gone
+with the rescue.
+
 Two checks came with it, because a condition is a new way to write dead content:
 the swap is walked through the real map content (before, the offer is there and
 the question is not; after, the reverse), and **no option may be gated on a flag

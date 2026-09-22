@@ -113,6 +113,8 @@ export function toEngineNode(id: string, node: DialogueNode): EngineDialogueNode
     id,
     text: node.text,
     ...(node.next === undefined ? {} : { next: node.next }),
+    ...(node.when === undefined ? {} : { when: node.when }),
+    ...(node.elseNext === undefined ? {} : { whenFalse: node.elseNext }),
     ...(node.options
       ? {
           options: node.options.map((option) => ({

@@ -1886,6 +1886,10 @@ export const MAPS: Record<string, Tilemap> = {
         sprite: "villager",
         dialogue: {
           text: "Tam is sitting on a root with a torn basket and a scraped knee. \"Third left. It is always the third left. I have been taking third lefts since breakfast and the hedge has been agreeing with me.\"",
+          // Met again after the walk out, there is nothing left to rescue: the
+          // greeting is not "wrong", it is a different conversation.
+          when: { kind: "not", of: { kind: "flag", flag: "tam-walked-home" } },
+          elseNext: "tam-again",
           options: [
             { label: "I know the way out.", next: "tam-walk" },
             { label: "Which way did you come?", next: "tam-route" },
@@ -1904,6 +1908,43 @@ export const MAPS: Record<string, Tilemap> = {
           text: "\"You do not have to carry me. I can hop.\" Tam hops, badly, all the way to the gate.",
           setFlag: "tam-walked-home",
           onComplete: "goto:marrow_orchard:16:11",
+        },
+      },
+      {
+        id: "tam-again",
+        name: "Picker Tam",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Tam is sitting on the same root with the same basket, which is now empty. \"You came back in. I told you I could hop, and I did, and I came back out for the rest of the picking. The third left is a shortcut if you know what it is a shortcut to.\"",
+          options: [
+            { label: "You came back in on purpose?", next: "tam-again-why" },
+            { label: "I will leave you to the picking.", next: "tam-again-later" },
+          ],
+        },
+      },
+      {
+        id: "tam-again-later",
+        name: "Picker Tam",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Tam waves the basket at you and goes back to the thorns.",
+        },
+      },
+      {
+        id: "tam-again-why",
+        name: "Picker Tam",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "\"The middle of the hedge is where the blackberries are. Everybody walks past it looking for the way out.\"",
         },
       },
       {

@@ -300,6 +300,29 @@ describe("dialogue", () => {
     expect(skipped.getFlag("left")).toBe(false);
   });
 
+  it("sends a refused node to its own fallback when it has one", () => {
+    // Without a fallback a refused node follows `next`, which is right for
+    // "a first-visit line, then the usual one" and wrong for "either this
+    // greeting or that one": the player would read both.
+    const host = new TestHost();
+    const dialogue = createDialogueScript(
+      script([
+        {
+          id: "start",
+          text: "The first-visit greeting.",
+          when: { kind: "flag", flag: "met" },
+          whenFalse: "other",
+          next: "usual",
+        },
+        { id: "usual", text: "The usual line.", next: null },
+        { id: "other", text: "The other greeting.", next: null },
+      ]),
+    );
+    expect(new DialogueSession(dialogue, host).current()?.text).toBe("The other greeting.");
+    host.setFlag("met", true);
+    expect(new DialogueSession(dialogue, host).current()?.text).toBe("The first-visit greeting.");
+  });
+
   it("evaluates the condition language", () => {
     const host = new TestHost();
     expect(evaluateCondition({ kind: "flag", flag: "x" }, host)).toBe(false);

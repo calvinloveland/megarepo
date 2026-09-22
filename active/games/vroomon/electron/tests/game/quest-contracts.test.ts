@@ -58,6 +58,7 @@ interface DialogueRef {
   id: string;
   node: {
     next?: string;
+    elseNext?: string;
     options?: Array<{ label: string; next: string }>;
     onComplete?: string | null;
   };
@@ -641,6 +642,7 @@ describe("quest contracts", () => {
       const map = MAPS[ref.mapId]!;
       const targets = [
         ...(ref.node.next ? [ref.node.next] : []),
+        ...(ref.node.elseNext ? [ref.node.elseNext] : []),
         ...(ref.node.options ?? []).map((option) => option.next),
       ];
       for (const target of targets) {

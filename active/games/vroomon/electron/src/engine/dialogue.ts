@@ -58,6 +58,12 @@ export interface DialogueNode {
   options?: readonly DialogueOption[];
   /** Only shown/played when this holds. */
   when?: Condition;
+  /**
+   * Where to go when `when` fails, instead of following `next`. Without it a
+   * refused node falls through to `next` — fine for "a first-visit line, then
+   * the usual one", wrong for "either this greeting or that one".
+   */
+  whenFalse?: string | null;
   /** Run when the beat *appears*. */
   effects?: readonly Effect[];
   /**
@@ -280,7 +286,9 @@ export class DialogueSession {
         return;
       }
       if (node.when && !evaluateCondition(node.when, this.host)) {
-        cursor = node.next ?? null;
+        // A refused node has to land somewhere: its own fallback if it has one,
+        // otherwise the beat it would have advanced to anyway.
+        cursor = node.whenFalse !== undefined ? node.whenFalse : node.next ?? null;
         continue;
       }
       this.nodeId = node.id;

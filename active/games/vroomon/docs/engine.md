@@ -139,6 +139,10 @@ not move the player, and closes it.
   set by somebody else's conversation on another tile. Tests walk both swaps
   through the real content, require at least two people to gate an option, and
   refuse a gate on a flag nothing sets: an option nobody can ever see.
+  A node can be conditional too, with `whenFalse` as its fallback: the
+  hedge maze's picker has two openings, one for a picker who needs walking
+  out and one for afterwards, because without it the second meeting was a
+  rescue that had already happened — and a second free warp to the orchard.
 - **Routine validation.** Vroomon learned the hard way that a keeper's routine
   can walk them into a hedge, that two people can be tidy at dawn and standing
   in one another at dusk, and that hours are a fraction of the day. Those checks

@@ -76,6 +76,13 @@ export interface DialogueNode {
     | null;
   setFlag?: string;
   /**
+   * A greeting that only fits one state of the world. When `when` fails the
+   * conversation opens at `elseNext` instead of at `next`, so a person can
+   * have two openings rather than one opening and an extra line.
+   */
+  when?: Condition;
+  elseNext?: string;
+  /**
    * The car a rival races, for `onComplete: "trainer"` beats. Authored
    * rather than derived from the node's id: the derived string was luck, and
    * one rival's turned out to be a car that could not move at all.

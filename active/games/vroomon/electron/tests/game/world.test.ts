@@ -603,10 +603,16 @@ describe("world reachability", () => {
         if (!dialogue) {
           continue;
         }
-        if (dialogue.next) {
+        for (const [field, target] of [
+          ["next", dialogue.next],
+          ["elseNext", (dialogue as { elseNext?: string }).elseNext],
+        ] as const) {
+          if (!target) {
+            continue;
+          }
           expect(
-            ids.has(dialogue.next),
-            `${map.id}: ${npc.id} points at a missing node "${dialogue.next}"`,
+            ids.has(target),
+            `${map.id}: ${npc.id} ${field} points at a missing node "${target}"`,
           ).toBe(true);
         }
         for (const option of dialogue.options ?? []) {

@@ -243,6 +243,25 @@ describe("authored options are gated, and the gate means something", () => {
     expect(after.current()?.id).toBe("maze-bram-tam-home");
   });
 
+  it("opens on a different greeting when the first one no longer fits", () => {
+    // Tam's opening line is written for a picker who has not been walked out
+    // yet. Met again afterwards, the old line is not wrong so much as a
+    // different conversation — and offering to walk them out again warped the
+    // player to the orchard a second time.
+    const host = recordingHost();
+    const before = new DialogueSession(scriptForNpc("hedge_maze", "maze-picker-tam")!, host);
+    expect(before.current()?.text).toContain("Third left");
+    expect(labels(before)).toContain("I know the way out.");
+
+    host.flags["tam-walked-home"] = true;
+    const after = new DialogueSession(scriptForNpc("hedge_maze", "maze-picker-tam")!, host);
+    expect(after.current()?.id).toBe("tam-again");
+    expect(after.current()?.text).toContain("You came back in");
+    expect(labels(after), "the rescue option should be gone with the rescue").not.toContain(
+      "I know the way out.",
+    );
+  });
+
   it("never gates an option on a flag nobody sets", () => {
     // A `when` on a flag nothing writes is an option that can never appear —
     // written, placed, and unreachable. This is the same trap the quest
