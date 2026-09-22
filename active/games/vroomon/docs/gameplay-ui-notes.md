@@ -225,7 +225,7 @@ new entry that is not indexed here fails the suite.
 - [Two modules nobody tested, and a map to catch the next (2026-09-15) ✅](#two-modules-nobody-tested-and-a-map-to-catch-the-next-2026-09-15)
 - [Where this session left the project (2026-09-15) ✅](#where-this-session-left-the-project-2026-09-15)
 - [The engine, and the maze it bought (2026-09-21) ✅](#the-engine-and-the-maze-it-bought-2026-09-21)
-- [Two mazes, one builder, and the tile that was not a wall (2026-09-21) ✅](#two-mazes-one-builder-and-the-tile-that-was-not-a-wall-2026-09-21)
+- [Three mazes, one builder, and the tile that was not a wall (2026-09-21) ✅](#three-mazes-one-builder-and-the-tile-that-was-not-a-wall-2026-09-21)
 - [The last rule with no teacher: what the wild is *for* (2026-09-15) ✅](#the-last-rule-with-no-teacher-what-the-wild-is-for-2026-09-15)
 - [Six wrong assumptions in one test file (2026-09-15) ✅](#six-wrong-assumptions-in-one-test-file-2026-09-15)
 - [The wild table answers the question you came in with (2026-09-15) ✅](#the-wild-table-answers-the-question-you-came-in-with-2026-09-15)
@@ -3921,7 +3921,7 @@ four modules) and the herd book (the Hall of Fame evicts the oldest entry when
 full; the engine's `Collection` refuses). Both would have added a layer instead
 of removing one — more code, with the same arithmetic in it.
 
-## Two mazes, one builder, and the tile that was not a wall (2026-09-21) ✅
+## Three mazes, one builder, and the tile that was not a wall (2026-09-21) ✅
 
 The hedge maze was worth generalising the moment a second one was wanted, and
 the second one wanted to be nothing like the first. `buildHedgeMaze()` is now a
@@ -3938,6 +3938,13 @@ place people live. The Deep is a maze you walk for the people in it, and
 "no wild tile" is a supported option rather than a special case — so it skips
 the wild-stock invariant entirely and lets the content suite say so by
 construction.
+
+The third came the same day and cost almost nothing: **the Brambles**, a thorn
+gully on the Mesa off the switchback's east track, thorn scrub for walls, hill
+grass inside, Hill stock declared in `core/wild.ts`, a warden on a dead end, a
+goat girl half-way in and a racer at the far end. One option set, three places,
+and the content suite passed it first time — which is the measure of whether a
+generalisation was real.
 
 One thing a second maze makes obvious that one never would: the builder's
 argument for a wall tile is *not* "a tile that looks like a hedge", it is "a

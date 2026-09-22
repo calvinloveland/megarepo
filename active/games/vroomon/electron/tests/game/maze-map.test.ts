@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildBrambleMaze,
   buildDeepMaze,
   buildHedgeMaze,
   buildMazeMap,
@@ -120,7 +121,7 @@ describe("the maze builder", () => {
   });
 
   it("reaches every open tile from the landing", () => {
-    for (const layout of [buildHedgeMaze(), buildDeepMaze()]) {
+    for (const layout of [buildHedgeMaze(), buildDeepMaze(), buildBrambleMaze()]) {
       const seen = reachable(layout, null);
       for (const cell of layout.open) {
         expect(seen.has(key(cell)), `${key(cell)} cannot be walked to from the landing`).toBe(true);
@@ -132,7 +133,7 @@ describe("the maze builder", () => {
     // The whole reason the spots are dead ends: a keeper dropped in a corridor
     // cuts the maze in half, and the player never finds out why. Blocking each
     // keeper's tile must cost exactly that tile.
-    for (const layout of [buildHedgeMaze(), buildDeepMaze()]) {
+    for (const layout of [buildHedgeMaze(), buildDeepMaze(), buildBrambleMaze()]) {
       for (const spot of [layout.keeper, layout.lost, layout.hollow]) {
         const seen = reachable(layout, spot);
         const unreachable = layout.open
@@ -186,6 +187,33 @@ describe("the Deep", () => {
   });
 });
 
+describe("the Brambles", () => {
+  it("is thorn scrub with hill grass in it, and a third seed of its own", () => {
+    const layout = buildBrambleMaze();
+    expect(layout.tiles.flat()).toContain("tree");
+    expect(layout.tiles.flat()).toContain("vroomgrass");
+    expect(layout.wildTiles).toBeGreaterThan(0);
+    expect(layout.tiles.flat()).not.toContain("indoor-floor");
+    expect(layout.keeper).not.toEqual(buildDeepMaze().keeper);
+    expect(layout.keeper).not.toEqual(buildHedgeMaze().keeper);
+  });
+
+  it("is one builder making three different places", () => {
+    const layouts = [buildHedgeMaze(), buildDeepMaze(), buildBrambleMaze()];
+    // Same code, three grounds: fences and clover, stone and no green, thorns.
+    expect(layouts[0]!.tiles.flat()).toContain("fence");
+    expect(layouts[1]!.tiles.flat()).toContain("wall");
+    expect(layouts[2]!.tiles.flat()).toContain("tree");
+    expect([layouts[0]!.wildTiles, layouts[1]!.wildTiles, layouts[2]!.wildTiles].map(Boolean)).toEqual([
+      true,
+      false,
+      true,
+    ]);
+    const distinct = new Set(layouts.map((layout) => JSON.stringify(layout.tiles)));
+    expect(distinct.size).toBe(3);
+  });
+});
+
 describe("the generated maps in the world", () => {
   it("wires the hedge maze to the orchard both ways", () => {
     const maze = getMap("hedge_maze");
@@ -225,6 +253,26 @@ describe("the generated maps in the world", () => {
     expect(back.mapId).toBe("rocky_map");
     expect(quarry.tiles[back.toY]?.[back.toX]).toBe("grass");
     expect(quarry.transitions[`${back.toX},${back.toY}`]).toBeUndefined();
+  });
+
+  it("wires the Brambles to the Switchback both ways", () => {
+    const bramble = getMap("bramble_maze");
+    expect(bramble).toBeDefined();
+    expect(bramble!.name).toBe("The Brambles");
+    expect(bramble!.npcs.filter((npc) => npc.x > 0 || npc.y > 0)).toHaveLength(3);
+    expect(bramble!.tiles.flat()).toContain("vroomgrass");
+
+    const mesa = getMap("mesa_switchback")!;
+    const gate = mesa.transitions["12,6"];
+    expect(gate?.mapId).toBe("bramble_maze");
+    expect(isTilePassable(mesa.tiles[6]![12]!)).toBe(true);
+    expect(bramble!.tiles[gate!.toY]?.[gate!.toX]).toBe("path");
+    expect(bramble!.transitions[`${gate!.toX},${gate!.toY}`]).toBeUndefined();
+
+    const back = Object.values(bramble!.transitions)[0]!;
+    expect(back.mapId).toBe("mesa_switchback");
+    expect(isTilePassable(mesa.tiles[back.toY]![back.toX]!)).toBe(true);
+    expect(mesa.transitions[`${back.toX},${back.toY}`]).toBeUndefined();
   });
 
   it("walks Tam back to the orchard without dropping them on the door", () => {

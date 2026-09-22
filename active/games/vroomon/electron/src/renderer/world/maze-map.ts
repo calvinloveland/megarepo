@@ -211,6 +211,21 @@ export function buildDeepMaze(seed: string | number = "quarry-deep"): MazeMapLay
   });
 }
 
+/** The Mesa's Brambles: thorn scrub for walls, hill grass for walks. */
+export function buildBrambleMaze(seed: string | number = "mesa-bramble"): MazeMapLayout {
+  return buildMazeMap({
+    seed,
+    name: "brambles",
+    width: 17,
+    height: 13,
+    wall: "tree",
+    floor: "grass",
+    wildTile: "vroomgrass",
+    wildShare: 0.14,
+    braid: 0.16,
+  });
+}
+
 /** Open tiles with exactly one open neighbour: a person here blocks a leaf. */
 function deadEnds(maze: Maze): Cell[] {
   return openCells(maze).filter((cell) => openNeighbours(maze, cell).length === 1);

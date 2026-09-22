@@ -38,10 +38,10 @@ persistence — and has grown well past it:
 
 - **A world, not a menu.** Starter Town, two roads, three arenas, the Highland
   Mesa, the Canyon Quarry, the Drift Perimeter, the Long Haul waystation, the
-  Marrow Orchard — and **two generated mazes**: the orchard's hedge maze and
-  the Quarry's Deep, both populated on their dead ends, so no keeper ever walls
-  off the middle. Twelve trading houses across six biomes, each with its own
-  rivals and its own story.
+  Marrow Orchard — and **three generated mazes**: the orchard's hedge maze, the
+  Quarry's Deep and the Mesa's Brambles, all populated on their dead ends so no
+  keeper ever walls off the middle. Twelve trading houses across six biomes,
+  each with its own rivals and its own story.
 - **The circuit.** Five Brands (Grassland → Salt Road → Highland → Canyon →
   Perimeter), each defended at its own arena against a bar that climbs ×1.22 a
   tier, then the **Grand Roundup**. From tier II the ground also demands a

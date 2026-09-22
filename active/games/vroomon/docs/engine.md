@@ -116,11 +116,11 @@ not move the player, and closes it.
   now run in `defineMap`, so any game built on the engine gets them for free
   and no game has to re-learn them one map at a time.
 
-- **The Marrow Hedge Maze and the Quarry's Deep** (`renderer/world/maze-map.ts`)
-  are generated, not hand-drawn: `buildHedgeMaze()` and `buildDeepMaze()` are
-  two sets of options over one `buildMazeMap()`, which returns `TileKind[][]`
-  plus the gate, the landing and three safe spots. `maps.ts` wires each to its
-  host, and `decor.ts` takes the free tile the generator hands out.
+- **Three mazes, generated** (`renderer/world/maze-map.ts`): `buildHedgeMaze()`,
+  `buildDeepMaze()` and `buildBrambleMaze()` are three sets of options over one
+  `buildMazeMap()`, which returns `TileKind[][]` plus the gate, the landing and
+  three safe spots. `maps.ts` wires each to its host, and `decor.ts` takes the
+  free tile the generator hands out.
 - The interesting rule in that file is **where people may stand**. A maze is a
   tree of corridors; a keeper standing in a corridor is a wall, and a keeper
   dropped on the route to the middle cuts the maze in half with no error
@@ -129,10 +129,11 @@ not move the player, and closes it.
   the gate: one near, one half-way, one at the far end. That is a property, so
   it is tested that way: flood the maze with that tile blocked and assert
   nothing else was lost.
-- The hedge maze's wild grass is Grassland, declared in
-  `core/wild.ts` next to every other hunting ground — the maze is a hunting
-  ground, not a corridor. The Deep has no grass at all: it is a maze you walk
-  for the people in it, and the builder supports that by taking no wild tile.
+- The hedge maze's wild grass is Grassland and the Brambles' is Hill stock,
+  both declared in `core/wild.ts` next to every other hunting ground — a maze
+  with grass is a hunting ground, not a corridor. The Deep has no grass at all:
+  it is a maze you walk for the people in it, and the builder supports that by
+  taking no wild tile.
 
 ## What is not ported yet
 
@@ -145,6 +146,12 @@ old footing, in order of how much it would buy:
    duplication of the engine: Vroomon's `DialogueNode` (text, `next`,
    `options`, `setFlag`, `onComplete`, `rivalDna`) maps cleanly onto the engine
    graph, and the six `onComplete` verbs would become registered commands.
+   Two things to settle first, because they are decisions rather than chores:
+   Vroomon applies a node's flag when the player **leaves** it (the engine
+   applies effects on entry), and two flows push a beat in front of a
+   conversation that is already open (Robby's tutorial line, the NPC voice
+   line over `[text]`). Neither is hard; both change player-visible timing, so
+   they want the ~20 dialogue unit tests and the e2e walks watching.
 
 Already moved:
 

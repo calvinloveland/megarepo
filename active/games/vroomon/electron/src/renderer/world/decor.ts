@@ -3,12 +3,13 @@
 // meadow by default, plus one extra spot per biome). The renderer draws the
 // emoji at the tile's center, scaled up with a grounding shadow.
 
-import { buildDeepMaze, buildHedgeMaze } from "./maze-map.js";
+import { buildBrambleMaze, buildDeepMaze, buildHedgeMaze } from "./maze-map.js";
 
 // The mazes' free tiles come from the generator: which tiles are open depends
 // on the seed, so a hardcoded coordinate here would be a guess.
 const HEDGE_MAZE_DECOR = buildHedgeMaze().decor;
 const DEEP_MAZE_DECOR = buildDeepMaze().decor;
+const BRAMBLE_MAZE_DECOR = buildBrambleMaze().decor;
 
 export interface DecorItem {
   id: string;
@@ -153,6 +154,7 @@ export const DECOR_ITEMS: DecorItem[] = [
       hills_map: { x: 4, y: 9 },
       mesa_switchback: { x: 7, y: 4 },
       the_cut: { x: 7, y: 3 },
+      bramble_maze: BRAMBLE_MAZE_DECOR,
     },
   },
 ];

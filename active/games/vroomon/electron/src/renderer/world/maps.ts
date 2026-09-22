@@ -1,5 +1,5 @@
 import type { TileKind, Tilemap } from "./types.js";
-import { buildDeepMaze, buildHedgeMaze } from "./maze-map.js";
+import { buildBrambleMaze, buildDeepMaze, buildHedgeMaze } from "./maze-map.js";
 
 function row(...cells: TileKind[]): TileKind[] {
   return cells;
@@ -141,7 +141,7 @@ const SWITCHBACK_TILES: TileKind[][] = [
   row("tree", "grass", "path", "grass", "grass", "rock", "grass", "grass", "rock", "grass", "grass", "path", "grass", "tree"),
   row("tree", "grass", "path", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "path", "grass", "tree"),
   row("tree", "grass", "path", "grass", "vroomgrass", "vroomgrass", "grass", "grass", "vroomgrass", "vroomgrass", "grass", "path", "grass", "tree"),
-  row("tree", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "path", "grass", "tree"),
+  row("tree", "grass", "path", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "grass", "path", "path", "tree"),
   row("tree", "grass", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "grass", "tree"),
   row("tree", "grass", "grass", "grass", "grass", "rock", "grass", "grass", "rock", "grass", "grass", "grass", "grass", "tree"),
   row("rock", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "tree", "rock"),
@@ -225,6 +225,8 @@ const HEDGE_MAZE = buildHedgeMaze();
 // The Quarry's Deep: the same builder with stone walls, no grass, and no
 // daylight — a maze you walk for the people in it.
 const DEEP_MAZE = buildDeepMaze();
+// The Mesa's Brambles: thorn scrub, hill grass, and the Mesa's own wild stock.
+const BRAMBLE_MAZE = buildBrambleMaze();
 
 export const MAPS: Record<string, Tilemap> = {
 
@@ -782,6 +784,8 @@ export const MAPS: Record<string, Tilemap> = {
     transitions: {
       "6,8": { mapId: "hills_map", toX: 5, toY: 7, facing: "down" },
       "7,8": { mapId: "hills_map", toX: 6, toY: 7, facing: "down" },
+      // The beaten track east off the switchback, into the brambles.
+      "12,6": { mapId: "bramble_maze", toX: BRAMBLE_MAZE.landing.x, toY: BRAMBLE_MAZE.landing.y, facing: "down" },
     },
   },
   the_cut: {
@@ -2137,6 +2141,176 @@ export const MAPS: Record<string, Tilemap> = {
         mapId: "rocky_map",
         toX: 14,
         toY: 9,
+        facing: "down",
+      },
+    },
+  },
+  bramble_maze: {
+    id: "bramble_maze",
+    name: "The Brambles",
+    width: BRAMBLE_MAZE.width,
+    height: BRAMBLE_MAZE.height,
+    tiles: BRAMBLE_MAZE.tiles,
+    ambientColor: "#a8a06a",
+    npcs: [
+      {
+        id: "bramble-warden-kess",
+        name: "Bramble Warden Kess",
+        x: BRAMBLE_MAZE.keeper.x,
+        y: BRAMBLE_MAZE.keeper.y,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Kess cuts the thorn back off the track every spring, and the thorn wins by midsummer. \"It is not a maze anybody built. It is a gully the goats wore through, and then the bramble found it. Same as a herd: you do not get the line you asked for, you get the one the ground keeps.\"",
+          options: [
+            { label: "Is there a way through?", next: "bramble-kess-route" },
+            { label: "What lives in here?", next: "bramble-kess-stock" },
+            { label: "I will cut my own line.", next: "bramble-kess-own" },
+          ],
+        },
+      },
+      {
+        id: "bramble-kess-route",
+        name: "Bramble Warden Kess",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "The gullies all come out somewhere, which is the good news, and they all come out looking the same, which is the rest of it. Take the lamps' advice and read the sky: the tops of the thorns are brighter on the side the sun is on, and the sun is west of you after noon.",
+        },
+      },
+      {
+        id: "bramble-kess-stock",
+        name: "Bramble Warden Kess",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Hill stock, born in it. Nothing else gets up the gullies, so what breeds in here is what climbs, and it has been breeding in here without a keeper for longer than the Brands have existed. On this grass, that is the same thing as being fast.",
+        },
+      },
+      {
+        id: "bramble-kess-own",
+        name: "Bramble Warden Kess",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "villager",
+        dialogue: {
+          text: "Everyone does, the first time. The second time they take the wall.",
+        },
+      },
+      {
+        id: "goat-girl-nia",
+        name: "Goat Girl Nia",
+        x: BRAMBLE_MAZE.lost.x,
+        y: BRAMBLE_MAZE.lost.y,
+        facing: "down",
+        sprite: "rival",
+        dialogue: {
+          text: "Nia is up a thorn bank with a switch in one hand and a look on her face. \"You have met the goats already, I expect. They take the third turning every time and they are never wrong about it, which is how I find them.\"",
+          options: [
+            { label: "Why follow the goats?", next: "nia-goats" },
+            { label: "Do they know the way out?", next: "nia-out" },
+            { label: "I will leave you to it.", next: "nia-later" },
+          ],
+        },
+      },
+      {
+        id: "nia-goats",
+        name: "Goat Girl Nia",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rival",
+        dialogue: {
+          text: "\"Because a goat that lives in a gully knows the gully, and I have not lived in one as long as they have. That is also why the wild stock here is worth beating: same education, worse manners.\"",
+        },
+      },
+      {
+        id: "nia-out",
+        name: "Goat Girl Nia",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rival",
+        dialogue: {
+          text: "\"Out, yes. Quickly, no. They stop to eat every twelve paces and they do not care that you are following.\"",
+        },
+      },
+      {
+        id: "nia-later",
+        name: "Goat Girl Nia",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rival",
+        dialogue: {
+          text: "\"Mind the bank on your left. It looks solid and it is not.\"",
+        },
+      },
+      {
+        id: "bramble-runner-moss",
+        name: "The Bramble Runner",
+        x: BRAMBLE_MAZE.hollow.x,
+        y: BRAMBLE_MAZE.hollow.y,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "At the far end, where the gully stops, somebody has cut a straight run through the thorns and marked it with two posts. \"Hill descent. Two posts, one lap, and the thorn does not move for anybody. Half the Mesa's champions learned to hold a line in this gap.\"",
+          options: [
+            { label: "Line it up.", next: "bramble-runner-race" },
+            { label: "Why race in a thorn gully?", next: "bramble-runner-why" },
+            { label: "Not today.", next: "bramble-runner-later" },
+          ],
+        },
+      },
+      {
+        id: "bramble-runner-race",
+        name: "The Bramble Runner",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "\"Post to post and no second run. Go.\"",
+          onComplete: "trainer",
+          rivalDna: "Lhn4yi8zKRd2",
+        },
+      },
+      {
+        id: "bramble-runner-why",
+        name: "The Bramble Runner",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "\"Because you cannot be lucky in here. The gap is narrow, the thorn is on both sides, and the line you hold is the line you chose six generations ago. Flattery does not survive the brambles.\"",
+        },
+      },
+      {
+        id: "bramble-runner-later",
+        name: "The Bramble Runner",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "\"Then take the track back and mind the goats. They will follow you out and expect to be fed for it.\"",
+        },
+      },
+    ],
+    encounters: {},
+    transitions: {
+      // The gate: one tile in from the arrival, so the track you came in on is
+      // not the track that sends you back.
+      [`${BRAMBLE_MAZE.gate.x},${BRAMBLE_MAZE.gate.y}`]: {
+        mapId: "mesa_switchback",
+        toX: 11,
+        toY: 6,
         facing: "down",
       },
     },

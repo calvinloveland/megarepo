@@ -1055,6 +1055,66 @@
     "source": "drawn"
   },
   {
+    "id": "npc:bramble-warden-kess",
+    "file": "npc_bramble-warden-kess.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bramble-kess-route",
+    "file": "npc_bramble-kess-route.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bramble-kess-stock",
+    "file": "npc_bramble-kess-stock.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bramble-kess-own",
+    "file": "npc_bramble-kess-own.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:goat-girl-nia",
+    "file": "npc_goat-girl-nia.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:nia-goats",
+    "file": "npc_nia-goats.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:nia-out",
+    "file": "npc_nia-out.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:nia-later",
+    "file": "npc_nia-later.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bramble-runner-moss",
+    "file": "npc_bramble-runner-moss.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bramble-runner-race",
+    "file": "npc_bramble-runner-race.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bramble-runner-why",
+    "file": "npc_bramble-runner-why.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bramble-runner-later",
+    "file": "npc_bramble-runner-later.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:wanda-first-buys",
     "file": "npc_wanda-first-buys.png",
     "source": "drawn"
