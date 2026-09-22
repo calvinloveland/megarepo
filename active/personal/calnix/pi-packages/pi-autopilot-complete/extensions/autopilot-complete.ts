@@ -21,7 +21,23 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { createLogger } from "../../shared-utils/logger.mjs";
+
+// ── Logger inlined to avoid broken relative imports through symlinks ──
+import { appendFileSync, writeFileSync, mkdirSync } from "fs";
+import { resolve } from "path";
+
+const LOG_DIR = "/tmp/pi-ext";
+try { mkdirSync(LOG_DIR, { recursive: true }); } catch { /* best effort */ }
+
+function createLogger(name: string) {
+  const logPath = resolve(LOG_DIR, `${name.replace(/[^a-z0-9_-]/gi, "_")}.log`);
+  try { writeFileSync(logPath, ""); } catch { /* best effort */ }
+  return function log(...args: unknown[]) {
+    const timestamp = new Date().toISOString().slice(11, 23);
+    const msg = `[${timestamp}] [${name}] ${args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ")}`;
+    try { appendFileSync(logPath, msg + "\n"); } catch { /* best effort */ }
+  };
+}
 
 // ── Extension constants and logging ──
 const EXTENSION_VERSION = "0.5.0";
