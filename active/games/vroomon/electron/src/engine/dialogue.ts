@@ -58,7 +58,20 @@ export interface DialogueNode {
   options?: readonly DialogueOption[];
   /** Only shown/played when this holds. */
   when?: Condition;
+  /** Run when the beat *appears*. */
   effects?: readonly Effect[];
+  /**
+   * Run when the player *acknowledges* the beat — advancing past it, or
+   * picking an option off it — and before the next node is entered. Neither
+   * happens when a conversation is simply abandoned (Escape, a scene pushed
+   * over it) or when the node was skipped because its `when` failed: nobody
+   * read it, so it did not happen.
+   *
+   * The split matters for content. `effects` is "the world changed while you
+   * were looking at this" (a door opening, a light going on); `onLeave` is
+   * "you agreed to this" — a quest accepted by the option you chose.
+   */
+  onLeave?: readonly Effect[];
 }
 
 export interface DialogueScriptDefinition {
@@ -186,7 +199,8 @@ export class DialogueSession {
 
   /**
    * Read the next beat. Does nothing while a menu is open — a conversation
-   * never skips a choice the player has not made.
+   * never skips a choice the player has not made — and runs the node's
+   * `onLeave` effects on the way out.
    */
   advance(): void {
     const node = this.current();
@@ -196,6 +210,7 @@ export class DialogueSession {
     if (this.options().length > 0) {
       return;
     }
+    this.runLeave(node);
     this.goto(node.next ?? null);
   }
 
@@ -205,11 +220,24 @@ export class DialogueSession {
     if (!option) {
       return false;
     }
+    const node = this.current();
+    if (node) {
+      // Leaving the beat comes first: the node the option was read on is the
+      // one being acknowledged, then the option's own effects, then whatever
+      // the next beat does on entry.
+      this.runLeave(node);
+    }
     for (const effect of option.effects ?? []) {
       this.apply(effect);
     }
     this.goto(option.next);
     return true;
+  }
+
+  private runLeave(node: DialogueNode): void {
+    for (const effect of node.onLeave ?? []) {
+      this.apply(effect);
+    }
   }
 
   private goto(id: string | null): void {

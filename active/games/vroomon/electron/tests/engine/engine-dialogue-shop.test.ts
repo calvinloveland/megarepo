@@ -247,6 +247,59 @@ describe("dialogue", () => {
     expect(host.commands).toContain("fireworks");
   });
 
+  it("runs the onLeave effects when the beat is acknowledged, and only then", () => {
+    const host = new TestHost();
+    const build = () =>
+      createDialogueScript(
+        script([
+          {
+            id: "start",
+            text: "A job offer.",
+            effects: [{ kind: "set-flag", flag: "read" }],
+            onLeave: [{ kind: "set-flag", flag: "accepted" }],
+            options: [{ label: "I'll take it", next: "done" }],
+          },
+          { id: "done", text: "Good.", onLeave: [{ kind: "coins", amount: 5 }], next: null },
+        ]),
+      );
+
+    // Shown: the entry effect. Not yet acknowledged: no leave effect.
+    const session = new DialogueSession(build(), host);
+    expect(host.getFlag("read")).toBe(true);
+    expect(host.getFlag("accepted")).toBe(false);
+
+    // Choosing the option acknowledges the beat it was read on.
+    expect(session.choose(0)).toBe(true);
+    expect(host.getFlag("accepted")).toBe(true);
+    expect(host.coins()).toBe(10);
+
+    // ...and advancing past the last beat runs its own leave effects.
+    session.advance();
+    expect(host.coins()).toBe(15);
+    expect(session.isOpen()).toBe(false);
+
+    // A dropped session (Escape) runs nothing: the player did not read it.
+    const dropped = new TestHost();
+    const abandoned = new DialogueSession(build(), dropped);
+    expect(abandoned.isOpen()).toBe(true);
+    expect(dropped.getFlag("accepted")).toBe(false);
+
+    // ...and a node skipped by its condition never runs, either way.
+    const skipped = new TestHost();
+    const skipping = new DialogueSession(
+      createDialogueScript(
+        script([
+          { id: "start", text: "Nothing at all.", when: { kind: "flag", flag: "nope" }, effects: [{ kind: "set-flag", flag: "entered" }], onLeave: [{ kind: "set-flag", flag: "left" }], next: "real" },
+          { id: "real", text: "The real beat.", next: null },
+        ]),
+      ),
+      skipped,
+    );
+    expect(skipping.current()?.text).toBe("The real beat.");
+    expect(skipped.getFlag("entered")).toBe(false);
+    expect(skipped.getFlag("left")).toBe(false);
+  });
+
   it("evaluates the condition language", () => {
     const host = new TestHost();
     expect(evaluateCondition({ kind: "flag", flag: "x" }, host)).toBe(false);

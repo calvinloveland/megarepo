@@ -79,6 +79,15 @@ and games can register their own with `commands`. An unknown command is
 reported in `session.diagnostics` rather than swallowed, because a typo in a
 conversation is a content bug and should read like one.
 
+Effects come in two timings, because content needs both. `effects` run when the
+beat **appears** (the light goes on, the door opens). `onLeave` runs when the
+player **acknowledges** it — advancing past it, or picking an option off it —
+and beats whatever the next node does on entry. That is the timing for "you
+agreed to this": a quest accepted by the option someone just chose, recorded
+when they chose it rather than when the text finished drawing. Neither runs for
+a conversation that was abandoned, or for a node skipped because its `when`
+failed: nobody read it, so it did not happen.
+
 A screen is a `Scene` pushed over the map. It describes what it wants drawn and
 the app draws it; a modal scene stops the world behind it, so the movement keys
 do not reach the map:
@@ -146,12 +155,16 @@ old footing, in order of how much it would buy:
    duplication of the engine: Vroomon's `DialogueNode` (text, `next`,
    `options`, `setFlag`, `onComplete`, `rivalDna`) maps cleanly onto the engine
    graph, and the six `onComplete` verbs would become registered commands.
-   Two things to settle first, because they are decisions rather than chores:
-   Vroomon applies a node's flag when the player **leaves** it (the engine
-   applies effects on entry), and two flows push a beat in front of a
-   conversation that is already open (Robby's tutorial line, the NPC voice
-   line over `[text]`). Neither is hard; both change player-visible timing, so
-   they want the ~20 dialogue unit tests and the e2e walks watching.
+   Two things to settle first, because they are decisions rather than chores.
+   One is now settled: Vroomon applies a node's flag when the player **leaves**
+   it, and the engine can express that — `onLeave` effects, added for exactly
+   this split, with the honest reading that a quest accepted by an option should
+   be recorded when the option is chosen. What is left is the two flows that
+   push a beat in front of a conversation that is already open (Robby's tutorial
+   line, the NPC voice line over `[text]`), and the gym node whose text the
+   renderer swaps for a generated feud briefing. Both change player-visible
+   behaviour rather than internals, so the ~20 dialogue unit tests and the e2e
+   walks are the gate.
 
 Already moved:
 
