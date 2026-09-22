@@ -935,6 +935,66 @@
     "source": "drawn"
   },
   {
+    "id": "npc:hedge-keeper-bram",
+    "file": "npc_hedge-keeper-bram.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:maze-bram-route",
+    "file": "npc_maze-bram-route.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:maze-bram-tam",
+    "file": "npc_maze-bram-tam.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:maze-bram-own",
+    "file": "npc_maze-bram-own.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:maze-picker-tam",
+    "file": "npc_maze-picker-tam.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tam-walk",
+    "file": "npc_tam-walk.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tam-route",
+    "file": "npc_tam-route.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tam-wait",
+    "file": "npc_tam-wait.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:maze-hedger-vane",
+    "file": "npc_maze-hedger-vane.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:maze-hedger-race",
+    "file": "npc_maze-hedger-race.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:maze-hedger-week",
+    "file": "npc_maze-hedger-week.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:maze-hedger-later",
+    "file": "npc_maze-hedger-later.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:wanda-first-buys",
     "file": "npc_wanda-first-buys.png",
     "source": "drawn"
@@ -1017,6 +1077,31 @@
   {
     "id": "npc:shopkeeper",
     "file": "npc_shopkeeper.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:racer-pip",
+    "file": "npc_racer-pip.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:pip-tilt",
+    "file": "npc_pip-tilt.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:pip-rule",
+    "file": "npc_pip-rule.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:pip-shrug",
+    "file": "npc_pip-shrug.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tipped-vroomon",
+    "file": "npc_tipped-vroomon.png",
     "source": "drawn"
   },
   {

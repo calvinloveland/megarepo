@@ -34,6 +34,9 @@ export const WILD_TERRAIN_BY_MAP: Record<string, string> = {
   mesa_switchback: "Hills",
   the_cut: "Rocky",
   long_light_depot: "Ice",
+  // The hedge maze is orchard ground: the wild in it is Grassland stock, so a
+  // champion bred on that grass is measured against the same surface.
+  hedge_maze: "Grassland",
 };
 
 export const WILD_PACK_SIZE = 24;

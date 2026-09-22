@@ -2734,6 +2734,46 @@ async function closePocketRanch(page: import("@playwright/test").Page): Promise<
     await expect(page.locator("[data-status-message]")).toContainText("Rider race");
   });
 
+  test("@smoke the hedge maze is a real map: a keeper, a gate, and a way back", async ({ page }) => {
+    await seedAndEnterWorld(page);
+
+    // The orchard's east hedge has a gap in it now, and stepping onto the
+    // doormat in that gap walks you into the generated maze.
+    await enterMapAt(page, "marrow_orchard", 16, 11, "down");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText(
+      "Marrow Orchard",
+    );
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText(
+      "Marrow Hedge Maze",
+    );
+
+    // The keeper stands on a dead end a few tiles in — somewhere a person
+    // cannot wall off the only route to the middle.
+    await enterMapAt(page, "hedge_maze", 7, 12, "up");
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText(
+      "Marrow Hedge Maze",
+    );
+    await page.keyboard.press("z");
+    await page.waitForTimeout(700);
+    await expect(page.locator("[data-overworld-dialogue-name]")).toContainText(
+      "Hedge Keeper Bram",
+    );
+    await expect(page.locator("[data-dialogue-option]")).toHaveCount(3);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+
+    // You arrive one tile inside the gate rather than on it, so the way back
+    // is a step you choose — and it still works.
+    await enterMapAt(page, "hedge_maze", 1, 2, "down");
+    await page.keyboard.press("ArrowUp");
+    await page.waitForTimeout(900);
+    await expect(page.locator("[data-viewport-stats-overlay]")).toContainText(
+      "Marrow Orchard",
+    );
+  });
+
   test("@smoke a side quest is offered, tracked, and paid on completion", async ({ page }) => {
     await seedAndEnterWorld(page);
     await enterMapAt(page, "starter_town", 6, 7);
