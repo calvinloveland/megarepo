@@ -32,7 +32,12 @@
   documentation.doc.enable = false;
   documentation.info.enable = false;
 
-  # Networking — wired NIC auto-configure
+  # Networking — NetworkManager manages both the onboard ethernet (eno1)
+  # and the USB wifi adapter (wlp0s20u5). Wifi is the preferred link
+  # (route-metric 50, autoconnect-priority 100); ethernet is a lower-priority
+  # fallback (route-metric 500, autoconnect-priority 0). The connection
+  # profiles live in NetworkManager's own storage rather than here because the
+  # wifi profile contains the PSK, which must not be committed.
   networking.networkmanager.enable = true;
   networking.useDHCP = lib.mkDefault true;
 
