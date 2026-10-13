@@ -38,7 +38,7 @@ roles:
 daemon:
   auto_commit:
     enabled: true
-    debounce: 5s
+    debounce: 30s
     paths:
       - ./
     poll_interval: 10s
@@ -54,4 +54,4 @@ daemon:
       - ".esp-idf"
       - ".history"
     message: "k33p auto: changes in {files}"
-    push_after: 30s
+    push_after: 5m
