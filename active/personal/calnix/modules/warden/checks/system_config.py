@@ -86,9 +86,18 @@ def _get_latest_config_mtime(config_paths: list[str]) -> tuple[float | None, lis
 
     for config_path_str in config_paths:
         config_dir = Path(config_path_str)
-        if not config_dir.exists():
+        try:
+            # ``Path.exists()`` and ``rglob()`` raise PermissionError (an
+            # OSError subclass) when the warden user cannot traverse a
+            # directory — e.g. config paths under /home while the check service
+            # runs with ProtectHome=true. Treat that as "no .nix files here"
+            # instead of crashing the entire check.
+            if not config_dir.exists():
+                continue
+            nix_files = list(config_dir.rglob("*.nix"))
+        except OSError:
             continue
-        for nix_file in config_dir.rglob("*.nix"):
+        for nix_file in nix_files:
             try:
                 mtime = nix_file.stat().st_mtime
                 if latest_mtime is None or mtime > latest_mtime:

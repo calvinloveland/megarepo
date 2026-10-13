@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP Speaker Array — Hardware Validation Plan</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--dim:#8b949e;--accent:#58a6ff;--green:#3fb950;--amber:#d29922;--red:#f85149;--purple:#bc8cff;--border:#30363d}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{background:linear-gradient(135deg,#0d1117 0%,#161b22 50%,#1c2333 100%);border-bottom:1px solid var(--border);padding:60px 24px 40px;text-align:center}
+header h1{font-size:2.4em;margin-bottom:8px}
+header .tagline{color:var(--dim);font-size:1.1em;max-width:640px;margin:0 auto}
+header .badges{margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600}
+.badge.red{background:rgba(248,81,73,.15);color:var(--red)}
+.badge.amber{background:rgba(210,153,34,.15);color:var(--amber)}
+.badge.blue{background:rgba(88,166,255,.15);color:var(--accent)}
+.badge.green{background:rgba(63,185,80,.15);color:var(--green)}
+.badge.purple{background:rgba(188,140,255,.15);color:var(--purple)}
+nav{display:flex;gap:4px;justify-content:center;padding:14px 24px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--panel)}
+nav a{color:var(--dim);text-decoration:none;padding:6px 14px;border-radius:6px;font-size:14px;transition:all .15s}
+nav a:hover{color:var(--ink);background:rgba(255,255,255,.05)}
+main{max-width:920px;margin:0 auto;padding:32px 24px 60px}
+section{margin-bottom:48px}
+h2{font-size:1.5em;margin-bottom:16px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+h3{font-size:1.15em;margin:24px 0 10px}
+h4{font-size:1.05em;margin:16px 0 8px;color:var(--accent)}
+p,li{color:var(--dim);line-height:1.65}
+a{color:var(--accent)}
+code{background:rgba(255,255,255,.04);padding:2px 6px;border-radius:4px;font-size:.9em}
+pre{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;font-size:14px;margin:12px 0}
+
+/* Risk cards */
+.risk-grid{display:grid;gap:12px;margin:16px 0}
+.risk-card{border:1px solid var(--border);border-radius:10px;padding:16px;background:var(--panel)}
+.risk-card.tier1{border-left:4px solid var(--red)}
+.risk-card.tier2{border-left:4px solid var(--amber)}
+.risk-card.tier3{border-left:4px solid var(--accent)}
+.risk-card.tier4{border-left:4px solid var(--dim)}
+.risk-card .risk-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px}
+.risk-card .risk-id{font-size:13px;font-weight:700;white-space:nowrap}
+.risk-card .risk-tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.risk-card .risk-tag.t1{background:rgba(248,81,73,.15);color:var(--red)}
+.risk-card .risk-tag.t2{background:rgba(210,153,34,.15);color:var(--amber)}
+.risk-card .risk-tag.t3{background:rgba(88,166,255,.15);color:var(--accent)}
+.risk-card .risk-tag.t4{background:rgba(139,148,158,.15);color:var(--dim)}
+.risk-card .risk-title{font-weight:700;color:var(--ink);margin-bottom:4px}
+.risk-card .risk-baked{font-size:13px;color:var(--dim);margin-bottom:6px}
+.risk-card .risk-why{font-size:14px;color:var(--dim);margin-bottom:6px}
+.risk-card .risk-check{font-size:13px;color:var(--green);margin-top:4px;padding-top:6px;border-top:1px solid var(--border)}
+
+/* Phase schedule */
+.phase{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;margin:16px 0}
+.phase h3{color:var(--ink);border:none;padding:0;margin:0 0 4px}
+.phase .phase-meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:13px}
+.phase .phase-meta span{color:var(--dim)}
+.phase .phase-meta .phase-time{color:var(--accent)}
+.phase .phase-goal{color:var(--dim);margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.03);border-radius:6px;border-left:3px solid var(--accent)}
+.phase .phase-steps{list-style:none;padding:0}
+.phase .phase-steps li{padding:8px 0 8px 24px;position:relative;border-bottom:1px solid rgba(48,54,61,.5);font-size:14px}
+.phase .phase-steps li:last-child{border-bottom:none}
+.phase .phase-steps li::before{content:"→";position:absolute;left:0;color:var(--accent)}
+.phase .phase-steps li strong{color:var(--ink)}
+.phase .phase-pass{font-size:13px;color:var(--green);margin-top:10px;padding:8px 12px;background:rgba(63,185,80,.08);border-radius:6px;border-left:3px solid var(--green)}
+
+/* Overview table */
+.ov-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+.ov-table th,.ov-table td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border)}
+.ov-table th{color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:12px}
+.ov-table td{color:var(--dim)}
+.ov-table .phase-cell{color:var(--ink);font-weight:600}
+
+/* Info callout */
+.callout{background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.2);border-radius:8px;padding:14px 18px;margin:12px 0;font-size:14px;border-left:4px solid var(--accent)}
+.callout.warn{background:rgba(210,153,34,.08);border-color:rgba(210,153,34,.2);border-left-color:var(--amber)}
+.callout.danger{background:rgba(248,81,73,.08);border-color:rgba(248,81,73,.2);border-left-color:var(--red)}
+.callout code{background:rgba(255,255,255,.06)}
+.callout strong{color:var(--ink)}
+
+footer{text-align:center;padding:24px;color:var(--dim);font-size:13px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔧 Hardware Validation Plan</h1>
+  <p class="tagline">
+    Which simulator assumptions need real ESP32 hardware to falsify, and a phased
+    testing schedule to do it. This is the bridge between the browser-based algorithm
+    work and a living-room full of self-deploying surround speakers.
+  </p>
+  <div class="badges">
+    <span class="badge red">4 must-test</span>
+    <span class="badge amber">4 high-impact</span>
+    <span class="badge blue">5 important</span>
+    <span class="badge green">5 low-risk</span>
+    <span class="badge purple">5 testing phases</span>
+  </div>
+</header>
+
+<nav>
+  <a href="#overview">Overview</a>
+  <a href="#assumptions">All assumptions</a>
+  <a href="#schedule">Testing schedule</a>
+  <a href="../">← Simulator</a>
+  <a href="../demo/">Build guide</a>
+</nav>
+
+<main>
+
+<section id="overview">
+<h2>Why hardware testing?</h2>
+<p>
+The <a href="../">simulator</a> proves the algorithms work in an idealized world:
+perfect TOA estimators, a shared global clock, no I2S peripheral conflicts, and
+acoustic propagation that obeys the image-source model exactly. Real ESP32 hardware
+violates every one of these to some degree. The question is <em>how much</em> —
+and whether the joint LM solver and the various hardening knobs (robust, earliest-peak,
+shot averaging) can absorb the real-world errors.
+</p>
+
+<div class="callout danger">
+<strong>🔴 Single biggest hardware risk:</strong> The ESP32 has <strong>two independent I2S controllers</strong>
+(I2S0 and I2S1). If the MAX98357A speaker DAC runs on one and the INMP441 microphone on the other,
+their bit clocks are generated by independent PLLs. The matched-filter TOA estimator assumes playback
+and capture share a sample clock; if they free-run with even ±50 ppm mismatch, the chirp duration
+drifts between TX and RX and the correlation peak smears. <strong>This project's first hardware test
+must answer: do we need a shared BCLK wire, or can the two I2S controllers be disciplined to the
+same clock reference?</strong>
+</div>
+
+<p>
+The table below maps every simulator assumption to the hardware test that will validate or
+falsify it, organized by risk tier. The <a href="#schedule">testing schedule</a> groups these
+into five phases you can execute with a soldering iron, a laptop, and a tape measure.
+</p>
+</section>
+
+<section id="assumptions">
+<h2>All assumptions requiring hardware validation</h2>
+
+<div class="risk-grid">
+
+  <!-- TIER 1 -->
+  <div class="risk-card tier1">
+    <div class="risk-header">
+      <span class="risk-id">#1</span>
+      <span class="risk-tag t1">🔴 Tier 1 — project-killer potential</span>
+    </div>
+    <div class="risk-title">I2S clock domains are coherent between DAC and mic</div>
+    <div class="risk-baked">Baked in: <code>capture.mjs</code> — shared <code>sampleRateHz: 48000</code> for playback and capture; one shared clock domain is assumed silently.</div>
+    <div class="risk-why">ESP32 has two I2S controllers. The typical pinout (MAX98357A on I2S0, INMP441 on I2S1) means two independent bit clocks. A ±50 ppm mismatch causes the chirp to stretch/shrink between TX and RX, degrading the cross-correlation. If they can't share a clock reference, the TOA estimate carries an extra unknown scaling that the solver doesn't model.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 0 — probe both BCLK pins with a scope; compare frequencies. Phase 1A — loopback a known chirp and measure the recovered duration vs. transmitted duration.</div>
+  </div>
+
+  <div class="risk-card tier1">
+    <div class="risk-header">
+      <span class="risk-id">#2</span>
+      <span class="risk-tag t1">🔴 Tier 1 — project-killer potential</span>
+    </div>
+    <div class="risk-title">Self-path delay is stable and calibratable</div>
+    <div class="risk-baked">Baked in: <code>world.mjs</code> <code>makeNode()</code> — <code>selfPath: SELF_PATH</code> (a small fixed constant per node). The solver uses self-arrivals to anchor each node's clock offset.</div>
+    <div class="risk-why">Each node hears its own speaker through a short air path + PCB crosstalk + cabinet resonance. This delay is neither a known constant nor necessarily stable — it may drift with temperature, supply voltage, and volume setting. If it varies by more than a few µs between calibration runs, the clock offset estimate inherits that error for all other nodes.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 1B — 100 repeated loopback captures at each of several volume/temperature points. Measure the self-path TOA mean and std dev. If std dev &gt; 5 µs, the anchor is unreliable and needs a different strategy (e.g., a wired sync pulse).</div>
+  </div>
+
+  <div class="risk-card tier1">
+    <div class="risk-header">
+      <span class="risk-id">#3</span>
+      <span class="risk-tag t1">🔴 Tier 1 — project-killer potential</span>
+    </div>
+    <div class="risk-title">Matched-filter cross-correlation runs fast enough on ESP32</div>
+    <div class="risk-baked">Baked in: <code>dsp.mjs</code> — pure JS chirp + correlation + parabolic peak fit. Port map says "MCU-friendly optimizations needed."</div>
+    <div class="risk-why">A 48 kHz, ~96-sample chirp cross-correlated against a full capture window (thousands of samples) is ~10⁶ multiply-accumulates per pair × n² pairs. The Xtensa LX6 has no hardware FPU — integer-only, 240 MHz. If one TOA estimate takes tens of ms, the full n² sweep takes seconds, blowing the calibration phase budget and potentially causing clock-drift contamination across the sweep.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 0/1 — port the cross-correlation to fixed-point C, run <code>esp_array_capture_and_estimate()</code> on one capture, measure wall-clock with <code>esp_timer_get_time()</code>. If &gt;50 ms per pair at 8 nodes → ~3 seconds for all pairs → risky.</div>
+  </div>
+
+  <div class="risk-card tier1">
+    <div class="risk-header">
+      <span class="risk-id">#4</span>
+      <span class="risk-tag t1">🔴 Tier 1 — project-killer potential</span>
+    </div>
+    <div class="risk-title">ESP32 can timestamp TOA with ~20 µs precision</div>
+    <div class="risk-baked">Baked in: <code>world.mjs</code> — <code>micJitterSec: 2e-5</code> (20 µs ≈ 7 mm). <code>dsp.mjs</code> uses sub-sample parabolic peak refinement.</div>
+    <div class="risk-why">The simulator assumes TOA jitter is 20 µs (roughly one 48 kHz sample). But the ESP32's I2S driver reports buffer-done interrupts, not first-sample timestamps. The delay between the actual sample clock edge and the CPU servicing the interrupt depends on FreeRTOS scheduling, cache misses, and Wi-Fi activity — all jitter sources the simulator doesn't model.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 1A — 1000 loopback chirps. Measure the std dev of the recovered TOA. If it's &gt;100 µs, sub-sample refinement is wasted and the solver's jitter floor is 3+ cm.</div>
+  </div>
+
+  <!-- TIER 2 -->
+  <div class="risk-card tier2">
+    <div class="risk-header">
+      <span class="risk-id">#5</span>
+      <span class="risk-tag t2">🟡 Tier 2 — high impact, likely diverges</span>
+    </div>
+    <div class="risk-title">Sample rate mismatch between DAC and mic is negligible</div>
+    <div class="risk-baked">Baked in: <code>calibration-config.mjs</code> — <code>DEFAULT_CALIBRATION_CHIRP_OPTIONS.sampleRateHz: 48000</code> shared.</div>
+    <div class="risk-why">Even with disciplined PLLs, two I2S controllers may have a small systematic rate offset (internal PLL accuracy, external crystal tolerance). A 0.01% mismatch over a 2 ms chirp = 0.2 samples of drift — negligible. A 1% mismatch (= one controller in 44.1 kHz mode accidentally?) would destroy the correlation.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 0 — verify both I2S controllers are configured for 48 kHz with the same clock source if possible (I2S0 master, I2S1 slave to same BCLK).</div>
+  </div>
+
+  <div class="risk-card tier2">
+    <div class="risk-header">
+      <span class="risk-id">#6</span>
+      <span class="risk-tag t2">🟡 Tier 2 — high impact, likely diverges</span>
+    </div>
+    <div class="risk-title">WiFi clock sync leaves ≤±100 µs residual with stable skew</div>
+    <div class="risk-baked">Baked in: <code>world.mjs</code> — <code>clockOffsetSec: ±1e-4</code> range, <code>clockSkew: ±50 ppm</code> max.</div>
+    <div class="risk-why">The simulator generously assumes a tight WiFi sync. Real ESP32 NTP or beacon-timestamp sync depends on AP timing, interrupt latency under Wi-Fi load, and FreeRTOS scheduling. Residual offsets could be ms-level, not µs-level, especially on a congested 2.4 GHz band. The joint LM solver can estimate offsets, but large residuals demand more multistart iterations or fail to converge.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 2A — build two nodes, have each send a timestamped WiFi packet when it starts its chirp. Measure the actual offset scatter across 100 trials in a typical home Wi-Fi environment.</div>
+  </div>
+
+  <div class="risk-card tier2">
+    <div class="risk-header">
+      <span class="risk-id">#7</span>
+      <span class="risk-tag t2">🟡 Tier 2 — high impact, likely diverges</span>
+    </div>
+    <div class="risk-title">Chirp audible range and volume work for real rooms</div>
+    <div class="risk-baked">Baked in: <code>calibration-config.mjs</code> — 3–8 kHz linear chirp, 2 ms, Hann-windowed. INMP441 sensitivity –26 dBFS. MAX98357A 3W output.</div>
+    <div class="risk-why">The chirp dBFS/m relationship is uncalibrated. The INMP441 might clip at close range (loud chirp, speaker 10 cm from mic) or the SNR might be too low at 5 m range in a noisy room. Small speakers may have poor response above 6 kHz, cutting the effective chirp bandwidth. The matched-filter processing gain helps, but a 10 dB SNR loss at the extremes could break localization.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 1A and Phase 3A — capture raw waveforms at 0.5 m, 1 m, 2 m, 4 m in a quiet room and a typical living room. Compute actual SNR of the matched filter peak.</div>
+  </div>
+
+  <div class="risk-card tier2">
+    <div class="risk-header">
+      <span class="risk-id">#8</span>
+      <span class="risk-tag t2">🟡 Tier 2 — high impact, likely diverges</span>
+    </div>
+    <div class="risk-title">Speaker→mic feedback doesn't cause oscillation or saturation</div>
+    <div class="risk-baked">Not modeled in simulation — one-way propagation only.</div>
+    <div class="risk-why">With 6–8 nodes in a room, each one plays a chirp while its own mic is listening. Acoustic feedback (own speaker into own mic) could saturate the INMP441 preamp or cause howling at high gain. The simulator's self-path is a ~2 cm delay with fixed attenuation; real acoustic coupling includes cabinet resonance, direct mechanical vibration through the breadboard/PCB, and room reflections returning to the same mic.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 1A — capture while playing at increasing volumes. Check for clipping (sample values at ±1.0) or spectral contamination in the silence between chirps.</div>
+  </div>
+
+  <div class="risk-card tier2">
+    <div class="risk-header">
+      <span class="risk-id">#9</span>
+      <span class="risk-tag t2">🟡 Tier 2 — high impact, likely diverges</span>
+    </div>
+    <div class="risk-title">0.3 s gap between emissions is enough for reverb decay</div>
+    <div class="risk-baked">Baked in: <code>calibration-config.mjs</code> — <code>gapSec: 0.3</code>.</div>
+    <div class="risk-why">The simulator's image-source model assumes a simple reverb tail. A real living room with hard floors, windows, and furniture can have RT60 &gt; 0.5 s at certain frequencies. Late echoes from emission N could overlap with emission N+1, adding false peaks to the cross-correlation that earliest-peak can't distinguish from the true direct arrival.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 3A — record the full sweep in an untreated room. Inspect the intersignal gap for residual energy from the previous chirp. If &gt;5% of peak amplitude persists, increase <code>gapSec</code> or implement adaptive silence detection.</div>
+  </div>
+
+  <!-- TIER 3 -->
+  <div class="risk-card tier3">
+    <div class="risk-header">
+      <span class="risk-id">#10</span>
+      <span class="risk-tag t3">🟠 Tier 3 — important, mitigatable</span>
+    </div>
+    <div class="risk-title">Mesh gossip completes before clock state goes stale</div>
+    <div class="risk-baked">Baked in: <code>mesh.mjs</code>, <code>firmware-protocol.mjs</code> — n·(n−1) broadcasts per node.</div>
+    <div class="risk-why">ESP-NOW or ESP-MESH broadcast latency depends on channel congestion, retransmissions, and node count. If a full gossip round takes minutes, the clocks have drifted beyond the solver's skew model. The simulator assumes gossip is effectively instantaneous.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 3B — measure end-to-end gossip time for 4, 6, 8 nodes. If &gt;60 s, the solver needs a fresher clock-sync step before solving, or the gossip protocol needs optimization.</div>
+  </div>
+
+  <div class="risk-card tier3">
+    <div class="risk-header">
+      <span class="risk-id">#11</span>
+      <span class="risk-tag t3">🟠 Tier 3 — important, mitigatable</span>
+    </div>
+    <div class="risk-title">Per-node self-path calibration is stable across reboots</div>
+    <div class="risk-baked">Baked in: <code>demo/index.html</code> assumes same binary on all nodes; per-node constants not yet in NVS.</div>
+    <div class="risk-why">Each node's self-path delay (speaker→mic) needs to be measured once and stored. If it drifts with temperature or voltage, the stored value becomes wrong. The simulator assumes a single fixed constant.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 1B — measure self-path TOA across 10 power cycles and 10°C temperature variation. If &gt;10 µs variation, implement periodic self-calibration or use a wired reference.</div>
+  </div>
+
+  <div class="risk-card tier3">
+    <div class="risk-header">
+      <span class="risk-id">#12</span>
+      <span class="risk-tag t3">🟠 Tier 3 — important, mitigatable</span>
+    </div>
+    <div class="risk-title">LM solver runs acceptably on ESP32 coordinator node</div>
+    <div class="risk-baked">Baked in: <code>bench.mjs</code> — ~640 ms for 12 nodes on x86_64.</div>
+    <div class="risk-why">The benchmark runs on a 3 GHz x86_64 with hardware FPU. Porting the LM solver (matrix operations, SVD, Jacobian) to a 240 MHz Xtensa without FPU means software-emulated double-precision or careful fixed-point. Expect 10–50× slowdown → 6–30 seconds for 12 nodes. This might be acceptable for a one-time calibration but not for repeated recalibration.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 3C — port the solver to ESP32 (or use a subset for validation). Measure wall-clock time for 4, 6, 8 nodes. If &gt;60 s for 8 nodes, consider offloading solve to a phone/PC via Bluetooth or WiFi.</div>
+  </div>
+
+  <div class="risk-card tier3">
+    <div class="risk-header">
+      <span class="risk-id">#13</span>
+      <span class="risk-tag t3">🟠 Tier 3 — important, mitigatable</span>
+    </div>
+    <div class="risk-title">5.1 audio input path works (Bluetooth A2DP / USB / line-in)</div>
+    <div class="risk-baked">Baked in: <code>demo/index.html</code> — mentions Bluetooth A2DP, USB audio, line-in as possibilities.</div>
+    <div class="risk-why">None of these are trivial on ESP32. Bluetooth A2DP adds 150–300 ms latency (fine for movies, bad for live performance). USB audio requires the USB OTG peripheral and a separate USB audio class driver. Line-in requires an ADC or an I2S ADC codec. The best path depends on the use case and hasn't been validated.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 4 — implement one input path, measure end-to-end latency from source to speaker output. If &gt;500 ms total, the system feels laggy for any interactive use.</div>
+  </div>
+
+  <div class="risk-card tier3">
+    <div class="risk-header">
+      <span class="risk-id">#14</span>
+      <span class="risk-tag t3">🟠 Tier 3 — important, mitigatable</span>
+    </div>
+    <div class="risk-title">Sweet-spot listening position is known or reasonably assumed</div>
+    <div class="risk-baked">Baked in: <code>surround.mjs</code>, <code>render.mjs</code> — compensation targets a specific sweet spot (default center of room).</div>
+    <div class="risk-why">The panner compensates delay and gain for one listening position. If the listener moves 1 m off-center, the compensation becomes misaligned — the time-of-arrival alignment assumes the sweet spot. The simulator doesn't (yet) model off-axis degradation.</div>
+    <div class="risk-check">✅ <strong>Test:</strong> Phase 4 — measure impulse concentration at 0.5 m and 1 m offsets from sweet spot. If concentration drops below 0.7 at 0.5 m, the system needs either a wider sweet spot or listener tracking.</div>
+  </div>
+
+  <!-- TIER 4 -->
+  <div class="risk-card tier4">
+    <div class="risk-header">
+      <span class="risk-id">#15</span>
+      <span class="risk-tag t4">🔵 Tier 4 — low risk, nice to validate</span>
+    </div>
+    <div class="risk-title">Nodes don't move during calibration sweep (~2 s)</div>
+    <div class="risk-baked">Implicit in one-shot capture model.</div>
+    <div class="risk-why">Real furniture might get bumped. But a 2 s sweep is short enough that this is very unlikely to matter.</div>
+    <div class="risk-check">✅ Quick check during Phase 3 — bump a node mid-sweep; does the solver detect the inconsistency via high residuals?</div>
+  </div>
+
+  <div class="risk-card tier4">
+    <div class="risk-header">
+      <span class="risk-id">#16</span>
+      <span class="risk-tag t4">🔵 Tier 4 — low risk, nice to validate</span>
+    </div>
+    <div class="risk-title">Chirp is subjectively non-intrusive</div>
+    <div class="risk-baked">2 ms chirp, 3–8 kHz sweep at moderate volume.</div>
+    <div class="risk-why">The chirp sounds like a short "chirp" — some people may find it annoying. The sweep happens once at setup, so probably acceptable.</div>
+    <div class="risk-check">✅ Subjective: play the chirp for a few people, ask if they'd tolerate it during a one-time calibration.</div>
+  </div>
+
+  <div class="risk-card tier4">
+    <div class="risk-header">
+      <span class="risk-id">#17</span>
+      <span class="risk-tag t4">🔵 Tier 4 — low risk, nice to validate</span>
+    </div>
+    <div class="risk-title">Small speaker reproduces 3–8 kHz chirp adequately</div>
+    <div class="risk-baked">Implicit — small 2–3" speaker assumed.</div>
+    <div class="risk-why">Cheap small speakers often roll off above 6–8 kHz. The upper half of the chirp may be 10–20 dB quieter, reducing effective bandwidth and degrading TOA precision.</div>
+    <div class="risk-check">✅ Phase 1A — record the chirp with a calibrated reference mic (or phone mic as a relative check). Compare spectrum at 0.5 m vs. the chirp template.</div>
+  </div>
+
+  <div class="risk-card tier4">
+    <div class="risk-header">
+      <span class="risk-id">#18</span>
+      <span class="risk-tag t4">🔵 Tier 4 — low risk, nice to validate</span>
+    </div>
+    <div class="risk-title">Room temperature (speed of sound) is constant during calibration</div>
+    <div class="risk-baked">Baked in: <code>acoustics.mjs</code> — constant <code>SPEED_OF_SOUND</code>.</div>
+    <div class="risk-why">Speed of sound changes ~0.6 m/s/°C. A 5°C drift during a 2 s sweep would change the apparent distance by ~0.01% — negligible. The solver wouldn't notice.</div>
+    <div class="risk-check">✅ Easy to check with a temp sensor. No action needed unless the system is used outdoors or near heat sources.</div>
+  </div>
+
+  <div class="risk-card tier4">
+    <div class="risk-header">
+      <span class="risk-id">#19</span>
+      <span class="risk-tag t4">🔵 Tier 4 — low risk, nice to validate</span>
+    </div>
+    <div class="risk-title">All nodes can coordinate a simultaneous calibration start</div>
+    <div class="risk-baked">Implicit — firmware session state machine starts at boot.</div>
+    <div class="risk-why">The coordinator model broadcasts a "go" signal. WiFi broadcast latency (~1–10 ms) is small relative to the 100 ms first-emission offset. Low risk.</div>
+    <div class="risk-check">✅ Phase 2 — measure the spread of "go" arrival times across nodes. If &gt;50 ms, adjust <code>firstEmitSec</code>.</div>
+  </div>
+
+</div>
+</section>
+
+<section id="schedule">
+<h2>Testing schedule</h2>
+
+<p>Five phases, ordered by dependency. Each phase builds on the previous. You need
+one soldering iron, an oscilloscope (or logic analyzer), a tape measure, and a laptop.
+Total elapsed time for a hobbyist: roughly <strong>2–4 weeks of evenings/weekends</strong>
+if parts are on hand.</p>
+
+<div class="ov-table" style="overflow-x:auto">
+<table class="ov-table">
+<thead>
+<tr>
+  <th>Phase</th>
+  <th>Name</th>
+  <th>Assumptions tested</th>
+  <th>Hardware needed</th>
+  <th>Duration</th>
+</tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="phase-cell">0</td>
+    <td>Single-node bring-up</td>
+    <td>#1, #3, #5</td>
+    <td>1 node, scope</td>
+    <td>1 day</td>
+  </tr>
+  <tr>
+    <td class="phase-cell">1</td>
+    <td>Loopback accuracy</td>
+    <td>#1, #2, #4, #7, #8, #17</td>
+    <td>1 node, tape measure</td>
+    <td>2–3 days</td>
+  </tr>
+  <tr>
+    <td class="phase-cell">2</td>
+    <td>Two-node clock sync + ranging</td>
+    <td>#6, #9, #19</td>
+    <td>2 nodes, tape measure</td>
+    <td>2–3 days</td>
+  </tr>
+  <tr>
+    <td class="phase-cell">3</td>
+    <td>Multi-node mesh calibration</td>
+    <td>#9, #10, #11, #12, #15</td>
+    <td>4–8 nodes</td>
+    <td>5–7 days</td>
+  </tr>
+  <tr>
+    <td class="phase-cell">4</td>
+    <td>Surround audio playback</td>
+    <td>#13, #14</td>
+    <td>4–8 nodes, audio source</td>
+    <td>3–5 days</td>
+  </tr>
+</tbody>
+</table>
+</div>
+
+<!-- Phase 0 -->
+<div class="phase">
+  <h3>Phase 0 — Single-node bring-up</h3>
+  <div class="phase-meta">
+    <span class="phase-time">⏱ ~1 day</span>
+    <span>🔧 1 node, oscilloscope</span>
+    <span>🎯 Goal: verify the hardware boots, I2S peripherals initialize, and the two I2S controllers' clock relationship is understood.</span>
+  </div>
+
+  <div class="phase-goal">
+    Before this phase, you should have built one node per the <a href="../demo/#assembly">assembly guide</a>
+    and run <code>idf.py build flash monitor</code> to see the boot messages.
+  </div>
+
+  <ol class="phase-steps">
+    <li>
+      <strong>Verify I2S DAC output.</strong> Flash the firmware, call <code>esp_array_play_chirp()</code>.
+      Probe the MAX98357A's BCLK pin with a scope. Confirm 48 kHz × 32 bits × 2 channels = ~3.072 MHz.
+      Listen for an audible chirp from the speaker.
+    </li>
+    <li>
+      <strong>Verify I2S mic capture.</strong> Call <code>esp_array_capture_and_estimate()</code> while
+      playing a continuous tone. Print the first 100 raw samples over serial. They should show a
+      periodic waveform, not all zeros or clipping.
+    </li>
+    <li>
+      <strong>Scope both I2S BCLK pins simultaneously.</strong> Probe GPIO 26 (MAX98357A BCLK) and
+      GPIO 19 (INMP441 SCK) on a dual-channel scope. Measure their frequencies and phase relationship.
+      <br>
+      <span style="color:var(--amber)">🔶 Pass condition:</span> Both BCLKs measure 48 kHz frame rate
+      (3.072 MHz for 32-bit I2S) within ±10 ppm of each other. If they differ by more, <strong>this is
+      the project's first design decision</strong>: either wire a shared BCLK (route one controller's
+      clock output to the other's clock input), or design a clock-domain-crossing calibration step.
+    </li>
+    <li>
+      <strong>Benchmark the matched-filter cross-correlation.</strong> Capture one chirp, run
+      <code>esp_array_capture_and_estimate()</code> in a loop of 100 iterations, time with
+      <code>esp_timer_get_time()</code>. Report mean ± std dev.
+      <br>
+      <span style="color:var(--amber)">🔶 Pass condition:</span> Mean &lt; 50 ms per pairwise TOA estimate.
+      (At 8 nodes × 8 listeners = 64 pairs → &lt; 3.2 s total). If &gt; 200 ms, the optimizer in
+      <code>dsp.mjs</code> needs fixed-point or reduced chirp length before multi-node testing.
+    </li>
+  </ol>
+
+  <div class="phase-pass">
+    ✅ <strong>Phase 0 done when:</strong> Both I2S controllers produce valid clocks at 48 kHz, the
+    chirp is audible and capturable, and the cross-correlation C implementation runs in acceptable time.
+  </div>
+</div>
+
+<!-- Phase 1 -->
+<div class="phase">
+  <h3>Phase 1 — Loopback accuracy</h3>
+  <div class="phase-meta">
+    <span class="phase-time">⏱ 2–3 days</span>
+    <span>🔧 1 node, tape measure, quiet room</span>
+    <span>🎯 Goal: quantify the TOA estimation variance, self-path stability, and acoustic coupling on a single node.</span>
+  </div>
+
+  <div class="phase-goal">
+    Sub-phases 1A (free-field accuracy) and 1B (self-path stability). Do 1A first, then 1B.
+  </div>
+
+  <h4>1A — Free-field TOA accuracy</h4>
+  <ol class="phase-steps">
+    <li>
+      <strong>Place the speaker 1.00 m from the mic</strong> (use a tape measure).
+      Ensure both are at the same height, clear of reflecting surfaces.
+    </li>
+    <li>
+      <strong>Run 100 chirp-capture cycles.</strong> For each, measure:
+      <code>TOA = estimateTOA(capture, chirp, 48000)</code>.
+      The true propagation delay is 1.00 m / 343 m/s ≈ 2.915 ms.
+      Compute the error: <code>TOA − 2.915 ms</code>.
+    </li>
+    <li>
+      <strong>Report statistics:</strong> mean error (bias), standard deviation (jitter), p95
+      absolute error. If the I2S clock-domain issue exists, expect a systematic bias or
+      periodic error pattern.
+    </li>
+    <li>
+      <strong>Repeat at distances:</strong> 0.5 m, 2.0 m, 4.0 m. The 4 m case tests whether
+      the chirp is loud enough for good SNR at the far end of a typical room.
+    </li>
+    <li>
+      <strong>Repeat with earliest-peak vs. strongest-peak modes</strong> (the <code>estimatorMode</code>
+      option). Add a reflective surface (e.g., a clipboard) near the mic to create a deliberate echo.
+      Verify that earliest-peak rejects it while strongest-peak gets biased.
+    </li>
+  </ol>
+
+  <div class="phase-pass">
+    ✅ <strong>Pass condition (1A):</strong> Bias &lt; 5 mm equivalent, std dev &lt; 10 mm equivalent
+    at all distances up to 4 m. Earliest-peak correctly rejects close echoes.
+  </div>
+
+  <h4 style="margin-top:16px">1B — Self-path stability</h4>
+  <ol class="phase-steps">
+    <li>
+      <strong>Capture the self-path 100 times</strong> (node plays, its own mic listens).
+      The self-path is typically a few cm — measure the mean TOA and convert to distance.
+    </li>
+    <li>
+      <strong>Repeat at 3 volume levels</strong> (low, medium, high via MAX98357A gain).
+      Does the self-path delay change? (Speaker excursion, cabinet resonance).
+    </li>
+    <li>
+      <strong>Power-cycle the node 10 times.</strong> After each reboot, measure the self-path.
+      Report stability across reboots.
+    </li>
+    <li>
+      <strong>If available:</strong> heat the node with a hair dryer to ~40°C, cool to ~15°C.
+      Measure self-path at each extreme. The speed of sound changes ~0.6 m/s/°C, but the path is
+      so short (~2 cm) that temperature effects are tiny — the question is whether the electronics
+      (DAC filter, ADC group delay) drift.
+    </li>
+  </ol>
+
+  <div class="phase-pass">
+    ✅ <strong>Pass condition (1B):</strong> Self-path std dev &lt; 5 µs across all conditions.
+    If not, the self-path anchor is unreliable and the solver needs a different clock-offset
+    reference (e.g., a wired sync pulse, or treating the self-path as an unknown the solver also
+    estimates).
+  </div>
+</div>
+
+<!-- Phase 2 -->
+<div class="phase">
+  <h3>Phase 2 — Two-node clock sync + ranging</h3>
+  <div class="phase-meta">
+    <span class="phase-time">⏱ 2–3 days</span>
+    <span>🔧 2 nodes, tape measure, WiFi AP</span>
+    <span>🎯 Goal: validate the end-to-end acoustic ranging chain with a WiFi clock sync between two nodes.</span>
+  </div>
+
+  <div class="phase-goal">
+    This is the first test that exercises the distributed calibration flow: WiFi sync → chirp →
+    capture → TOA → range. Two nodes are the minimal multi-node mesh.
+  </div>
+
+  <ol class="phase-steps">
+    <li>
+      <strong>Implement a simple WiFi clock-sync protocol</strong> on both nodes:
+      Node A broadcasts a timestamped "sync" packet; Node B records its local time on receipt.
+      The offset is half the round-trip (or use a simple NTP-like exchange). This is the coarse
+      sync the simulator assumes leaves ±100 µs residual.
+      <br>
+      <span style="color:var(--dim)">💡 For Phase 2, a one-way broadcast with known symmetric
+      latency is sufficient. Don't optimize yet — just measure what you get.</span>
+    </li>
+    <li>
+      <strong>Place nodes 2.00 m apart</strong> in a quiet room. Run the calibration lifecycle:
+      sync → plan → Node A chirp → both nodes capture → Node B chirp → both nodes capture.
+    </li>
+    <li>
+      <strong>Compute the range from Node A's chirp as heard by Node B.</strong>
+      The TOA on Node B's clock minus the sync-adjusted emission time gives the propagation delay.
+      Convert to distance. Compare to the tape-measure 2.00 m.
+    </li>
+    <li>
+      <strong>Repeat 50 times.</strong> Report mean ranging error and std dev. This isolates the
+      combined error of: WiFi sync jitter + mic jitter + matched-filter TOA error.
+    </li>
+    <li>
+      <strong>Repeat at 0.5 m, 1.0 m, 3.0 m, 5.0 m.</strong> Does the error grow with distance
+      (SNR loss) or stay bounded?
+    </li>
+    <li>
+      <strong>Introduce a controlled clock offset</strong> by delaying Node B's sync response by
+      a known amount (use <code>vTaskDelay(10 / portTICK_PERIOD_MS)</code>). Verify the solver's
+      joint estimation recovers the extra offset.
+    </li>
+  </ol>
+
+  <div class="phase-pass">
+    ✅ <strong>Pass condition:</strong> Ranging error &lt; 5 cm RMS at all distances up to 5 m.
+    If error is large and uncorrelated with distance, the WiFi sync is the dominant error source.
+    If error grows linearly with distance, the speed-of-sound assumption or I2S clock skew is wrong.
+  </div>
+</div>
+
+<!-- Phase 3 -->
+<div class="phase">
+  <h3>Phase 3 — Multi-node mesh calibration</h3>
+  <div class="phase-meta">
+    <span class="phase-time">⏱ 5–7 days</span>
+    <span>🔧 4–8 nodes, large room, tape measure</span>
+    <span>🎯 Goal: run the full distributed calibration pipeline on real hardware and compare recovered positions to ground truth.</span>
+  </div>
+
+  <div class="phase-goal">
+    Build all nodes, scatter them in a room, run the full firmware session state machine
+    (sync → plan → capture → gossip → solve → ready). This is the first time the complete
+    system runs outside the browser.
+  </div>
+
+  <h4>3A — Centralized calibration (one coordinator captures everything)</h4>
+  <ol class="phase-steps">
+    <li>
+      <strong>Place 6 nodes in known positions</strong> in a room. Measure their exact coordinates
+      with a tape measure (ground truth). Use a 6 m × 5 m area if possible. Mark positions on
+      the floor with tape.
+    </li>
+    <li>
+      <strong>Run the calibration sweep</strong> with all nodes emitting in round-robin and all
+      nodes capturing. Collect all observations on one coordinator via serial or WiFi.
+    </li>
+    <li>
+      <strong>Run the solver</strong> (same LM solver from <code>localize.mjs</code>, ported to C).
+      Compare recovered positions to ground truth via Procrustes alignment.
+      <br>
+      <span style="color:var(--amber)">🔶 Expected:</span> Large systematic errors if the I2S
+      clock-domain issue (assumption #1) hasn't been resolved. If resolved, expect
+      ~2–10 cm error depending on room acoustics.
+    </li>
+    <li>
+      <strong>Repeat in 3 rooms:</strong> quiet office (carpet, low reverb), living room (hard
+      furniture, moderate reverb), and an untreated room with hard walls (high reverb). The
+      simulator predicts the high-reverb case will fail without earliest-peak + robust — this
+      is the test of that prediction.
+    </li>
+  </ol>
+
+  <h4 style="margin-top:16px">3B — Distributed gossip</h4>
+  <ol class="phase-steps">
+    <li>
+      <strong>Implement the gossip protocol</strong> from <code>mesh.mjs</code> in C (ESP-NOW or
+      ESP-MESH). Each node broadcasts its listener-row packet after the sweep. One coordinator
+      collects all rows.
+    </li>
+    <li>
+      <strong>Measure gossip latency</strong> for 4, 6, 8 nodes. Time from last chirp capture
+      to coordinator having the full matrix.
+    </li>
+    <li>
+      <strong>Test with intentional packet loss:</strong> drop random row packets on the coordinator
+      side. Verify the robust LM solver degrades gracefully (the simulator predicts 30% loss at
+      8 nodes still localizes within ~15 cm).
+    </li>
+  </ol>
+
+  <h4 style="margin-top:16px">3C — On-device solver benchmark</h4>
+  <ol class="phase-steps">
+    <li>
+      <strong>Port and run the LM solver on one ESP32</strong> (the coordinator). Time it for
+      4, 6, 8, and 12 nodes (12 might need simulated extra rows).
+    </li>
+    <li>
+      <strong>If solve time exceeds 60 s for 8 nodes,</strong> consider these mitigations:
+      <br>
+      &nbsp;&nbsp;• Reduce multistart count (try 2 instead of 8)<br>
+      &nbsp;&nbsp;• Offload to a PC/mobile via WiFi serial<br>
+      &nbsp;&nbsp;• Use a two-stage solver (coarse grid + local refinement)
+    </li>
+  </ol>
+
+  <div class="phase-pass">
+    ✅ <strong>Phase 3 done when:</strong> 6 nodes localize with &lt; 10 cm median error in a
+    quiet room and &lt; 20 cm in a reverberant room (with earliest-peak + robust enabled).
+    Gossip completes in &lt; 30 s for 8 nodes. The solver runs in &lt; 30 s on the coordinator.
+  </div>
+</div>
+
+<!-- Phase 4 -->
+<div class="phase">
+  <h3>Phase 4 — Surround audio playback</h3>
+  <div class="phase-meta">
+    <span class="phase-time">⏱ 3–5 days</span>
+    <span>🔧 4–8 nodes, audio source</span>
+    <span>🎯 Goal: play real 5.1 audio through the self-localized array and measure channel separation at the sweet spot.</span>
+  </div>
+
+  <div class="phase-goal">
+    This is the payoff: once the mesh knows its geometry, pan 5.1 channels onto the discovered
+    layout, apply per-speaker compensation, and verify the rendering quality.
+  </div>
+
+  <ol class="phase-steps">
+    <li>
+      <strong>Implement the surround panner in C</strong> (port from <code>surround.mjs</code>).
+      The coordinator computes per-speaker pan gains + delay compensation + gain compensation
+      and sends each node its per-channel mix coefficients.
+    </li>
+    <li>
+      <strong>Play a test tone per channel</strong> (the "Play test tone" button from the simulator,
+      but on hardware). Walk around the sweet spot — verify that front-left sounds left, etc.
+      Measure with a phone mic or SPL meter.
+    </li>
+    <li>
+      <strong>Play 5.1 test content</strong> (a movie scene or test tone sequence). Evaluate
+      subjectively: does the surround image feel correct? Are there audible artifacts (clicks,
+      pops, delay smearing)?
+    </li>
+    <li>
+      <strong>Measure sweet-spot width.</strong> Move 0.5 m left, right, forward, backward.
+      At what offset does the phantom center image collapse or the left/right separation vanish?
+      The simulator's <code>render.mjs</code> <code>channelSeparation()</code> function makes
+      predictions about this — test them.
+    </li>
+    <li>
+      <strong>End-to-end latency measurement.</strong> Feed a pulse through the entire chain:
+      audio source → coordinator → panning → WiFi distribution → each node's DAC → speaker.
+      Measure with a mic at the sweet spot. Total latency should be &lt; 200 ms for video sync
+      (if used with a TV) or &lt; 50 ms for interactive use.
+    </li>
+  </ol>
+
+  <div class="callout warn">
+    <strong>🟡 Important:</strong> Don't start Phase 4 until Phases 0–3 pass. If the
+    localization is inaccurate, the panning will be wrong and you won't know whether the
+    error is in the panner or the geometry. Isolate the localization first.
+  </div>
+
+  <div class="phase-pass">
+    ✅ <strong>Phase 4 done when:</strong> A listener at the sweet spot can correctly identify
+    which virtual channel is playing (L, C, R, Ls, Rs). End-to-end latency &lt; 200 ms. The
+    system plays a full 5.1 audio source without audible artifacts.
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="callout" style="margin-top:24px">
+<strong>🧪 Beyond Phase 4:</strong> Once the basic system works, the next tier of hardware
+experiments includes:
+<ul style="margin-top:8px;margin-left:20px">
+  <li><strong>Node failure tolerance</strong> — kill one node mid-session; does the panner redistribute its channels?</li>
+  <li><strong>Re-calibration drift</strong> — run calibration weekly; do the recovered positions drift with temperature/humidity?</li>
+  <li><strong>Battery power</strong> — run on LiPo; does the I2S noise floor increase on battery vs USB?</li>
+  <li><strong>Multiple sweet spots</strong> — precompute compensation for 2–3 listening positions and blend.</li>
+  <li><strong>Over-the-air firmware updates</strong> — update all nodes from the coordinator.</li>
+</ul>
+</div>
+
+</section>
+
+</main>
+
+<footer>
+  <a href="../">← Back to simulator</a> ·
+  <a href="../demo/">Build guide</a> ·
+  ESP Speaker Array · active/web-apps/esp-array-sim
+</footer>
+
+</body>
+</html>
