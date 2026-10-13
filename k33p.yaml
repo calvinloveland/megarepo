@@ -47,6 +47,7 @@ daemon:
       - "*.tmp"
       - "*.swp"
       - ".ruff_cache/"
+      - ".pytest_cache/"
       - "*.egg-info/"
       # Vendored/bundled trees that must never be walked or content-addressed:
       # .esp-idf is a multi-GB ESP-IDF checkout, .history dirs are KiCad's
