@@ -1,3 +1,0 @@
-k33p+secret://sha256:1c33cd8c73837bc2dfbae8f306d77d741b7e1b9e6af8cdd72a9ec27aa66a2292aaaef0f2db39c14d0c8c89ca6065f638ee84509e1234"
-PASSWORD = "correct-horse-battery-staple"
-TEST_ONLY_APPEND=1
