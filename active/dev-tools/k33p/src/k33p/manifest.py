@@ -23,6 +23,29 @@ import yaml
 from k33p.channels import ChannelConfig, ManifestError
 from k33p.refs import Pointer
 
+
+def _parse_duration_seconds(text: str | int | float) -> float:
+    """Parse a duration like '10s', '5m', '2h30m' (or a bare number) into seconds."""
+    if isinstance(text, (int, float)):
+        return float(text)
+    import re
+
+    total = 0.0
+    matched = False
+    for match in re.finditer(r"(\d+(?:\.\d+)?)\s*([hms])", str(text).lower()):
+        value = float(match.group(1))
+        unit = match.group(2)
+        if unit == "h":
+            total += value * 3600
+        elif unit == "m":
+            total += value * 60
+        else:
+            total += value
+        matched = True
+    if not matched:
+        return float(str(text))
+    return total
+
 # ── sub-configs ────────────────────────────────────────────────────────
 
 
@@ -112,11 +135,13 @@ class AutoCommitConfig:
     message: str = "auto: changes in {files}"
     pre_commit: str | None = None
     push_after: str | None = None
+    poll_interval: float | None = None
     sign: bool = False
     sign_with: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AutoCommitConfig:
+        raw_poll = data.get("poll_interval")
         return cls(
             enabled=bool(data.get("enabled", False)),
             debounce=data.get("debounce", "5m"),
@@ -125,6 +150,11 @@ class AutoCommitConfig:
             message=data.get("message", "auto: changes in {files}"),
             pre_commit=data.get("pre_commit"),
             push_after=data.get("push_after"),
+            poll_interval=(
+                _parse_duration_seconds(raw_poll)
+                if raw_poll is not None
+                else None
+            ),
             sign=bool(data.get("sign", False)),
             sign_with=data.get("sign_with"),
         )

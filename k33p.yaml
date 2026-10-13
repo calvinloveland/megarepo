@@ -41,6 +41,7 @@ daemon:
     debounce: 30s
     paths:
       - ./
+    poll_interval: 10s
     ignore:
       # Daemon-specific overrides (most patterns come from .gitignore)
       - "*.tmp"

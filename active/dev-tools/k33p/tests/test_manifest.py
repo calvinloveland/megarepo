@@ -87,6 +87,18 @@ def test_daemon_parsed() -> None:
     assert "src/" in ac.paths
 
 
+def test_poll_interval_parsed_as_seconds() -> None:
+    from k33p.manifest import AutoCommitConfig
+
+    # Bare number
+    assert AutoCommitConfig.from_dict({"poll_interval": 10}).poll_interval == 10.0
+    # Duration string
+    assert AutoCommitConfig.from_dict({"poll_interval": "10s"}).poll_interval == 10.0
+    assert AutoCommitConfig.from_dict({"poll_interval": "2m"}).poll_interval == 120.0
+    # Absent -> None (daemon falls back to 2s)
+    assert AutoCommitConfig.from_dict({}).poll_interval is None
+
+
 # ── monorepo ───────────────────────────────────────────────
 
 

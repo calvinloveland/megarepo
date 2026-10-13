@@ -97,6 +97,14 @@ class Daemon:
             return 300  # default 5 minutes
         return _parse_duration(ac.debounce)
 
+    @property
+    def poll_interval(self) -> float:
+        """Seconds between file scans; config-driven with a 2s default."""
+        ac = self.auto_commit_config
+        if ac is None or ac.poll_interval is None:
+            return 2.0
+        return float(ac.poll_interval)
+
     def message_template(self) -> str:
         ac = self.auto_commit_config
         if ac is None:
@@ -135,11 +143,24 @@ class Daemon:
         Uses ``git check-ignore --stdin`` for batch checking, which
         respects all ``.gitignore`` files (root + nested), negation
         patterns, etc.
+
+        Results are cached against a fingerprint of the ignore sources
+        (every ``.gitignore`` file seen in the walk plus ``.git/info/exclude``)
+        so we only re-spawn ``git`` when the ignore rules actually change.
         """
         import subprocess
 
         if not paths:
             return set()
+
+        # Reuse cached results when the ignore sources are unchanged and the
+        # requested paths are all known.
+        sig = self._ignore_signature()
+        cache = getattr(self, "_gitignore_cache", None)
+        if cache is not None and cache[0] == sig:
+            cached_map = cache[1]
+            if all(p in cached_map for p in paths):
+                return {p for p in paths if cached_map[p]}
 
         try:
             result = subprocess.run(
@@ -149,10 +170,34 @@ class Daemon:
                 cwd=str(self._project_root),
             )
             if result.returncode == 0 and result.stdout:
-                return set(line.strip() for line in result.stdout.splitlines() if line.strip())
-            return set()
+                ignored = set(line.strip() for line in result.stdout.splitlines() if line.strip())
+            else:
+                ignored = set()
         except (OSError, subprocess.TimeoutExpired):
             return set()
+
+        self._gitignore_cache = (sig, {p: (p in ignored) for p in paths})
+        return ignored
+
+    def _ignore_signature(self) -> tuple:
+        """Fingerprint the ignore sources that affect ``git check-ignore``.
+
+        Returns (path, mtime_ns) pairs for every ``.gitignore`` file seen by
+        the most recent tree walk, plus ``.git/info/exclude``. Sorting is
+        stable so the tuple is comparable across polls.
+        """
+        sig: list[tuple[str, int]] = []
+        for p in getattr(self, "_ignore_files_seen", []):
+            try:
+                sig.append((str(p), p.stat().st_mtime_ns))
+            except OSError:
+                sig.append((str(p), -1))
+        excl = self._project_root / ".git" / "info" / "exclude"
+        try:
+            sig.append((str(excl), excl.stat().st_mtime_ns))
+        except OSError:
+            sig.append((str(excl), -1))
+        return tuple(sorted(sig))
 
     def _collect_watched_files(self) -> dict[str, float]:
         """Walk all watched paths and return {relative_path: mtime}.
@@ -160,8 +205,13 @@ class Daemon:
         Excludes the daemon ignore list (k33p.yaml ``ignore``) and
         known-large directories; does NOT apply gitignore rules, so the
         caller can partition the result into source vs artifact files.
+
+        Also records every ``.gitignore`` file encountered so
+        ``_filter_gitignored`` can fingerprint the ignore sources and cache
+        ``git check-ignore`` results until they actually change.
         """
         result: dict[str, float] = {}
+        self._ignore_files_seen: list[Path] = []
         for watch_path in self.watched_paths:
             if not watch_path.exists():
                 continue
@@ -196,6 +246,8 @@ class Daemon:
                     dirnames[:] = pruned
                     for filename in filenames:
                         full = Path(dirpath) / filename
+                        if filename == ".gitignore":
+                            self._ignore_files_seen.append(full)
                         rel = os.path.relpath(str(full), str(self._project_root))
                         if self._should_ignore(rel):
                             continue
@@ -375,17 +427,22 @@ class Daemon:
 
     # ── main loop ─────────────────────────────────────────────────────
 
-    def run(self, *, once: bool = False, poll_interval: float = 2.0) -> int:
+    def run(self, *, once: bool = False, poll_interval: float | None = None) -> int:
         """Run the daemon.
 
         Args:
             once: If True, do a single check and return.
-            poll_interval: Seconds between file scans (default: 2s).
+            poll_interval: Seconds between file scans. ``None`` (default)
+                uses the config value ``daemon.auto_commit.poll_interval``
+                or 2s when unset.
 
         Returns:
             0 on success, 1 on error.
         """
         import sys
+
+        if poll_interval is None:
+            poll_interval = self.poll_interval
 
         ac = self.auto_commit_config
         if ac is None or not ac.enabled:

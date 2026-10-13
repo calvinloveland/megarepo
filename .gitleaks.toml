@@ -41,3 +41,14 @@ paths = [
     # Lift manifest stores age-encrypted ciphertext, never plaintext secrets.
     '''\.k33p/secrets-manifest\.json$''',
 ]
+regex = [
+    # ESP-IDF ships this as the *default* OpenThread demo network master key in
+    # generated sdkconfig files; it is a public upstream constant, not a
+    # credential. Allowlist the exact assignment so the pre-commit hook does
+    # not rewrite sdkconfig on every change.
+    '''CONFIG_OPENTHREAD_NETWORK_MASTERKEY="00112233445566778899aabbccddeeff"''',
+    # Vernissage README documents the localhost-only default admin login for
+    # the local dev server (127.0.0.1); it is a sandbox default, not a live
+    # credential.
+    '''curl http://127\.0\.0\.1:3002/.*admin:secret''',
+]
