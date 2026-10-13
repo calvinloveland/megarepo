@@ -629,6 +629,24 @@ class Daemon:
         except (OSError, subprocess.TimeoutExpired):
             pass
 
+        # New (untracked) files never appear in ``git diff``; include them
+        # explicitly so a host whose only changes are brand-new files still
+        # gets a commit.  ``--exclude-standard`` keeps ignored files out,
+        # matching the ``git add --all`` sweep below.
+        try:
+            result = subprocess.run(
+                ["git", "ls-files", "--others", "--exclude-standard"],
+                capture_output=True, text=True, timeout=30,
+                cwd=str(self._project_root),
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    line = line.strip()
+                    if line:
+                        changed.add(line)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
         if not changed:
             return 0
 
@@ -664,11 +682,14 @@ class Daemon:
         msg = self.message_template().format(files=file_list)
 
         try:
-            subprocess.run(
+            commit_result = subprocess.run(
                 ["git", "commit", "-m", msg],
-                capture_output=True, timeout=30,
+                capture_output=True, text=True, timeout=30,
                 cwd=str(self._project_root),
             )
+            if commit_result.returncode != 0:
+                print(f"  ⚠ git commit failed: {commit_result.stderr.strip()}")
+                return 0
         except (OSError, subprocess.TimeoutExpired) as e:
             print(f"  ⚠ git commit failed: {e}")
             return 0

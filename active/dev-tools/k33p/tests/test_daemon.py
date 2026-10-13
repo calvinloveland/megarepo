@@ -389,6 +389,8 @@ class TestGitPushRecovery:
             calls.append(list(args))
             if args[:3] == ["git", "diff", "--name-only"]:
                 return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:4] == ["git", "ls-files", "--others", "--exclude-standard"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
             if args[:3] == ["git", "add", "--all"]:
                 return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
             if args[:4] == ["git", "diff", "--cached", "--quiet"]:
@@ -407,6 +409,37 @@ class TestGitPushRecovery:
         add_call = next(cmd for cmd in calls if cmd[:2] == ["git", "add"])
         assert add_call[:4] == ["git", "add", "--all", "--"]
 
+    def test_untracked_only_changes_are_committed(self, project_with_daemon: Path, monkeypatch) -> None:
+        """Regression: a host with only brand-new (untracked) files must still get
+        a commit even though ``git diff`` cannot see untracked files."""
+        project = load_project(str(project_with_daemon))
+        daemon = Daemon(project)
+        commits: list[list[str]] = []
+
+        def fake_run(args, **kwargs):
+            commits.append(list(args))
+            if args[:3] == ["git", "diff", "--name-only"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:4] == ["git", "ls-files", "--others", "--exclude-standard"]:
+                return subprocess.CompletedProcess(args, 0, stdout="brand/new_file.txt\n", stderr="")
+            if args[:3] == ["git", "add", "--all"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:4] == ["git", "diff", "--cached", "--quiet"]:
+                return subprocess.CompletedProcess(args, 1, stdout="", stderr="")
+            if args[:2] == ["git", "commit"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:3] == ["git", "rev-parse", "--abbrev-ref"]:
+                return subprocess.CompletedProcess(args, 0, stdout="main\n", stderr="")
+            if args[:2] == ["git", "push"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            raise AssertionError(f"unexpected git command: {args}")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        rc = daemon._do_git_push("https://git.example.com/repo.git")
+        assert rc == 1
+        commit_call = next(cmd for cmd in commits if cmd[:2] == ["git", "commit"])
+        assert any("brand/new_file.txt" in c for c in commit_call)
+
     def test_push_recovers_from_non_fast_forward(self, project_with_daemon: Path, monkeypatch) -> None:
         project = load_project(str(project_with_daemon))
         daemon = Daemon(project)
@@ -418,6 +451,8 @@ class TestGitPushRecovery:
         def fake_run(args, **kwargs):
             calls.append(list(args))
             if args[:3] == ["git", "diff", "--name-only"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:4] == ["git", "ls-files", "--others", "--exclude-standard"]:
                 return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
             if args[:2] == ["git", "add"]:
                 return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
