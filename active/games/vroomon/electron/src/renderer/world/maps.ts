@@ -2745,6 +2745,70 @@ export const MAPS: Record<string, Tilemap> = {
     ambientColor: "#a8c879",
     npcs: [
       {
+        // The other half of the two-path rule. His car's power DOES reach the
+        // wheels - both of them - and the frame is 89% tilt, so 27% of what it
+        // makes reaches the road. A player can check both numbers in the
+        // Inspector, which is the point.
+        id: "racer-pip",
+        name: "Racer Pip",
+        x: 13,
+        y: 5,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "That one's mine. Both wheels turn — I have watched them turn — and it still will not go anywhere. I am beginning to think the wheels were never the problem.",
+          options: [
+            { label: "So what is wrong with it?", next: "pip-tilt" },
+            { label: "How do I build one that holds?", next: "pip-rule" },
+            { label: "Keep at it.", next: "pip-shrug" },
+          ],
+        },
+      },
+      {
+        id: "pip-tilt",
+        name: "Racer Pip",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Four plates, two wheels, one engine — and the power does reach both, I am not arguing. But eighty-nine percent of what that engine makes goes into tipping the thing over. Twenty-seven percent of it ever touches the road. It spins on the spot and I eat dust.",
+        },
+      },
+      {
+        id: "pip-rule",
+        name: "Racer Pip",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "Plates in a line and wheels under them, is what Odile says. The flatter the frame sits, the more of its own push it gets to keep. There is an inspector on your carrier that reads a car part by part — read one before you race it. I did not, and I have been standing here since.",
+        },
+      },
+      {
+        id: "pip-shrug",
+        name: "Racer Pip",
+        x: 0,
+        y: 0,
+        facing: "down",
+        sprite: "rider",
+        dialogue: {
+          text: "I have been at it since dawn. It is a very good car if the race is held on the spot.",
+        },
+      },
+      {
+        id: "tipped-vroomon",
+        name: "A Tipped Vroomon",
+        x: 12,
+        y: 5,
+        facing: "up",
+        sprite: "wreck",
+        dialogue: {
+          text: "Both wheels are still bolted on and both of them turn. The frame above them is folded like a hinge, so most of the push goes into rolling the thing onto its roof. It is not broken. It is badly arranged.",
+        },
+      },
+      {
         // The chain rule, shown rather than told. Her car is a real genome
         // whose blueprint says "The engine sits past every wheel", so the
         // lesson in her mouth is checkable against the sim.

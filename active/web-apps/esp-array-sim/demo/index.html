@@ -255,17 +255,29 @@ the ESP32.</p>
       <h5>INMP441</h5>
       <code>VDD → 3.3V</code><br>
       <code>GND → GND</code><br>
-      <code>SCK → GPIO 19</code><br>
-      <code>WS → GPIO 21</code><br>
+      <code>SCK → GPIO 26</code> <em>(shared with speaker BCLK)</em><br>
+      <code>WS → GPIO 25</code> <em>(shared with speaker WS)</em><br>
       <code>SD → GPIO 23</code><br>
       <code>L/R → GND (left channel)</code>
     </div>
     <div class="pin-card">
       <h5>Kconfig defaults</h5>
-      <code>CONFIG_ESP_ARRAY_MIC_I2S_SCK_PIN=19</code><br>
-      <code>CONFIG_ESP_ARRAY_MIC_I2S_WS_PIN=21</code><br>
+      <code>CONFIG_ESP_ARRAY_MIC_I2S_SCK_PIN=26</code><br>
+      <code>CONFIG_ESP_ARRAY_MIC_I2S_WS_PIN=25</code><br>
       <code>CONFIG_ESP_ARRAY_MIC_I2S_DATA_PIN=23</code><br>
     </div>
+  </div>
+  <div class="card" style="margin-top:12px;border-color:var(--accent)">
+    <h4 style="margin-bottom:8px;color:var(--accent)">Why the mic uses the same SCK/WS pins as the speaker</h4>
+    <p>
+      Tight speaker↔mic timing is critical for TOA-based localization.
+      The ESP32 runs a <strong>single I2S port in full-duplex mode</strong> (TX+RX),
+      generating one shared BCLK/WS clock on GPIO 26/25 that drives
+      <em>both</em> the MAX98357A and the INMP441 as slaves.
+      This keeps the speaker output and microphone capture locked to
+      the exact same sample clock, eliminating the ~3 ms jitter you'd
+      get from two independent I2S masters.
+    </p>
   </div>
 </li>
 

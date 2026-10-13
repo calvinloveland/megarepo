@@ -47,5 +47,10 @@ daemon:
       - "*.swp"
       - ".ruff_cache/"
       - "*.egg-info/"
+      # Vendored/bundled trees that must never be walked or content-addressed:
+      # .esp-idf is a multi-GB ESP-IDF checkout, .history dirs are KiCad's
+      # internal git backup repos (both already gitignored for `git add`).
+      - ".esp-idf"
+      - ".history"
     message: "k33p auto: changes in {files}"
     push_after: 5m

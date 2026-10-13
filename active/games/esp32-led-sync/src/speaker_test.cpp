@@ -1,12 +1,14 @@
 /*
- * ESP32 Quiet Speaker + Mic Clarity Test
+ * ESP32 Phase-1 Single-Node Hardware Test
  *
- * Final tuned config from on-device mic sweep:
+ * Minimal bring-up pass for the speaker + microphone path:
+ *   - very quiet 440 Hz test tone
+ *   - microphone capture + clarity diagnostics
+ *   - long startup grace period so speaker power can be connected safely
+ *
+ * Tuned config from on-device mic sweep:
  *   - speaker: 16-bit stereo, I2S Philips (STAND_I2S)
- *   - fixed software gain: 0.005 (intentionally much quieter)
- *
- * This keeps one measured 440 Hz section so we can continue verifying clarity
- * objectively with the INMP441 mic.
+ *   - fixed software gain: 0.001 (extremely quiet)
  */
 
 #include <Arduino.h>
@@ -31,8 +33,10 @@
 #define MIC_MAX_24BIT        8388607.0
 
 static constexpr float TEST_FREQ_HZ = 440.0f;
-static constexpr float FIXED_MASTER_GAIN = 0.005f;
+static constexpr float FIXED_MASTER_GAIN = 0.001f;
 static constexpr float BASE_AMPLITUDE = 1200.0f;
+static constexpr float ANALYSIS_LOWPASS_ALPHA = 0.18f;
+static constexpr int STARTUP_GRACE_MS = 15000;
 static constexpr float NOTE_C4 = 261.63f;
 static constexpr float NOTE_E4 = 329.63f;
 static constexpr float NOTE_G4 = 392.00f;
@@ -65,10 +69,13 @@ struct ClarityResult {
   double fundOverSilenceDb = 0.0;
   double worstHarmonicVsFundDb = 0.0;
   double clarityDb = -999.0;
+  float dominantFreqHz = 0.0f;
+  double dominantFreqRms = 0.0;
 };
 
 static bool gMicReady = false;
 static int32_t gToneCapture[TONE_CAPTURE_FRAMES] = {0};
+static int32_t gToneCaptureFiltered[TONE_CAPTURE_FRAMES] = {0};
 
 // ---------------------------------------------------------------------------
 // Mic helpers
@@ -206,6 +213,38 @@ static double sineComponentRms(const int32_t *samples, int count, float freqHz) 
   return amplitude / sqrt(2.0);
 }
 
+static void lowPassFilter(const int32_t *samples, int count, int32_t *out, float alpha) {
+  if (count <= 0 || !out) return;
+  double y = (double)samples[0];
+  out[0] = samples[0];
+  for (int i = 1; i < count; i++) {
+    y += ((double)samples[i] - y) * (double)alpha;
+    out[i] = (int32_t)y;
+    if ((i & 255) == 255) yield();
+  }
+}
+
+static void estimateDominantFreq(const int32_t *samples,
+                                 int count,
+                                 float minHz,
+                                 float maxHz,
+                                 float stepHz,
+                                 float *outFreqHz,
+                                 double *outRms) {
+  float bestFreq = 0.0f;
+  double bestRms = 0.0;
+  for (float freq = minHz; freq <= maxHz; freq += stepHz) {
+    double rms = sineComponentRms(samples, count, freq);
+    if (rms > bestRms) {
+      bestRms = rms;
+      bestFreq = freq;
+    }
+    yield();
+  }
+  if (outFreqHz) *outFreqHz = bestFreq;
+  if (outRms) *outRms = bestRms;
+}
+
 static ClarityResult analyzeTone(const int32_t *samples, int count, double silenceRms) {
   ClarityResult r;
   if (count <= 0) return r;
@@ -213,6 +252,7 @@ static ClarityResult analyzeTone(const int32_t *samples, int count, double silen
   r.fundRms = sineComponentRms(samples, count, TEST_FREQ_HZ);
   r.harm2Rms = sineComponentRms(samples, count, TEST_FREQ_HZ * 2.0f);
   r.harm3Rms = sineComponentRms(samples, count, TEST_FREQ_HZ * 3.0f);
+  estimateDominantFreq(samples, count, 50.0f, 3000.0f, 5.0f, &r.dominantFreqHz, &r.dominantFreqRms);
   double residualSq = r.totalRms * r.totalRms - r.fundRms * r.fundRms;
   if (residualSq < 0.0) residualSq = 0.0;
   r.residualRms = sqrt(residualSq);
@@ -231,6 +271,7 @@ static void printClarity(const ClarityResult &r, int capturedFrames) {
   Serial.printf("  2nd harmonic 880Hz:    %.1f (%.1f dBFS)\n", r.harm2Rms, dbfsFromLinear(r.harm2Rms > 1.0 ? r.harm2Rms : 1.0));
   Serial.printf("  3rd harmonic 1320Hz:   %.1f (%.1f dBFS)\n", r.harm3Rms, dbfsFromLinear(r.harm3Rms > 1.0 ? r.harm3Rms : 1.0));
   Serial.printf("  residual rms:          %.1f (%.1f dBFS)\n", r.residualRms, dbfsFromLinear(r.residualRms > 1.0 ? r.residualRms : 1.0));
+  Serial.printf("  dominant frequency:    %.1f Hz (%.1f dBFS)\n", r.dominantFreqHz, dbfsFromLinear(r.dominantFreqRms > 1.0 ? r.dominantFreqRms : 1.0));
   Serial.printf("  fund over silence:     %.1f dB\n", r.fundOverSilenceDb);
   Serial.printf("  worst harmonic vs fund %.1f dB\n", r.worstHarmonicVsFundDb);
   Serial.printf("  clarity score:         %.1f dB\n", r.clarityDb);
@@ -359,9 +400,11 @@ static void playMelody(StereoMicStats *micStats = nullptr) {
 void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("\n\n========== ESP32 Quiet Speaker + Mic Clarity Test ==========");
+  Serial.println("\n\n========== ESP32 Phase-1 Single-Node Hardware Test ==========");
   Serial.println("Speaker config: 16-bit stereo / STAND_I2S (best measured config)");
-  Serial.printf("Fixed gain: %.2f | measured tone: %.0f Hz\n", FIXED_MASTER_GAIN, TEST_FREQ_HZ);
+  Serial.printf("Fixed gain: %.3f | measured tone: %.0f Hz\n", FIXED_MASTER_GAIN, TEST_FREQ_HZ);
+  Serial.printf("Startup grace: %d ms (connect speaker power now)\n", STARTUP_GRACE_MS);
+  delay(STARTUP_GRACE_MS);
 
   if (!initSpeakerI2s()) {
     Serial.println("*** Speaker init FAILED ***");
@@ -378,28 +421,28 @@ void setup() {
 
   StereoMicStats silenceStats;
   StereoMicStats toneStats;
-  StereoMicStats melodyStats;
 
   micFlush();
   memset(gToneCapture, 0, sizeof(gToneCapture));
   int toneCaptureFilled = 0;
 
-  Serial.println("Silence section (2 s)...");
-  streamSilence(2000, &silenceStats);
+  Serial.println("Silence section (1 s)...");
+  streamSilence(1000, &silenceStats);
   printStereoStats("Silence mic stats:", silenceStats);
   double silenceBest = max(channelRms(silenceStats.left), channelRms(silenceStats.right));
   micFlush();
 
-  Serial.println("Measured 440 Hz tone section (1.5 s)...");
-  streamNote(TEST_FREQ_HZ, 1500, BASE_AMPLITUDE, &toneStats, gToneCapture, TONE_CAPTURE_FRAMES, &toneCaptureFilled);
+  Serial.println("Measured 440 Hz tone section (1.0 s)...");
+  streamNote(TEST_FREQ_HZ, 1000, BASE_AMPLITUDE, &toneStats, gToneCapture, TONE_CAPTURE_FRAMES, &toneCaptureFilled);
   printStereoStats("Measured-tone mic stats:", toneStats);
-  ClarityResult clarity = analyzeTone(gToneCapture, toneCaptureFilled, silenceBest);
+  memset(gToneCaptureFiltered, 0, sizeof(gToneCaptureFiltered));
+  lowPassFilter(gToneCapture, toneCaptureFilled, gToneCaptureFiltered, ANALYSIS_LOWPASS_ALPHA);
+  Serial.printf("Applying low-pass filter to mic capture for analysis (alpha=%.2f).\n", ANALYSIS_LOWPASS_ALPHA);
+  ClarityResult clarity = analyzeTone(gToneCaptureFiltered, toneCaptureFilled, silenceBest);
   printClarity(clarity, toneCaptureFilled);
   micFlush();
 
-  Serial.println("Quiet musical section...");
-  playMelody(&melodyStats);
-  printStereoStats("Melody mic stats:", melodyStats);
+  Serial.println("Phase-1 hardware test complete.");
 
   i2s_driver_uninstall(MIC_PORT);
   i2s_driver_uninstall(SPEAKER_PORT);

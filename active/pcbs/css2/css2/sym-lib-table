@@ -1,0 +1,10 @@
+(sym_lib_table
+	(version 7)
+	(lib
+		(name "ICS-43432")
+		(type "KiCad")
+		(uri "${KIPRJMOD}/../kicad/ICS-43432.kicad_sym")
+		(options "")
+		(descr "TDK InvenSense ICS-43432 I2S MEMS microphone")
+	)
+)

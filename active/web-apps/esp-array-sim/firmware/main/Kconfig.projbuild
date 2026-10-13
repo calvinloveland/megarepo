@@ -47,7 +47,7 @@ config ESP_ARRAY_MIC_I2S_ENABLED
 
 config ESP_ARRAY_MIC_I2S_SCK_PIN
     int "Mic I2S SCK pin"
-    default 19
+    default 26
     range 0 39
     depends on ESP_ARRAY_MIC_I2S_ENABLED
     help
@@ -55,7 +55,7 @@ config ESP_ARRAY_MIC_I2S_SCK_PIN
 
 config ESP_ARRAY_MIC_I2S_WS_PIN
     int "Mic I2S WS pin"
-    default 21
+    default 25
     range 0 39
     depends on ESP_ARRAY_MIC_I2S_ENABLED
     help
