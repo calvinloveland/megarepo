@@ -1,0 +1,54 @@
+/* Playful Arcade theme — a brighter, color-forward alternative to the default
+   neon-terminal look. Applied as an override layer on top of gamebase.css so
+   the layout and components stay identical; only the visual language changes. */
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", "Trebuchet MS", sans-serif;
+  background: linear-gradient(165deg, #1b1035 0%, #0d1b3a 55%, #06202e 100%);
+}
+
+.brand { font-family: system-ui, sans-serif; letter-spacing: 1px; color: #fff; }
+.brand span { color: #f472b6; }
+.nav { text-transform: none; font-size: 13px; }
+.nav a { color: #c4b5fd; }
+.nav a:hover { color: #f9a8d4; }
+
+.hero h1 {
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(90deg, #f472b6, #60a5fa, #34d399);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero .stat { color: #f472b6; }
+
+.card {
+  border: none;
+  border-radius: 20px;
+  padding: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38);
+  border-top: 4px solid #f472b6;
+}
+
+.card:nth-child(3n + 2) { border-top-color: #60a5fa; }
+.card:nth-child(3n) { border-top-color: #34d399; }
+.card:hover { transform: translateY(-6px) scale(1.012); box-shadow: 0 20px 44px rgba(0, 0, 0, 0.45); }
+.card h3 { font-size: 20px; }
+.card h3 a { color: #fff; }
+
+.pill { border-radius: 999px; }
+.pill.muted { background: rgba(255, 255, 255, 0.1); color: #dbeafe; }
+
+.btn {
+  border-radius: 999px;
+  padding: 11px 22px;
+  background: linear-gradient(90deg, #f472b6, #a855f7);
+  color: #fff;
+}
+.btn.secondary { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+.panel { border-radius: 18px; background: rgba(255, 255, 255, 0.045); }
+.site-footer { color: #a5b4fc; }
