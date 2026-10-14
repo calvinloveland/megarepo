@@ -268,6 +268,26 @@ covered by tests (`tests/test_platform_polish.py`) — suite now 55 tests.
    `/favicon.ico` 404s are gone (verified: zero console errors on load).
 8. **Unbounded scores** — docs now call out omitting `max` / `max: null`.
 
-Not yet addressed: `POST /api/rescan` remains unauthenticated (idempotent, reads
-disk only), and matchmaking is still polling-based rather than real-time.
+Not yet addressed: none of the reviewed items. Matchmaking is still not a
+WebSocket-style bidirectional channel, but it is now real-time push (SSE), and
+`POST /api/rescan` is authenticated.
+
+## Platform response, round 2 (main agent, 2026-10-14)
+
+The residual items from the first response are now addressed; suite is 62 tests.
+
+9. **Authenticated rescan** — `POST /api/rescan` requires a player token, and the
+   catalog button sends one.
+10. **Bundled progress** — added `GET /api/games/<slug>/me` and
+    `Gamebase.myProgress()` (best, rank, points, achievement state in one call).
+11. **Supported lifecycle helper** — `Gamebase.endRun({score, meta, unlock})`
+    submits the score (criteria evaluated server-side), unlocks extras, and emits
+    a `runended` event. Marble Survivors now uses it; the recommended port shape
+    is documented.
+12. **Real-time matchmaking** — `GET /api/games/<slug>/matchmaking/stream` is a
+    server-sent-events endpoint, and `Gamebase.waitForMatch()` consumes it with a
+    polling fallback (`{poll: true}` forces polling).
+13. **Auto-rescan** — `GAMEBASE_AUTO_RESCAN` (default on) resyncs the catalog
+    whenever the registry folder changes, so new game folders appear without a
+    restart or a button press.
 

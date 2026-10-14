@@ -51,24 +51,24 @@
     if (typeof Gamebase === "undefined") return;
     setStatus("Saving score " + run.score + "…");
 
-    let result;
+    // One lifecycle call at game over: score + server-side criteria + any
+    // extra manual unlocks.
+    let outcome;
     try {
-      result = await Gamebase.submitScore(run.score, {
-        level: run.level,
-        kills: run.kills,
-        survival_seconds: run.survivalTime,
+      outcome = await Gamebase.endRun({
+        score: run.score,
+        meta: { level: run.level, kills: run.kills, survival_seconds: run.survivalTime },
       });
     } catch (error) {
       setStatus("Could not save score: " + (error && error.message ? error.message : error));
       return;
     }
 
-    bestScore = result.score;
-    if (result.rank) rank = result.rank;
+    const submission = outcome.submission || {};
+    if (submission.score != null) bestScore = submission.score;
+    if (submission.rank) rank = submission.rank;
 
-    // Score, count, and meta criteria are all evaluated server-side, so the
-    // submission response already lists everything this run unlocked.
-    const unlocked = (result.unlocked || []).map((achievement) => achievement.title);
+    const unlocked = outcome.unlocked.map((achievement) => achievement.title);
     renderStatus(unlocked.length ? "unlocked " + unlocked.join(", ") : undefined);
   }
 

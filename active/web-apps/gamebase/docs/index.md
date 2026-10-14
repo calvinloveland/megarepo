@@ -130,7 +130,8 @@ Games include one file:
   await Gamebase.unlock("first-blood");           // idempotent
   const board = await Gamebase.leaderboard(10);
   const match = await Gamebase.findMatch();        // joins/creates a queue ticket
-  const joined = await Gamebase.waitForMatch();    // polls until matched
+  const joined = await Gamebase.waitForMatch();    // real-time (SSE) until matched
+  await Gamebase.endRun({ score: 1200, meta: { level: 3 } }); // score + achievements in one call
   await Gamebase.reportResult(match.id, { score: 3 });
 </script>
 ```
@@ -145,12 +146,14 @@ game on the platform.
 | `player` | The cached player object. |
 | `leaderboard(limit?)` | Best scores, ranked (rows include `is_me`). |
 | `myBest()` | The current player's best score and rank, even below the top 100. |
+| `myProgress()` | Bundled per-game progress: best, rank, points, achievement state. |
 | `submitScore(score, meta?)` | Submit and rank a score; retries once on a short rate-limit. |
+| `endRun({score, meta?, unlock?})` | Standard game-over handoff: score + criteria + manual unlocks; emits `runended`. |
 | `achievements()` | List achievements with unlock state. |
 | `unlock(idOrIds)` | Unlock one or many achievements; resolves to newly unlocked definitions. |
 | `findMatch()` | Join the queue; returns a ticket (may be already matched). |
 | `matchStatus()` | Current ticket. |
-| `waitForMatch({interval, timeout})` | Poll until an opponent joins. |
+| `waitForMatch({interval, timeout})` | Wait for an opponent via SSE push, polling only as fallback. |
 | `reportResult(matchId, result)` | Record this player's result. |
 | `match(matchId)` | Read the shared match object. |
 | `cancelMatch()` | Leave the queue. |
@@ -169,12 +172,14 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | `GET` | `/api/games/<slug>` | Game detail: versions, lineage, top scores. |
 | `GET` | `/api/games/<slug>/leaderboard?limit=` | Ranked best-per-player scores (`is_me` per row). |
 | `GET` | `/api/games/<slug>/my-best` | Current player's best score and rank. |
+| `GET` | `/api/games/<slug>/me` | Bundled progress: best, rank, points, achievements. |
 | `POST` | `/api/games/<slug>/scores` | Submit `{score, meta}`; returns rank + unlocked. |
 | `GET` | `/api/games/<slug>/achievements` | Definitions + unlock state. |
 | `POST` | `/api/games/<slug>/achievements/<id>` | Unlock an achievement. |
 | `POST` | `/api/games/<slug>/achievements` | Batch unlock `{ids: [...]}`. |
 | `POST` | `/api/games/<slug>/matchmaking` | Join queue / form a match. |
 | `GET` | `/api/games/<slug>/matchmaking` | Current ticket (+ match). |
+| `GET` | `/api/games/<slug>/matchmaking/stream` | SSE: push ticket/match changes (`?timeout=` seconds). |
 | `DELETE` | `/api/games/<slug>/matchmaking` | Cancel a queued ticket. |
 | `GET` | `/api/matches/<id>` | Read a match. |
 | `POST` | `/api/matches/<id>/result` | Report `{result}`; completes when all report. |
@@ -182,7 +187,7 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | `POST` | `/api/games` | **Push**: create or update a game from `{manifest, files, changelog}`. |
 | `GET` | `/api/games/<slug>/files` | **Pull**: manifest plus all text files. |
 | `POST` | `/api/games/<slug>/publish` | Re-sync disk manifest and record `{changelog}`. |
-| `POST` | `/api/rescan` | Re-scan the registry. |
+| `POST` | `/api/rescan` | Re-scan the registry (auth required). |
 
 ## CLI
 
@@ -235,8 +240,9 @@ set (a push is a complete publish, not a patch).
 
 Because a game is just a folder, an agent can write one, remix one, or patch one
 with ordinary file edits — no build step or deploy pipeline required. The catalog
-page has a **Rescan registry** button (backed by `POST /api/rescan`) so newly
-added folders appear without restarting the server.
+page has a **Rescan registry** button (`POST /api/rescan`, authenticated), and
+with `GAMEBASE_AUTO_RESCAN` on (the default) the catalog also resyncs when the
+registry folder changes, so newly added folders appear without a restart.
 
 > **Round-trip example:** `active/web-apps/gamebase/registry/marble-survivors/`
 is a port of the megarepo's `active/games/marble-survivors`, and
@@ -266,6 +272,7 @@ port produced.
 | `GAMEBASE_DB_PATH` | `<project>/instance/gamebase.sqlite3` | SQLite database. |
 | `GAMEBASE_SCORE_RATE_LIMIT` | `3` | Minimum seconds between score submissions per player/game. |
 | `GAMEBASE_THEME` | `default` | Set to `playful` for the brighter arcade theme in `static/themes/`. |
+| `GAMEBASE_AUTO_RESCAN` | `1` | Resync the catalog when the registry folder changes. |
 | `PORT` | `5120` | Server port (`5121` in the launcher registry). |
 
 ## Running and testing
@@ -287,12 +294,13 @@ python scripts/check_all.py gamebase
 
 - **Orb Tap** — a clicker demonstrating high scores and score/count achievements.
 - **Reflex Duel** — a 1v1 matchmaking reaction duel demonstrating the queue,
-  match object, result reporting, and achievement unlocks.
+  match object, SSE match waiting, result reporting, and achievement unlocks.
+- **Marble Survivors** — the ported `active/games/marble-survivors` roguelite,
+  showing `endRun()`, `meta` achievement criteria, and `myProgress()`.
 
 ## Not yet built
 
 - Persistent accounts (email/OAuth) beyond anonymous guest identities.
 - Server-authoritative game logic / anti-cheat beyond bounds and rate limits.
-- Real-time transport (currently matchmaking is polling-based).
 - Friend lists, chat, and cross-game progression. These would build on the same
   player + match tables.

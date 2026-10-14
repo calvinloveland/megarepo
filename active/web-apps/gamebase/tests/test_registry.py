@@ -58,16 +58,17 @@ def test_scaffold_rejects_invalid_slug(client):
 
 
 def test_scan_skips_invalid_game_directories(client, registry_dir):
+    token, _ = create_player(client, handle="scanner")
     broken = registry_dir / "broken"
     broken.mkdir()
     (broken / "game.yaml").write_text("slug: not-a-match\ntitle: Broken\n", encoding="utf-8")
 
-    health = client.post("/api/rescan").get_json()
+    health = client.post("/api/rescan", headers=auth(token)).get_json()
     assert "broken" not in health["games"]
 
     # A directory without a manifest is ignored entirely.
     write_game(registry_dir, "valid-game", "slug: valid-game\ntitle: Valid\nversion: 1.0.0")
-    health = client.post("/api/rescan").get_json()
+    health = client.post("/api/rescan", headers=auth(token)).get_json()
     assert "valid-game" in health["games"]
 
 
