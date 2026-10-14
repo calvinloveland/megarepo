@@ -84,6 +84,9 @@
       const message = (payload && payload.error) || response.statusText;
       const error = new Error(message);
       error.status = response.status;
+      if (payload && typeof payload.retry_after_seconds === "number") {
+        error.retryAfter = payload.retry_after_seconds;
+      }
       throw error;
     }
     return payload;
@@ -146,13 +149,30 @@
       const payload = await request("/games/" + slug + "/leaderboard" + query);
       return payload.leaderboard;
     },
+    async myBest() {
+      await ready();
+      const slug = requireSlug();
+      const payload = await request("/games/" + slug + "/my-best");
+      return payload.best === null ? null : payload;
+    },
     async submitScore(score, meta) {
       await ready();
       const slug = requireSlug();
-      return request("/games/" + slug + "/scores", {
-        method: "POST",
-        body: { score: score, meta: meta || {} },
-      });
+      const attempt = () =>
+        request("/games/" + slug + "/scores", {
+          method: "POST",
+          body: { score: score, meta: meta || {} },
+        });
+      try {
+        return await attempt();
+      } catch (error) {
+        // A run that dies faster than the rate limit should not be silently
+        // lost: wait out a short cooldown and retry exactly once.
+        const retryable = error.status === 429 && typeof error.retryAfter === "number" && error.retryAfter <= 15;
+        if (!retryable) throw error;
+        await new Promise((resolve) => setTimeout(resolve, Math.ceil(error.retryAfter * 1000) + 50));
+        return attempt();
+      }
     },
     async achievements() {
       await ready();
@@ -160,12 +180,24 @@
       const payload = await request("/games/" + slug + "/achievements");
       return payload.achievements;
     },
-    async unlock(achievementId) {
+    async unlock(achievementIds) {
       await ready();
       const slug = requireSlug();
-      return request("/games/" + slug + "/achievements/" + encodeURIComponent(achievementId), {
+      // Always resolves to the list of newly unlocked definitions, whether the
+      // caller passed one id or many.
+      if (!Array.isArray(achievementIds)) {
+        const payload = await request(
+          "/games/" + slug + "/achievements/" + encodeURIComponent(achievementIds),
+          { method: "POST" }
+        );
+        return payload.unlocked ? [payload.unlocked] : [];
+      }
+      if (achievementIds.length === 0) return [];
+      const payload = await request("/games/" + slug + "/achievements", {
         method: "POST",
+        body: { ids: achievementIds },
       });
+      return payload.unlocked || [];
     },
     async findMatch() {
       await ready();

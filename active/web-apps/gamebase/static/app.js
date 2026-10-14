@@ -72,6 +72,23 @@
     });
   });
 
+  document.querySelectorAll("[data-rescan]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      button.textContent = "Scanning…";
+      try {
+        const response = await fetch("/api/rescan", { method: "POST" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "rescan failed");
+        window.location.reload();
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = "Rescan failed";
+        console.error("[gamebase] rescan failed", error);
+      }
+    });
+  });
+
   document.querySelectorAll("[data-achievements]").forEach(async (panel) => {
     try {
       const authToken = await ensureIdentity();

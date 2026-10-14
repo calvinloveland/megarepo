@@ -83,7 +83,10 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(models.RateLimited)
     def _rate_limited(error: models.RateLimited):
-        return jsonify({"error": str(error)}), 429
+        retry_after = int(error.retry_after + 0.999)
+        response = jsonify({"error": str(error), "retry_after_seconds": round(error.retry_after, 3)})
+        response.headers["Retry-After"] = str(retry_after)
+        return response, 429
 
     @app.errorhandler(404)
     def _missing(error):

@@ -90,16 +90,28 @@ capabilities:
 leaderboard.
 
 - `order`: `desc` (default) or `asc`.
-- `min` / `max`: server-side validation bounds; out-of-range submissions are rejected.
+- `min` / `max`: server-side validation bounds. Omit `max` (or set `max: null`)
+  for unbounded scores; set a soft cap only if the game can exceed it.
 - `label`: column heading shown in the UI.
+
+Leaderboard rows include `is_me` when the request is authenticated, so a client
+can find the current player without scanning the board.
 
 **`achievements`** — a list of achievements.
 
 - `criteria.type: score` with `gte`/`lte` unlocks automatically when a submitted
   score satisfies the bound.
 - `criteria.type: count` with `gte` unlocks after N score submissions.
+- `criteria.type: meta` with `key` and `gte`/`lte`/`eq` unlocks when the same key
+  in the submitted `meta` satisfies the bound, e.g.
+  `criteria: {type: meta, key: level, gte: 5}`.
 - `criteria: {}` (or omitted) means the game unlocks it manually via the SDK.
 - `hidden: true` hides the achievement until unlocked.
+
+**Trust model:** `score`, `count`, and `meta` achievements are evaluated on the
+server from the submitted payload, so one `submitScore` call can unlock them.
+Manual achievements (`criteria: {}`) are client-asserted — any authenticated
+client can POST an id. Use them only for cosmetic or non-competitive markers.
 
 **`matchmaking`** — enables the queue.
 
@@ -131,10 +143,11 @@ game on the platform.
 | --- | --- |
 | `ready(handle?)` | Resolve/create the player identity. |
 | `player` | The cached player object. |
-| `leaderboard(limit?)` | Best scores, ranked. |
-| `submitScore(score, meta?)` | Submit and rank a score. |
+| `leaderboard(limit?)` | Best scores, ranked (rows include `is_me`). |
+| `myBest()` | The current player's best score and rank, even below the top 100. |
+| `submitScore(score, meta?)` | Submit and rank a score; retries once on a short rate-limit. |
 | `achievements()` | List achievements with unlock state. |
-| `unlock(id)` | Unlock an achievement (idempotent). |
+| `unlock(idOrIds)` | Unlock one or many achievements; resolves to newly unlocked definitions. |
 | `findMatch()` | Join the queue; returns a ticket (may be already matched). |
 | `matchStatus()` | Current ticket. |
 | `waitForMatch({interval, timeout})` | Poll until an opponent joins. |
@@ -154,10 +167,12 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | `GET` | `/api/me` | Current player, achievements, points. |
 | `GET` | `/api/games` | Catalog with top scores. |
 | `GET` | `/api/games/<slug>` | Game detail: versions, lineage, top scores. |
-| `GET` | `/api/games/<slug>/leaderboard?limit=` | Ranked best-per-player scores. |
+| `GET` | `/api/games/<slug>/leaderboard?limit=` | Ranked best-per-player scores (`is_me` per row). |
+| `GET` | `/api/games/<slug>/my-best` | Current player's best score and rank. |
 | `POST` | `/api/games/<slug>/scores` | Submit `{score, meta}`; returns rank + unlocked. |
 | `GET` | `/api/games/<slug>/achievements` | Definitions + unlock state. |
 | `POST` | `/api/games/<slug>/achievements/<id>` | Unlock an achievement. |
+| `POST` | `/api/games/<slug>/achievements` | Batch unlock `{ids: [...]}`. |
 | `POST` | `/api/games/<slug>/matchmaking` | Join queue / form a match. |
 | `GET` | `/api/games/<slug>/matchmaking` | Current ticket (+ match). |
 | `DELETE` | `/api/games/<slug>/matchmaking` | Cancel a queued ticket. |
@@ -219,17 +234,29 @@ set (a push is a complete publish, not a patch).
 3. The new version is recorded in `game_versions` and shown in the version history.
 
 Because a game is just a folder, an agent can write one, remix one, or patch one
-with ordinary file edits — no build step or deploy pipeline required.
+with ordinary file edits — no build step or deploy pipeline required. The catalog
+page has a **Rescan registry** button (backed by `POST /api/rescan`) so newly
+added folders appear without restarting the server.
+
+> **Round-trip example:** `active/web-apps/gamebase/registry/marble-survivors/`
+is a port of the megarepo's `active/games/marble-survivors`, and
+`feedback/2026-10-14_marble-survivors_port.md` records the platform feedback the
+port produced.
 
 ## Hosting and trust model
 
 - Games are served same-origin under `/play/<slug>/` inside an iframe with
   `sandbox="allow-scripts allow-same-origin allow-forms"`.
-- Asset paths are resolved with traversal protection (`registry.game_asset_path`).
-- Score bounds and achievement criteria are enforced **server-side** from the
-  manifest. Client-submitted scores are still ultimately client-reported; games
-  that need stronger guarantees should report through their own server-side
-  validation. Rate limiting (`GAMEBASE_SCORE_RATE_LIMIT`, seconds) blunts spam.
+- Asset paths are resolved with traversal protection (`registry.game_asset_path`),
+  and the manifest (`.yaml`) plus dotfiles are never served (see
+  `registry.is_private_asset`).
+- Score bounds and `score`/`count`/`meta` achievement criteria are enforced
+  **server-side** from the manifest. Client-submitted scores are still
+  ultimately client-reported; manual achievements are client-asserted. Games
+  that need stronger guarantees should validate through their own server.
+- Score submission is rate-limited (`GAMEBASE_SCORE_RATE_LIMIT`, seconds). A 429
+  response carries `Retry-After` and `retry_after_seconds`, and the SDK retries
+  a submission once when the cooldown is short so a fast run is not lost.
 
 ## Configuration
 

@@ -353,6 +353,16 @@ def game_asset_path(registry_dir: Path, slug: str, relative: str) -> Path | None
     return candidate
 
 
+def is_private_asset(relative: str) -> bool:
+    """Manifest and dotfiles are game metadata, not runtime assets to serve."""
+    parts = PurePosixPath(relative.replace("\\", "/")).parts
+    if not parts:
+        return True
+    if parts[-1] == MANIFEST_NAME:
+        return True
+    return any(part.startswith(".") for part in parts)
+
+
 # ── Publishing by API/CLI ────────────────────────────────────────────────────
 
 

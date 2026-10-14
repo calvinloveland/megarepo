@@ -133,7 +133,37 @@ def leaderboard(slug: str):
     except ValueError:
         limit = 10
     order = (game["capabilities"].get("leaderboard") or {}).get("order", "desc")
-    return jsonify({"leaderboard": models.leaderboard(get_db(), slug, limit=limit, order=order)})
+    player = current_player()
+    return jsonify(
+        {
+            "leaderboard": models.leaderboard(
+                get_db(), slug, limit=limit, order=order, viewer_id=player["id"] if player else None
+            )
+        }
+    )
+
+
+@api_bp.get("/games/<slug>/my-best")
+def my_best(slug: str):
+    """The current player's best score and rank, even outside the top 100."""
+    game = _require_game(slug)
+    if game is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    player = current_player()
+    if player is None:
+        return jsonify({"error": "authentication required"}), 401
+    order = (game["capabilities"].get("leaderboard") or {}).get("order", "desc")
+    entry = models.player_best_entry(get_db(), slug, player["id"], order=order)
+    if entry is None:
+        return jsonify({"best": None, "rank": None})
+    return jsonify(
+        {
+            "best": entry["score"],
+            "rank": entry["rank"],
+            "is_me": True,
+            "achieved_at": entry["created_at"],
+        }
+    )
 
 
 # ── Scores ──────────────────────────────────────────────────────────────────
@@ -188,6 +218,19 @@ def unlock_achievement(player: dict[str, Any], slug: str, achievement_id: str):
         return jsonify({"error": f"game not found: {slug}"}), 404
     unlocked = models.unlock_achievement(get_db(), slug, player["id"], achievement_id)
     return jsonify({"unlocked": unlocked, "already_unlocked": unlocked is None}), (201 if unlocked else 200)
+
+
+@api_bp.post("/games/<slug>/achievements")
+@require_player
+def unlock_achievements(player: dict[str, Any], slug: str):
+    """Batch-unlock achievements in one request (game-over handoff)."""
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    ids = _json_body().get("ids")
+    if not isinstance(ids, list) or not ids or not all(isinstance(item, str) for item in ids):
+        return jsonify({"error": "ids must be a non-empty list of strings"}), 400
+    result = models.unlock_achievements(get_db(), slug, player["id"], ids)
+    return jsonify(result), 201 if result["unlocked"] else 200
 
 
 # ── Matchmaking ─────────────────────────────────────────────────────────────

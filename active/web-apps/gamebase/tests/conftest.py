@@ -52,6 +52,13 @@ capabilities:
       criteria:
         type: count
         gte: 2
+    - id: level-five
+      title: Level Five
+      points: 12
+      criteria:
+        type: meta
+        key: level
+        gte: 5
     - id: secret
       title: Secret
       hidden: true

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +31,10 @@ _NOUNS = (
 class RateLimited(Exception):
     """Raised when a player submits scores faster than the platform allows."""
 
+    def __init__(self, message: str, retry_after: float = 0.0):
+        super().__init__(message)
+        self.retry_after = max(0.0, retry_after)
+
 
 class NotFound(Exception):
     """Raised when a referenced game, player, ticket, or match is missing."""
@@ -38,6 +42,11 @@ class NotFound(Exception):
 
 def utcnow() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _parse_timestamp(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def _new_id() -> str:
@@ -286,8 +295,14 @@ def _leaderboard_order(config: dict[str, Any]) -> str:
     return "ASC" if config.get("order") == "asc" else "DESC"
 
 
-def leaderboard(conn, slug: str, limit: int = 10, *, order: str = "desc") -> list[dict[str, Any]]:
-    """Best score per player, ranked. Ties break toward the earlier submission."""
+def leaderboard(
+    conn, slug: str, limit: int = 10, *, order: str = "desc", viewer_id: str | None = None
+) -> list[dict[str, Any]]:
+    """Best score per player, ranked. Ties break toward the earlier submission.
+
+    When ``viewer_id`` is given, each row carries ``is_me`` so clients can find
+    the current player without scanning the whole board.
+    """
     direction = "ASC" if order == "asc" else "DESC"
     rows = conn.execute(
         f"""
@@ -314,6 +329,7 @@ def leaderboard(conn, slug: str, limit: int = 10, *, order: str = "desc") -> lis
             "score": row["score"],
             "meta": _loads(row["meta"]) or {},
             "created_at": row["created_at"],
+            "is_me": viewer_id is not None and row["player_id"] == viewer_id,
         }
         for index, row in enumerate(rows)
     ]
@@ -329,10 +345,23 @@ def best_score(conn, slug: str, player_id: str, *, order: str = "desc") -> float
 
 
 def player_rank(conn, slug: str, player_id: str, *, order: str = "desc") -> int | None:
-    board = leaderboard(conn, slug, limit=100_000, order=order)
+    entry = player_best_entry(conn, slug, player_id, order=order)
+    return entry["rank"] if entry else None
+
+
+def player_best_entry(
+    conn, slug: str, player_id: str, *, order: str = "desc"
+) -> dict[str, Any] | None:
+    """Return a player's best leaderboard entry (including rank), or ``None``.
+
+    Unlike :func:`best_score` this also resolves the player's rank, which is what
+    an in-game HUD needs. It scans the full board, so it stays correct even when
+    the player is outside the requested top-N.
+    """
+    board = leaderboard(conn, slug, limit=100_000, order=order, viewer_id=player_id)
     for entry in board:
         if entry["player_id"] == player_id:
-            return entry["rank"]
+            return entry
     return None
 
 
@@ -369,15 +398,18 @@ def submit_score(
     value = _validate_score(score, config)
 
     if rate_limit_seconds > 0:
-        threshold = (datetime.now(timezone.utc) - timedelta(seconds=rate_limit_seconds)).replace(
-            microsecond=0
-        ).isoformat()
         recent = conn.execute(
-            "SELECT 1 FROM scores WHERE slug = ? AND player_id = ? AND created_at > ? LIMIT 1",
-            (slug, player_id, threshold),
+            "SELECT created_at FROM scores WHERE slug = ? AND player_id = ? "
+            "ORDER BY created_at DESC LIMIT 1",
+            (slug, player_id),
         ).fetchone()
         if recent:
-            raise RateLimited(f"score submitted within the last {rate_limit_seconds:g}s")
+            elapsed = (datetime.now(timezone.utc) - _parse_timestamp(recent["created_at"])).total_seconds()
+            if elapsed < rate_limit_seconds:
+                raise RateLimited(
+                    f"score submitted within the last {rate_limit_seconds:g}s",
+                    retry_after=rate_limit_seconds - elapsed,
+                )
 
     order = _leaderboard_order(config)
     previous_best = best_score(conn, slug, player_id, order=order)
@@ -388,7 +420,7 @@ def submit_score(
     )
     conn.commit()
 
-    unlocked = _evaluate_score_achievements(conn, slug, player_id, value, config)
+    unlocked = _evaluate_score_achievements(conn, slug, player_id, value, meta or {})
     is_personal_best = previous_best is None or (
         value < previous_best if order == "asc" else value > previous_best
     )
@@ -458,10 +490,48 @@ def unlock_achievement(conn, slug: str, player_id: str, achievement_id: str) -> 
     }
 
 
+def _criteria_satisfied(
+    criteria: dict[str, Any], score: float, submission_count: int, meta: dict[str, Any]
+) -> bool:
+    """Evaluate one achievement's server-side criteria against a submission.
+
+    Supported ``type`` values:
+    - ``score``: ``gte``/``lte`` against the submitted score.
+    - ``count``: ``gte`` against this player's submission count for the game.
+    - ``meta``: ``gte``/``lte``/``eq`` against a key in the submitted ``meta``.
+    """
+    kind = criteria.get("type")
+    if kind == "score":
+        if "gte" in criteria:
+            return score >= float(criteria["gte"])
+        if "lte" in criteria:
+            return score <= float(criteria["lte"])
+        return False
+    if kind == "count":
+        return submission_count >= int(criteria.get("gte", 1))
+    if kind == "meta":
+        key = criteria.get("key")
+        if not isinstance(key, str) or key not in meta:
+            return False
+        actual = meta[key]
+        if "eq" in criteria:
+            return actual == criteria["eq"]
+        try:
+            value = float(actual)
+        except (TypeError, ValueError):
+            return False
+        if "gte" in criteria and value < float(criteria["gte"]):
+            return False
+        if "lte" in criteria and value > float(criteria["lte"]):
+            return False
+        return "gte" in criteria or "lte" in criteria
+    return False
+
+
 def _evaluate_score_achievements(
-    conn, slug: str, player_id: str, score: float, config: dict[str, Any]
+    conn, slug: str, player_id: str, score: float, meta: dict[str, Any]
 ) -> list[dict[str, Any]]:
-    """Unlock any score/count achievements the submission now satisfies."""
+    """Unlock any score/count/meta achievements the submission now satisfies."""
     already = unlocked_achievement_ids(conn, player_id, slug)
     submission_count = conn.execute(
         "SELECT COUNT(*) AS n FROM scores WHERE slug = ? AND player_id = ?", (slug, player_id)
@@ -470,21 +540,26 @@ def _evaluate_score_achievements(
     for achievement in list_achievements(conn, slug):
         if achievement["id"] in already:
             continue
-        criteria = achievement["criteria"] or {}
-        kind = criteria.get("type")
-        earned = False
-        if kind == "score":
-            if "gte" in criteria:
-                earned = score >= float(criteria["gte"])
-            elif "lte" in criteria:
-                earned = score <= float(criteria["lte"])
-        elif kind == "count":
-            earned = submission_count >= int(criteria.get("gte", 1))
-        if earned:
+        if _criteria_satisfied(achievement["criteria"] or {}, score, submission_count, meta):
             unlocked = unlock_achievement(conn, slug, player_id, achievement["id"])
             if unlocked:
                 newly.append(unlocked)
     return newly
+
+
+def unlock_achievements(
+    conn, slug: str, player_id: str, achievement_ids: list[str]
+) -> dict[str, list]:
+    """Unlock several achievements at once, returning newly and already unlocked."""
+    newly: list[dict[str, Any]] = []
+    already: list[str] = []
+    for achievement_id in achievement_ids:
+        unlocked = unlock_achievement(conn, slug, player_id, achievement_id)
+        if unlocked:
+            newly.append(unlocked)
+        else:
+            already.append(achievement_id)
+    return {"unlocked": newly, "already_unlocked": already}
 
 
 def player_achievements(conn, player_id: str) -> list[dict[str, Any]]:

@@ -100,6 +100,8 @@ def play_asset(slug: str, asset: str | None = None):
     if game is None:
         abort(404)
     requested = asset or game["entry"]
+    if registry.is_private_asset(requested):
+        abort(404)
     resolved = registry.game_asset_path(_settings().registry_dir, slug, requested)
     if resolved is None or not resolved.is_file():
         abort(404)
