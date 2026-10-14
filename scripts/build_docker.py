@@ -37,6 +37,10 @@ IMAGES: dict[str, dict[str, str | Path]] = {
         "dockerfile": REPO_ROOT / "active" / "web-apps" / "vernissage" / "Dockerfile",
         "context": REPO_ROOT / "active" / "web-apps" / "vernissage",
     },
+    "gamebase": {
+        "dockerfile": REPO_ROOT / "active" / "web-apps" / "gamebase" / "Dockerfile",
+        "context": REPO_ROOT / "active" / "web-apps" / "gamebase",
+    },
 }
 
 

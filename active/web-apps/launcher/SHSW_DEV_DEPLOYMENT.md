@@ -40,6 +40,7 @@ This is the single source of truth. Each app's `subdomain` field in [`apps.yaml`
 | Drop | _(none — LAN-only)_ | _not exposed_ | Flask | 5111 |
 | Vroomon | _(pending tunnel ingress)_ | _not yet exposed_ | Electron (Node) | 5112 |
 | Washing Machine Tycoon | `washer` | https://washer.shsw.dev | Node.js static server | 3002 |
+| Gamebase | `games` | https://games.shsw.dev | Flask (Docker container) | 5121 |
 
 ## Prerequisites
 

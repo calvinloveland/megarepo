@@ -338,6 +338,9 @@ are revalidation hints and are not part of the ETag.
 
 ## Running and testing
 
+Hosted instance: <https://games.shsw.dev> (a Docker container behind the local
+Cloudflare Tunnel — see [`DEPLOYMENT.md`](../DEPLOYMENT.md)).
+
 ```bash
 cd active/web-apps/gamebase
 nix-shell                       # provides Flask, PyYAML, pytest

@@ -8,6 +8,10 @@ one-click remixing for free.
 
 ## Quick start
 
+**Hosted:** <https://games.shsw.dev>
+
+Local:
+
 ```bash
 cd active/web-apps/gamebase
 nix-shell                     # Flask + PyYAML + pytest
