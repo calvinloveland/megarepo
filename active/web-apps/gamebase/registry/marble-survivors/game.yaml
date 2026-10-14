@@ -1,0 +1,78 @@
+slug: marble-survivors
+title: Blood Marble — Gyro Survivors
+description: Roll a weighted marble through a bullet-hell horde, harvest XP, and pick upgrades to survive as long as you can.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - arcade
+  - survival
+  - roguelite
+  - bullet-hell
+  - single-player
+capabilities:
+  leaderboard:
+    order: desc
+    label: Score
+    min: 0
+    max: 1000000
+  achievements:
+    - id: first-blood
+      title: First Blood
+      description: Finish a run with any score at all.
+      icon: ⭐
+      points: 5
+      criteria:
+        type: score
+        gte: 1
+    - id: thousand-club
+      title: Thousand Club
+      description: Score 1,000 points in a single run.
+      icon: 💯
+      points: 15
+      criteria:
+        type: score
+        gte: 1000
+    - id: five-thousand
+      title: Marble Machine
+      description: Score 5,000 points in a single run.
+      icon: 🔥
+      points: 40
+      criteria:
+        type: score
+        gte: 5000
+    - id: veteran
+      title: Veteran
+      description: Submit five runs to the leaderboard.
+      icon: 🔁
+      points: 20
+      criteria:
+        type: count
+        gte: 5
+    - id: level-five
+      title: Aspirant
+      description: Reach level 5 in a single run.
+      icon: 💎
+      points: 25
+      criteria:
+        type: meta
+        key: level
+        gte: 5
+    - id: survivor
+      title: Survivor
+      description: Stay alive for a full minute.
+      icon: ⏱️
+      points: 25
+      criteria:
+        type: meta
+        key: survival_seconds
+        gte: 60
+    - id: centurion
+      title: Centurion
+      description: Destroy 100 enemies in a single run.
+      icon: 💀
+      points: 30
+      criteria:
+        type: meta
+        key: kills
+        gte: 100

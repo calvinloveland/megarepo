@@ -403,3 +403,22 @@ html, body {
 body {
   overscroll-behavior: none;
 }
+
+/* ─── Gamebase status chip ─────────────────── */
+.gb-status {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 5;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(15, 15, 35, 0.65);
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

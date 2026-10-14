@@ -1562,6 +1562,16 @@ function gameLoop(time) {
 // ─── Game Over ──────────────────────────────
 function gameOver() {
   G.gameOver=true; sfx('gameover');
+  if (typeof window !== 'undefined' && typeof window.onGamebaseGameOver === 'function') {
+    try {
+      window.onGamebaseGameOver({
+        score: G.score,
+        level: G.level,
+        kills: G.enemiesTotalKilled,
+        survivalTime: Math.floor(G.survivalTime),
+      });
+    } catch (error) { console.error('[gamebase] game-over hook failed', error); }
+  }
   setTimeout(()=>{
     G.canvas.addEventListener('click',restartGame,{once:true});
     G.canvas.addEventListener('touchstart',restartGame,{once:true});
