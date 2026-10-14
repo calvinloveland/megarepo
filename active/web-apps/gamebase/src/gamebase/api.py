@@ -92,7 +92,34 @@ def create_identity():
         result = models.create_player(get_db(), handle.strip() if handle else None)
     except ValueError as error:
         return jsonify({"error": str(error)}), 409
-    return jsonify({"token": result["token"], "player": result["player"]}), 201
+    return jsonify(
+        {
+            "token": result["token"],
+            "player": result["player"],
+            "recovery_code": result["recovery_code"],
+        }
+    ), 201
+
+
+@api_bp.get("/me/recovery")
+@require_player
+def recovery_code(player: dict[str, Any]):
+    """Return the player's recovery code so progress can move between devices."""
+    return jsonify({"code": models.get_recovery_code(get_db(), player["id"])})
+
+
+@api_bp.post("/identity/recover")
+def recover_identity():
+    """Re-issue a session for a player from their recovery code (new device)."""
+    code = _json_body().get("code")
+    if not isinstance(code, str) or not code.strip():
+        return jsonify({"error": "code is required"}), 400
+    connection = get_db()
+    player = models.player_for_recovery(connection, code)
+    if player is None:
+        return jsonify({"error": "invalid recovery code"}), 404
+    token = models.create_session(connection, player["id"])
+    return jsonify({"token": token, "player": player})
 
 
 @api_bp.get("/me")
@@ -226,6 +253,12 @@ def submit_score(player: dict[str, Any], slug: str):
         )
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
+    extra_unlocks = body.get("unlock") or []
+    if isinstance(extra_unlocks, list) and extra_unlocks:
+        batch = models.unlock_achievements(
+            get_db(), slug, player["id"], [item for item in extra_unlocks if isinstance(item, str)]
+        )
+        result["unlocked"].extend(batch["unlocked"])
     return jsonify(result), 201
 
 
@@ -268,6 +301,99 @@ def unlock_achievements(player: dict[str, Any], slug: str):
         return jsonify({"error": "ids must be a non-empty list of strings"}), 400
     result = models.unlock_achievements(get_db(), slug, player["id"], ids)
     return jsonify(result), 201 if result["unlocked"] else 200
+
+
+@api_bp.post("/games/<slug>/progress")
+@require_player
+def report_progress(player: dict[str, Any], slug: str):
+    """Announce a milestone without a score (continuous/idle games).
+
+    Evaluates ``meta``/``distinct`` criteria from ``meta`` and optionally unlocks
+    manual achievements listed in ``unlock``.
+    """
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    body = _json_body()
+    meta = body.get("meta") or {}
+    if not isinstance(meta, dict):
+        return jsonify({"error": "meta must be a mapping"}), 400
+    connection = get_db()
+    unlocked = models.evaluate_progress_achievements(connection, slug, player["id"], meta)
+    extra = body.get("unlock") or []
+    if isinstance(extra, list) and extra:
+        batch = models.unlock_achievements(
+            connection, slug, player["id"], [item for item in extra if isinstance(item, str)]
+        )
+        unlocked.extend(batch["unlocked"])
+    return jsonify({"unlocked": unlocked})
+
+
+# ── Player state (save games) ───────────────────────────────────────────────
+
+
+def _state_budget() -> int:
+    return _settings().state_max_bytes
+
+
+@api_bp.get("/games/<slug>/state")
+@require_player
+def get_state(player: dict[str, Any], slug: str):
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    max_bytes = _state_budget()
+    record = models.get_state(get_db(), player["id"], slug)
+    if record is None:
+        return jsonify(
+            {
+                "state": None,
+                "revision": 0,
+                "schema_version": 1,
+                "size": 0,
+                "max_bytes": max_bytes,
+                "remaining": max_bytes,
+            }
+        )
+    return jsonify({**record, "max_bytes": max_bytes, "remaining": max(0, max_bytes - record["size"])})
+
+
+@api_bp.put("/games/<slug>/state")
+@require_player
+def put_state(player: dict[str, Any], slug: str):
+    """Persist a save blob. Send ``revision`` to guard against concurrent tabs."""
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    body = _json_body()
+    if "state" not in body:
+        return jsonify({"error": "state is required"}), 400
+    revision = body.get("revision")
+    if revision is not None and not isinstance(revision, int):
+        return jsonify({"error": "revision must be an integer"}), 400
+    schema_version = body.get("schema_version", 1)
+    if not isinstance(schema_version, int):
+        return jsonify({"error": "schema_version must be an integer"}), 400
+    try:
+        result = models.save_state(
+            get_db(),
+            player["id"],
+            slug,
+            body["state"],
+            revision=revision,
+            schema_version=schema_version,
+            max_bytes=_state_budget(),
+        )
+    except models.Conflict as conflict:
+        return jsonify({"error": str(conflict), "current_revision": conflict.current_revision}), 409
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 413
+    return jsonify(result)
+
+
+@api_bp.delete("/games/<slug>/state")
+@require_player
+def remove_state(player: dict[str, Any], slug: str):
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    return jsonify({"deleted": models.delete_state(get_db(), player["id"], slug)})
 
 
 # ── Matchmaking ─────────────────────────────────────────────────────────────
@@ -432,7 +558,7 @@ def publish_game(player: dict[str, Any]):
         data["remix_of"] = existing.get("remix_of")
     manifest = registry.manifest_from_dict(data)
 
-    saved = registry.save_game(registry_dir, manifest, files)
+    saved = registry.save_game(registry_dir, manifest, files, binary=body.get("binary"))
     models.sync_registry(get_db(), registry_dir)
     changelog = str(body.get("changelog") or ("Update" if existing else "Initial publish"))
     models.record_version(get_db(), saved, changelog)
@@ -451,5 +577,6 @@ def game_files(slug: str):
             "slug": slug,
             "manifest": manifest.to_dict(),
             "files": registry.read_game_files(registry_dir, slug),
+            "binary": registry.read_binary_files(registry_dir, slug),
         }
     )

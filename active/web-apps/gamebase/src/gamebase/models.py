@@ -7,6 +7,7 @@ UTC ISO-8601 strings, which sort correctly as text.
 
 from __future__ import annotations
 
+import gzip
 import json
 import secrets
 import uuid
@@ -38,6 +39,14 @@ class RateLimited(Exception):
 
 class NotFound(Exception):
     """Raised when a referenced game, player, ticket, or match is missing."""
+
+
+class Conflict(Exception):
+    """Raised when an optimistic-concurrency revision does not match."""
+
+    def __init__(self, current_revision: int):
+        super().__init__("state revision conflict")
+        self.current_revision = current_revision
 
 
 def utcnow() -> str:
@@ -78,11 +87,21 @@ def _generate_handle(conn) -> str:
     return f"player-{_new_id()[:8]}"  # pragma: no cover - astronomically unlikely
 
 
+def format_recovery_code(secret: str) -> str:
+    upper = secret.upper()
+    return "-".join(upper[index : index + 4] for index in range(0, len(upper), 4))
+
+
+def normalize_recovery_code(code: str) -> str:
+    return "".join(character for character in str(code or "").lower() if character.isalnum())
+
+
 def create_player(conn, handle: str | None = None, *, is_guest: bool = True) -> dict[str, Any]:
     """Create a player and an API session token.
 
-    Returns ``{"player": ..., "token": ...}``. If ``handle`` is provided it must
-    be unique; otherwise a readable handle is generated.
+    Returns ``{"player": ..., "token": ..., "recovery_code": ...}``. If
+    ``handle`` is provided it must be unique; otherwise a readable handle is
+    generated. The recovery code lets the same player sign in on another device.
     """
     timestamp = utcnow()
     if handle:
@@ -94,13 +113,38 @@ def create_player(conn, handle: str | None = None, *, is_guest: bool = True) -> 
         clean = _generate_handle(conn)
 
     player_id = _new_id()
+    recovery_secret = secrets.token_hex(6)
     conn.execute(
-        "INSERT INTO players (id, handle, is_guest, created_at, last_seen) VALUES (?, ?, ?, ?, ?)",
-        (player_id, clean, int(is_guest), timestamp, timestamp),
+        "INSERT INTO players (id, handle, is_guest, recovery_secret, created_at, last_seen) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (player_id, clean, int(is_guest), recovery_secret, timestamp, timestamp),
     )
     token = create_session(conn, player_id)
     conn.commit()
-    return {"player": get_player(conn, player_id), "token": token}
+    return {
+        "player": get_player(conn, player_id),
+        "token": token,
+        "recovery_code": format_recovery_code(recovery_secret),
+    }
+
+
+def get_recovery_code(conn, player_id: str) -> str:
+    row = conn.execute("SELECT recovery_secret FROM players WHERE id = ?", (player_id,)).fetchone()
+    secret = row["recovery_secret"] if row else None
+    if not secret:
+        # Players created before recovery codes existed get one lazily.
+        secret = secrets.token_hex(6)
+        conn.execute("UPDATE players SET recovery_secret = ? WHERE id = ?", (secret, player_id))
+        conn.commit()
+    return format_recovery_code(secret)
+
+
+def player_for_recovery(conn, code: str) -> dict[str, Any] | None:
+    secret = normalize_recovery_code(code)
+    if not secret:
+        return None
+    row = conn.execute("SELECT * FROM players WHERE recovery_secret = ?", (secret,)).fetchone()
+    return dict(row) if row else None
 
 
 def create_session(conn, player_id: str) -> str:
@@ -491,7 +535,11 @@ def unlock_achievement(conn, slug: str, player_id: str, achievement_id: str) -> 
 
 
 def _criteria_satisfied(
-    criteria: dict[str, Any], score: float, submission_count: int, meta: dict[str, Any]
+    criteria: dict[str, Any],
+    score: float,
+    submission_count: int,
+    meta: dict[str, Any],
+    distinct_counts: dict[str, int] | None = None,
 ) -> bool:
     """Evaluate one achievement's server-side criteria against a submission.
 
@@ -499,6 +547,8 @@ def _criteria_satisfied(
     - ``score``: ``gte``/``lte`` against the submitted score.
     - ``count``: ``gte`` against this player's submission count for the game.
     - ``meta``: ``gte``/``lte``/``eq`` against a key in the submitted ``meta``.
+    - ``distinct``: ``gte`` distinct values of ``meta[key]`` across the player's
+      submissions — not farmable by resubmitting the same progress.
     """
     kind = criteria.get("type")
     if kind == "score":
@@ -509,6 +559,12 @@ def _criteria_satisfied(
         return False
     if kind == "count":
         return submission_count >= int(criteria.get("gte", 1))
+    if kind == "distinct":
+        key = criteria.get("key")
+        if not isinstance(key, str):
+            return False
+        counts = distinct_counts or {}
+        return counts.get(key, 0) >= int(criteria.get("gte", 1))
     if kind == "meta":
         key = criteria.get("key")
         if not isinstance(key, str) or key not in meta:
@@ -528,19 +584,82 @@ def _criteria_satisfied(
     return False
 
 
+def _distinct_criteria_keys(definitions: list[dict[str, Any]]) -> set[str]:
+    return {
+        definition["criteria"]["key"]
+        for definition in definitions
+        if (definition.get("criteria") or {}).get("type") == "distinct"
+        and isinstance((definition.get("criteria") or {}).get("key"), str)
+    }
+
+
+def _distinct_meta_counts(
+    conn, slug: str, player_id: str, keys: set[str]
+) -> dict[str, int]:
+    if not keys:
+        return {}
+    seen = {key: set() for key in keys}
+    rows = conn.execute(
+        "SELECT meta FROM scores WHERE slug = ? AND player_id = ?", (slug, player_id)
+    ).fetchall()
+    for row in rows:
+        record = _loads(row["meta"]) or {}
+        for key in keys:
+            if key in record:
+                seen[key].add(str(record[key]))
+    return {key: len(values) for key, values in seen.items()}
+
+
+def _submission_count(conn, slug: str, player_id: str) -> int:
+    return conn.execute(
+        "SELECT COUNT(*) AS n FROM scores WHERE slug = ? AND player_id = ?", (slug, player_id)
+    ).fetchone()["n"]
+
+
 def _evaluate_score_achievements(
     conn, slug: str, player_id: str, score: float, meta: dict[str, Any]
 ) -> list[dict[str, Any]]:
-    """Unlock any score/count/meta achievements the submission now satisfies."""
+    """Unlock any score/count/meta/distinct achievements the submission satisfies."""
     already = unlocked_achievement_ids(conn, player_id, slug)
-    submission_count = conn.execute(
-        "SELECT COUNT(*) AS n FROM scores WHERE slug = ? AND player_id = ?", (slug, player_id)
-    ).fetchone()["n"]
+    definitions = list_achievements(conn, slug)
+    distinct_counts = _distinct_meta_counts(
+        conn, slug, player_id, _distinct_criteria_keys(definitions)
+    )
+    submission_count = _submission_count(conn, slug, player_id)
     newly: list[dict[str, Any]] = []
-    for achievement in list_achievements(conn, slug):
+    for achievement in definitions:
         if achievement["id"] in already:
             continue
-        if _criteria_satisfied(achievement["criteria"] or {}, score, submission_count, meta):
+        criteria = achievement["criteria"] or {}
+        if _criteria_satisfied(criteria, score, submission_count, meta, distinct_counts):
+            unlocked = unlock_achievement(conn, slug, player_id, achievement["id"])
+            if unlocked:
+                newly.append(unlocked)
+    return newly
+
+
+def evaluate_progress_achievements(
+    conn, slug: str, player_id: str, meta: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Unlock ``meta``/``distinct`` achievements from a scoreless checkpoint.
+
+    This backs the ``progress`` hook so continuous games can announce a
+    milestone without inventing a score.
+    """
+    already = unlocked_achievement_ids(conn, player_id, slug)
+    definitions = list_achievements(conn, slug)
+    distinct_counts = _distinct_meta_counts(
+        conn, slug, player_id, _distinct_criteria_keys(definitions)
+    )
+    submission_count = _submission_count(conn, slug, player_id)
+    newly: list[dict[str, Any]] = []
+    for achievement in definitions:
+        if achievement["id"] in already:
+            continue
+        criteria = achievement["criteria"] or {}
+        if criteria.get("type") not in ("meta", "distinct"):
+            continue
+        if _criteria_satisfied(criteria, 0.0, submission_count, meta, distinct_counts):
             unlocked = unlock_achievement(conn, slug, player_id, achievement["id"])
             if unlocked:
                 newly.append(unlocked)
@@ -587,6 +706,84 @@ def achievement_points(conn, player_id: str) -> int:
         (player_id,),
     ).fetchone()
     return int(row["points"]) if row else 0
+
+
+# ── Player state (save games) ────────────────────────────────────────────────
+
+
+def get_state(conn, player_id: str, slug: str) -> dict[str, Any] | None:
+    """Return a player's opaque save blob for a game, or ``None``."""
+    row = conn.execute(
+        "SELECT revision, schema_version, data, raw_bytes, updated_at FROM player_states "
+        "WHERE player_id = ? AND slug = ?",
+        (player_id, slug),
+    ).fetchone()
+    if row is None:
+        return None
+    raw = gzip.decompress(row["data"]).decode("utf-8")
+    return {
+        "state": json.loads(raw),
+        "revision": row["revision"],
+        "schema_version": row["schema_version"],
+        "size": row["raw_bytes"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def save_state(
+    conn,
+    player_id: str,
+    slug: str,
+    state: Any,
+    *,
+    revision: int | None = None,
+    schema_version: int = 1,
+    max_bytes: int,
+) -> dict[str, Any]:
+    """Persist a save blob, compressing at rest and enforcing optimistic locking.
+
+    ``revision`` is the revision the client last read. A mismatch raises
+    :class:`Conflict` so two tabs cannot silently clobber each other.
+    """
+    payload = json.dumps(state, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    if len(payload) > max_bytes:
+        raise ValueError(f"state is {len(payload)} bytes, over the {max_bytes} byte limit")
+    current = conn.execute(
+        "SELECT revision FROM player_states WHERE player_id = ? AND slug = ?", (player_id, slug)
+    ).fetchone()
+    current_revision = current["revision"] if current else 0
+    if revision is not None and int(revision) != current_revision:
+        raise Conflict(current_revision)
+    new_revision = current_revision + 1
+    conn.execute(
+        """
+        INSERT INTO player_states (player_id, slug, revision, schema_version, data, raw_bytes, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(player_id, slug) DO UPDATE SET
+            revision = excluded.revision,
+            schema_version = excluded.schema_version,
+            data = excluded.data,
+            raw_bytes = excluded.raw_bytes,
+            updated_at = excluded.updated_at
+        """,
+        (player_id, slug, new_revision, schema_version, gzip.compress(payload), len(payload), utcnow()),
+    )
+    conn.commit()
+    return {
+        "revision": new_revision,
+        "schema_version": schema_version,
+        "size": len(payload),
+        "max_bytes": max_bytes,
+        "remaining": max(0, max_bytes - len(payload)),
+    }
+
+
+def delete_state(conn, player_id: str, slug: str) -> bool:
+    cursor = conn.execute(
+        "DELETE FROM player_states WHERE player_id = ? AND slug = ?", (player_id, slug)
+    )
+    conn.commit()
+    return cursor.rowcount > 0
 
 
 # ── Matchmaking ─────────────────────────────────────────────────────────────

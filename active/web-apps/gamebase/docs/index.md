@@ -105,11 +105,15 @@ can find the current player without scanning the board.
 - `criteria.type: meta` with `key` and `gte`/`lte`/`eq` unlocks when the same key
   in the submitted `meta` satisfies the bound, e.g.
   `criteria: {type: meta, key: level, gte: 5}`.
+- `criteria.type: distinct` with `key` and `gte` unlocks after N *distinct* values
+  of `meta[key]` across submissions — not farmable by periodic re-submits.
 - `criteria: {}` (or omitted) means the game unlocks it manually via the SDK.
 - `hidden: true` hides the achievement until unlocked.
 
-**Trust model:** `score`, `count`, and `meta` achievements are evaluated on the
-server from the submitted payload, so one `submitScore` call can unlock them.
+**Trust model:** `score`, `count`, `meta`, and `distinct` achievements are
+evaluated on the server from the submitted payload, so one `submitScore` call
+can unlock them. Prefer `meta`/`distinct` over `count` for continuous games —
+`count` counts submissions and is trivially farmed by a periodic autosave.
 Manual achievements (`criteria: {}`) are client-asserted — any authenticated
 client can POST an id. Use them only for cosmetic or non-competitive markers.
 
@@ -131,8 +135,17 @@ Games include one file:
   const board = await Gamebase.leaderboard(10);
   const match = await Gamebase.findMatch();        // joins/creates a queue ticket
   const joined = await Gamebase.waitForMatch();    // real-time (SSE) until matched
-  await Gamebase.endRun({ score: 1200, meta: { level: 3 } }); // score + achievements in one call
   await Gamebase.reportResult(match.id, { score: 3 });
+
+  // Terminal run vs continuous game:
+  await Gamebase.endRun({ score: 1200, meta: { level: 3 } });   // emits `runended`
+  await Gamebase.checkpoint({ score: 40, meta: { year: 1946 } }); // emits `checkpoint`
+  await Gamebase.progress({ year: 1947 }, ["brand-new"]);         // no score needed
+
+  // Cross-device save:
+  const saved = await Gamebase.loadState();       // null or {state, revision, ...}
+  await Gamebase.saveState({ year: 1947 }, { revision: saved ? saved.revision : 0 });
+  const code = await Gamebase.recoveryCode();     // continue on another device
 </script>
 ```
 
@@ -147,8 +160,15 @@ game on the platform.
 | `leaderboard(limit?)` | Best scores, ranked (rows include `is_me`). |
 | `myBest()` | The current player's best score and rank, even below the top 100. |
 | `myProgress()` | Bundled per-game progress: best, rank, points, achievement state. |
-| `submitScore(score, meta?)` | Submit and rank a score; retries once on a short rate-limit. |
-| `endRun({score, meta?, unlock?})` | Standard game-over handoff: score + criteria + manual unlocks; emits `runended`. |
+| `submitScore(score, meta?, options?)` | Submit and rank a score; `options.unlock` batches manual ids, `options.keepalive` survives unload. |
+| `endRun({score, meta?, unlock?})` | Terminal game-over handoff; emits `runended`. |
+| `checkpoint({score, meta?, unlock?, keepalive?})` | Periodic checkpoint for continuous games; emits `checkpoint`. |
+| `progress(meta, unlock?)` | Announce a milestone with no score; evaluates `meta`/`distinct` criteria. |
+| `saveState(state, {revision?, schemaVersion?, keepalive?})` | Persist an opaque per-player save blob. |
+| `loadState()` | Load the save blob (`null` if none) with `revision` and quota info. |
+| `clearState()` | Delete the save blob. |
+| `recoveryCode()` / `recover(code)` | Move the same player to another device. |
+| `mountHud(options?)` | Inject a minimal best/rank/unlock chip; returns `{element, update, remove}`. |
 | `achievements()` | List achievements with unlock state. |
 | `unlock(idOrIds)` | Unlock one or many achievements; resolves to newly unlocked definitions. |
 | `findMatch()` | Join the queue; returns a ticket (may be already matched). |
@@ -157,7 +177,7 @@ game on the platform.
 | `reportResult(matchId, result)` | Record this player's result. |
 | `match(matchId)` | Read the shared match object. |
 | `cancelMatch()` | Leave the queue. |
-| `on(event, callback)` | Subscribe to SDK events (e.g. `ready`). |
+| `on(event, callback)` | Subscribe to SDK events: `ready`, `runended`, `checkpoint`, `unlocked`. |
 
 ## REST API
 
@@ -168,15 +188,21 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | --- | --- | --- |
 | `POST` | `/api/identity` | Create a player + token. Optional `{handle}`. |
 | `GET` | `/api/me` | Current player, achievements, points. |
+| `GET` | `/api/me/recovery` | The player's recovery code. |
+| `POST` | `/api/identity/recover` | Adopt a player by `{code}` (new device). |
 | `GET` | `/api/games` | Catalog with top scores. |
 | `GET` | `/api/games/<slug>` | Game detail: versions, lineage, top scores. |
 | `GET` | `/api/games/<slug>/leaderboard?limit=` | Ranked best-per-player scores (`is_me` per row). |
 | `GET` | `/api/games/<slug>/my-best` | Current player's best score and rank. |
 | `GET` | `/api/games/<slug>/me` | Bundled progress: best, rank, points, achievements. |
-| `POST` | `/api/games/<slug>/scores` | Submit `{score, meta}`; returns rank + unlocked. |
+| `POST` | `/api/games/<slug>/scores` | Submit `{score, meta, unlock?}`; returns rank + unlocked. |
+| `POST` | `/api/games/<slug>/progress` | Announce `{meta, unlock?}` with no score (continuous games). |
 | `GET` | `/api/games/<slug>/achievements` | Definitions + unlock state. |
 | `POST` | `/api/games/<slug>/achievements/<id>` | Unlock an achievement. |
 | `POST` | `/api/games/<slug>/achievements` | Batch unlock `{ids: [...]}`. |
+| `GET` | `/api/games/<slug>/state` | Load the player's save blob + quota. |
+| `PUT` | `/api/games/<slug>/state` | Save `{state, revision?, schema_version?}`; 409 on stale revision. |
+| `DELETE` | `/api/games/<slug>/state` | Delete the save blob. |
 | `POST` | `/api/games/<slug>/matchmaking` | Join queue / form a match. |
 | `GET` | `/api/games/<slug>/matchmaking` | Current ticket (+ match). |
 | `GET` | `/api/games/<slug>/matchmaking/stream` | SSE: push ticket/match changes (`?timeout=` seconds). |
@@ -216,11 +242,13 @@ folder and running one command:
 gamebase push ./my-game --url http://localhost:5121 --changelog "Initial"
 ```
 
-The API accepts only text files with known web extensions (`.html`, `.js`,
-`.mjs`, `.css`, `.json`, `.svg`, `.md`, `.yaml`, …), rejects path traversal and
-absolute paths, caps individual files at 512 KB and uploads at 8 MB, and
-requires the declared `entry` file to be present. Updating sends the full file
-set (a push is a complete publish, not a patch).
+The API accepts text files with known web extensions (`.html`, `.js`, `.mjs`,
+`.css`, `.json`, `.svg`, `.md`, `.yaml`, …) plus **binary assets** sent as base64
+(`.png`, `.jpg`, `.gif`, `.webp`, `.ico`, `.mp3`, `.ogg`, `.wav`, `.woff2`,
+`.ttf`, `.wasm`, `.map`, …). It rejects path traversal and absolute paths, caps
+text at 512 KB/file and 8 MB total, caps binary at 4 MB/file and 16 MB total, and
+requires the declared `entry` file. Updating sends the full file set (a push is
+a complete publish, not a patch). `pull` returns both `files` and `binary`.
 
 ## Remix and update workflow
 
@@ -263,6 +291,38 @@ port produced.
 - Score submission is rate-limited (`GAMEBASE_SCORE_RATE_LIMIT`, seconds). A 429
   response carries `Retry-After` and `retry_after_seconds`, and the SDK retries
   a submission once when the cooldown is short so a fast run is not lost.
+- **Games are not isolated from each other.** The iframe is same-origin so the
+  SDK and in-game `localStorage` work, which means any published game can read
+  `gamebase.token` and other games' `localStorage` keys. Only publish games you
+  trust; per-game isolation (an opaque-origin iframe with a `postMessage`
+  broker) is future work.
+
+## Continuous games and save state
+
+Arcade games submit a score at game over via `endRun()`. Continuous
+simulations, tycoons, and idle games instead use:
+
+- `checkpoint()` for a periodic score + meta sync (emits `checkpoint`),
+- `progress()` to announce a milestone with no score,
+- `saveState()`/`loadState()` for an opaque per-player save blob, namespaced per
+  game. Saves are gzip-compressed at rest, capped by `GAMEBASE_STATE_MAX_BYTES`,
+  and use an integer `revision` for optimistic concurrency (a stale `revision`
+  returns 409 with `current_revision`). Responses include `size`,
+  `max_bytes`, and `remaining` so a long-running game can prune before it hits
+  the cap.
+
+Guest identities are device-local; `recoveryCode()` + `recover(code)` let a
+player continue (progress, saves, achievements) on another device without a
+full account system. The SDK's `keepalive` option keeps the final unload
+checkpoint from being cancelled by the browser.
+
+**Bridging a game that has no run boundary.** A bridge loaded inside the game
+document can call the SDK directly. Note that top-level `const`/`let` in classic
+scripts are *not* properties of `window`, so prefer adding one small hook to the
+game (e.g. call `Gamebase.checkpoint(...)` at a milestone) over expecting
+`window.SIM`/`window.UI` to exist. The parent page serves game assets with
+`Cache-Control: no-cache` and an ETag; cache-busting query strings like `?v=10`
+are revalidation hints and are not part of the ETag.
 
 ## Configuration
 
@@ -273,6 +333,7 @@ port produced.
 | `GAMEBASE_SCORE_RATE_LIMIT` | `3` | Minimum seconds between score submissions per player/game. |
 | `GAMEBASE_THEME` | `default` | Set to `playful` for the brighter arcade theme in `static/themes/`. |
 | `GAMEBASE_AUTO_RESCAN` | `1` | Resync the catalog when the registry folder changes. |
+| `GAMEBASE_STATE_MAX_BYTES` | `8388608` | Max size of one player save blob (gzipped at rest). |
 | `PORT` | `5120` | Server port (`5121` in the launcher registry). |
 
 ## Running and testing
@@ -297,10 +358,14 @@ python scripts/check_all.py gamebase
   match object, SSE match waiting, result reporting, and achievement unlocks.
 - **Marble Survivors** — the ported `active/games/marble-survivors` roguelite,
   showing `endRun()`, `meta` achievement criteria, and `myProgress()`.
+- **Washing Machine Tycoon** — the ported `active/games/washing-machine-tycoon`
+  tycoon simulation, showing `checkpoint()` for a game with no game-over and
+  unbounded scores.
 
 ## Not yet built
 
-- Persistent accounts (email/OAuth) beyond anonymous guest identities.
+- Full accounts (email/OAuth). Recovery codes cover basic cross-device play.
 - Server-authoritative game logic / anti-cheat beyond bounds and rate limits.
+- Per-game sandbox isolation; games currently share the platform origin.
 - Friend lists, chat, and cross-game progression. These would build on the same
   player + match tables.

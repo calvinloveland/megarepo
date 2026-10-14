@@ -77,6 +77,7 @@
       method: opts.method || "GET",
       headers: headers,
       body: opts.body ? JSON.stringify(opts.body) : undefined,
+      keepalive: Boolean(opts.keepalive),
     });
     const text = await response.text();
     const payload = text ? JSON.parse(text) : null;
@@ -188,6 +189,29 @@
     return null;
   }
 
+  /** Shared score/meta/unlock submission for endRun() and checkpoint(). */
+  async function runCheckpoint(result, eventName) {
+    const run = result || {};
+    const raw = run.score;
+    const score = typeof raw === "number" ? raw : raw != null ? Number(raw) : null;
+    let submission = null;
+    let unlocked = [];
+    if (score !== null && !Number.isNaN(score)) {
+      submission = await Gamebase.submitScore(score, run.meta || {}, {
+        unlock: run.unlock,
+        keepalive: run.keepalive,
+      });
+      unlocked = (submission.unlocked || []).slice();
+    } else if (run.meta || run.unlock) {
+      const progress = await Gamebase.progress(run.meta || {}, run.unlock);
+      unlocked = progress.unlocked || [];
+    }
+    const outcome = { score: score, submission: submission, unlocked: unlocked };
+    emit(eventName, outcome);
+    if (unlocked.length) emit("unlocked", unlocked);
+    return outcome;
+  }
+
   const Gamebase = {
     version: "0.1.0",
     ready,
@@ -216,14 +240,14 @@
       const slug = requireSlug();
       return request("/games/" + slug + "/me");
     },
-    async submitScore(score, meta) {
+    async submitScore(score, meta, options) {
       await ready();
       const slug = requireSlug();
+      const opts = options || {};
+      const body = { score: score, meta: meta || {} };
+      if (opts.unlock && opts.unlock.length) body.unlock = opts.unlock;
       const attempt = () =>
-        request("/games/" + slug + "/scores", {
-          method: "POST",
-          body: { score: score, meta: meta || {} },
-        });
+        request("/games/" + slug + "/scores", { method: "POST", body: body, keepalive: opts.keepalive });
       try {
         return await attempt();
       } catch (error) {
@@ -288,24 +312,123 @@
     },
     /**
      * Standard end-of-run handoff: submit the score (which also evaluates
-     * score/count/meta achievements server-side), unlock any extra manual ones,
-     * and emit a `runended` event. One call at game over.
+     * score/count/meta/distinct achievements server-side), unlock any extra
+     * manual ones, and emit a `runended` event.
      */
     async endRun(result) {
-      const run = result || {};
-      const raw = run.score;
-      const score = typeof raw === "number" ? raw : raw != null ? Number(raw) : null;
-      let submission = null;
-      if (score !== null && !Number.isNaN(score)) {
-        submission = await Gamebase.submitScore(score, run.meta || {});
+      return runCheckpoint(result, "runended");
+    },
+    /**
+     * Like endRun but for continuous games: a periodic checkpoint, not a
+     * terminal run. Emits `checkpoint` instead of `runended`.
+     */
+    async checkpoint(result) {
+      return runCheckpoint(result, "checkpoint");
+    },
+    /**
+     * Announce a milestone without a score. Evaluates meta/distinct criteria
+     * and unlocks any manual ids. Backs the push hook for idle/tycoon games.
+     */
+    async progress(meta, unlock) {
+      await ready();
+      const slug = requireSlug();
+      const payload = await request("/games/" + slug + "/progress", {
+        method: "POST",
+        body: { meta: meta || {}, unlock: unlock || [] },
+      });
+      if (payload.unlocked && payload.unlocked.length) emit("unlocked", payload.unlocked);
+      return payload;
+    },
+    /** Persist an opaque save blob. Pass `revision` to guard concurrent tabs. */
+    async saveState(state, options) {
+      await ready();
+      const slug = requireSlug();
+      const opts = options || {};
+      const body = { state: state, schema_version: opts.schemaVersion || 1 };
+      if (typeof opts.revision === "number") body.revision = opts.revision;
+      return request("/games/" + slug + "/state", {
+        method: "PUT",
+        body: body,
+        keepalive: opts.keepalive,
+      });
+    },
+    async loadState() {
+      await ready();
+      const slug = requireSlug();
+      const payload = await request("/games/" + slug + "/state");
+      return payload.state === null ? null : payload;
+    },
+    async clearState() {
+      await ready();
+      const slug = requireSlug();
+      return request("/games/" + slug + "/state", { method: "DELETE" });
+    },
+    /** The player's recovery code, for continuing on another device. */
+    async recoveryCode() {
+      await ready();
+      const payload = await request("/me/recovery");
+      return payload.code;
+    },
+    /** Adopt an existing player on this device using a recovery code. */
+    async recover(code) {
+      const payload = await request("/identity/recover", { method: "POST", body: { code: code } });
+      storeToken(payload.token);
+      cachedPlayer = payload.player;
+      playerPromise = Promise.resolve(cachedPlayer);
+      emit("ready", cachedPlayer);
+      return cachedPlayer;
+    },
+    /**
+     * Inject a minimal best/rank/unlock chip so ports don't each re-invent it.
+     * Returns `{element, update, remove}`.
+     */
+    mountHud(options) {
+      const opts = Object.assign({ best: null, rank: null }, options || {});
+      const element = document.createElement("div");
+      element.id = "gamebase-hud";
+      element.setAttribute("aria-live", "polite");
+      element.style.cssText =
+        "position:fixed;left:8px;bottom:8px;z-index:2147483647;padding:4px 9px;" +
+        "border-radius:7px;background:rgba(10,14,23,.72);color:#9aa7bd;" +
+        "font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none;" +
+        "max-width:80vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+      (document.body || document.documentElement).appendChild(element);
+
+      function render(extra) {
+        const parts = [];
+        if (cachedPlayer && cachedPlayer.handle) parts.push(cachedPlayer.handle);
+        if (opts.best != null) parts.push("best " + opts.best);
+        if (opts.rank) parts.push("#" + opts.rank);
+        if (extra) parts.push(extra);
+        element.textContent = parts.join(" · ");
       }
-      const unlocked = (submission && submission.unlocked ? submission.unlocked : []).slice();
-      if (run.unlock && run.unlock.length) {
-        unlocked.push(...(await Gamebase.unlock(run.unlock)));
+
+      function applyOutcome(outcome) {
+        if (outcome.submission) {
+          if (outcome.submission.score != null) opts.best = outcome.submission.score;
+          if (outcome.submission.rank) opts.rank = outcome.submission.rank;
+        }
+        render(outcome.unlocked.length ? "unlocked " + outcome.unlocked.map((a) => a.title).join(", ") : undefined);
       }
-      const outcome = { score: score, submission: submission, unlocked: unlocked };
-      emit("runended", outcome);
-      return outcome;
+
+      const unsubscribers = [
+        on("ready", () => render()),
+        on("runended", applyOutcome),
+        on("checkpoint", applyOutcome),
+        on("unlocked", (unlocked) => render("unlocked " + unlocked.map((a) => a.title).join(", "))),
+      ];
+      render();
+      return {
+        element: element,
+        update(next) {
+          Object.assign(opts, next || {});
+          render();
+        },
+        remove() {
+          unsubscribers.forEach((unsubscribe) => unsubscribe());
+          element.remove();
+        },
+      };
     },
     /** Wait for an opponent: SSE push first, polling as a fallback. */
     async waitForMatch(options) {

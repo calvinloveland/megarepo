@@ -14,6 +14,7 @@ definition of what a game is.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import sys
@@ -118,25 +119,31 @@ def _resolve_token(server: str, explicit: str | None) -> str:
     return payload["token"]
 
 
-def _collect_files(directory: Path) -> dict[str, str]:
-    files: dict[str, str] = {}
+def _collect_files(directory: Path) -> tuple[dict[str, str], dict[str, str]]:
+    """Split a game folder into text files and base64-encoded binary assets."""
+    text: dict[str, str] = {}
+    binary: dict[str, str] = {}
     for path in sorted(directory.rglob("*")):
         if not path.is_file():
             continue
         relative = path.relative_to(directory)
         if any(part in registry.IGNORED_DIRS for part in relative.parts):
             continue
-        if path.name == registry.MANIFEST_NAME or path.suffix.lower() not in registry.TEXT_EXTENSIONS:
+        if path.name == registry.MANIFEST_NAME:
             continue
-        files[relative.as_posix()] = path.read_text(encoding="utf-8")
-    return files
+        suffix = path.suffix.lower()
+        if suffix in registry.TEXT_EXTENSIONS:
+            text[relative.as_posix()] = path.read_text(encoding="utf-8")
+        elif suffix in registry.BINARY_EXTENSIONS:
+            binary[relative.as_posix()] = base64.b64encode(path.read_bytes()).decode("ascii")
+    return text, binary
 
 
 def _push(args: argparse.Namespace) -> int:
     directory = Path(args.directory).resolve()
     try:
         manifest = registry.read_manifest(directory)
-        files = _collect_files(directory)
+        files, binary = _collect_files(directory)
     except (registry.ManifestError, OSError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
@@ -151,14 +158,20 @@ def _push(args: argparse.Namespace) -> int:
     status, payload = _http_json(
         f"{server}/api/games",
         "POST",
-        {"manifest": manifest.to_dict(), "files": files, "changelog": args.changelog or "Push"},
+        {
+            "manifest": manifest.to_dict(),
+            "files": files,
+            "binary": binary,
+            "changelog": args.changelog or "Push",
+        },
         token,
     )
     if status >= 400:
         print(f"error: {payload.get('error', 'push failed')}", file=sys.stderr)
         return 1
     action = "Updated" if status == 200 else "Created"
-    print(f"{action} {payload['slug']} v{payload['version']} on {server}")
+    assets = f" ({len(binary)} binary)" if binary else ""
+    print(f"{action} {payload['slug']} v{payload['version']} on {server}{assets}")
     return 0
 
 
@@ -178,6 +191,10 @@ def _pull(args: argparse.Namespace) -> int:
         target = output / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
+    for relative, encoded in (payload.get("binary") or {}).items():
+        target = output / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(base64.b64decode(encoded))
     print(f"Pulled {payload['slug']} ({len(payload['files'])} files) into {output}")
     return 0
 

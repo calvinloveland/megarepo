@@ -19,8 +19,22 @@ CREATE TABLE IF NOT EXISTS players (
     id TEXT PRIMARY KEY,
     handle TEXT NOT NULL UNIQUE,
     is_guest INTEGER NOT NULL DEFAULT 1,
+    recovery_secret TEXT,
     created_at TEXT NOT NULL,
     last_seen TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_players_recovery ON players (recovery_secret);
+
+CREATE TABLE IF NOT EXISTS player_states (
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    slug TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 1,
+    schema_version INTEGER NOT NULL DEFAULT 1,
+    data BLOB NOT NULL,
+    raw_bytes INTEGER NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (player_id, slug)
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -136,7 +150,18 @@ def connect(database_path: Path | str) -> sqlite3.Connection:
 def init_db(connection: sqlite3.Connection) -> None:
     """Create tables and indexes. Safe to run on every startup."""
     connection.executescript(SCHEMA)
+    _migrate(connection)
     connection.commit()
+
+
+def _migrate(connection: sqlite3.Connection) -> None:
+    """Add columns introduced after a database was first created."""
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(players)")}
+    if "recovery_secret" not in columns:
+        connection.execute("ALTER TABLE players ADD COLUMN recovery_secret TEXT")
+        connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_players_recovery ON players (recovery_secret)"
+        )
 
 
 def rows_to_dicts(rows: Iterable[sqlite3.Row]) -> list[dict[str, Any]]:

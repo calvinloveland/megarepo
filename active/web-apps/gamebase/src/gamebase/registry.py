@@ -8,6 +8,8 @@ a queryable mirror of it.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -23,14 +25,23 @@ DEFAULT_VERSION = "0.1.0"
 # Directories that should never be copied into a remix or scanned as assets.
 IGNORED_DIRS = {"node_modules", ".git", "__pycache__", ".pytest_cache", "dist", ".venv"}
 
-# Files the push API accepts. Games are HTML/JS/CSS artifacts, so text is the
-# right boundary: it keeps validation simple and blocks binary abuse.
+# Text files accepted by the push API. Games are HTML/JS/CSS artifacts, so text
+# is the right default; binary assets are sent separately as base64.
 TEXT_EXTENSIONS = {
     ".html", ".htm", ".js", ".mjs", ".cjs", ".css", ".json", ".txt",
     ".md", ".yaml", ".yml", ".svg", ".csv",
 }
+# Binary assets pushed alongside text files (base64-encoded on the wire).
+BINARY_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".bmp", ".ico",
+    ".mp3", ".ogg", ".wav", ".m4a", ".flac",
+    ".woff", ".woff2", ".ttf", ".otf", ".eot",
+    ".wasm", ".map",
+}
 MAX_FILE_BYTES = 512 * 1024
 MAX_TOTAL_BYTES = 8 * 1024 * 1024
+MAX_BINARY_FILE_BYTES = 4 * 1024 * 1024
+MAX_BINARY_TOTAL_BYTES = 16 * 1024 * 1024
 
 
 class ManifestError(ValueError):
@@ -366,14 +377,14 @@ def is_private_asset(relative: str) -> bool:
 # ── Publishing by API/CLI ────────────────────────────────────────────────────
 
 
-def _clean_relative_path(raw: str) -> PurePosixPath:
+def _clean_relative_path(raw: str, allowed: set[str], kind: str = "file") -> PurePosixPath:
     if not isinstance(raw, str) or not raw.strip():
         raise ManifestError("file paths must be non-empty strings")
     candidate = PurePosixPath(raw.replace("\\", "/"))
     if candidate.is_absolute() or ".." in candidate.parts or candidate.parts[0] in ("", "."):
         raise ManifestError(f"unsafe file path: {raw!r}")
-    if candidate.suffix.lower() not in TEXT_EXTENSIONS:
-        raise ManifestError(f"unsupported file type: {raw!r}")
+    if candidate.suffix.lower() not in allowed:
+        raise ManifestError(f"unsupported {kind} type: {raw!r}")
     return candidate
 
 
@@ -386,7 +397,7 @@ def validate_files(files: Any) -> dict[str, str]:
     for raw_path, content in files.items():
         if not isinstance(content, str):
             raise ManifestError(f"file {raw_path!r} must be text")
-        path = _clean_relative_path(raw_path)
+        path = _clean_relative_path(raw_path, TEXT_EXTENSIONS, "text file")
         size = len(content.encode("utf-8"))
         if size > MAX_FILE_BYTES:
             raise ManifestError(f"file {raw_path!r} exceeds {MAX_FILE_BYTES} bytes")
@@ -397,16 +408,47 @@ def validate_files(files: Any) -> dict[str, str]:
     return cleaned
 
 
-def save_game(registry_dir: Path, manifest: Manifest, files: dict[str, str]) -> Manifest:
-    """Write a manifest and its text files to disk, then re-read to validate.
+def validate_binary_files(files: Any) -> dict[str, bytes]:
+    """Validate a ``{path: base64}`` mapping and return decoded bytes."""
+    if not files:
+        return {}
+    if not isinstance(files, dict):
+        raise ManifestError("binary files must be a mapping")
+    cleaned: dict[str, bytes] = {}
+    total = 0
+    for raw_path, encoded in files.items():
+        if not isinstance(encoded, str):
+            raise ManifestError(f"binary file {raw_path!r} must be base64 text")
+        path = _clean_relative_path(raw_path, BINARY_EXTENSIONS, "binary file")
+        try:
+            data = base64.b64decode(encoded, validate=True)
+        except (ValueError, binascii.Error) as error:
+            raise ManifestError(f"binary file {raw_path!r} is not valid base64") from error
+        if len(data) > MAX_BINARY_FILE_BYTES:
+            raise ManifestError(f"binary file {raw_path!r} exceeds {MAX_BINARY_FILE_BYTES} bytes")
+        total += len(data)
+        if total > MAX_BINARY_TOTAL_BYTES:
+            raise ManifestError(f"total binary upload exceeds {MAX_BINARY_TOTAL_BYTES} bytes")
+        cleaned[path.as_posix()] = data
+    return cleaned
 
-    Used by the push API and CLI. Overwrites files that already exist so a push
-    is a complete publish, not an incremental patch.
+
+def save_game(
+    registry_dir: Path,
+    manifest: Manifest,
+    files: dict[str, str],
+    binary: dict[str, bytes] | None = None,
+) -> Manifest:
+    """Write a manifest and its assets to disk, then re-read to validate.
+
+    Used by the push API and CLI. Text files and binary assets (already decoded
+    from base64) are written together; a push is a complete publish.
     """
     cleaned = validate_files(files)
+    binary_cleaned = validate_binary_files(binary or {})
     game_dir = registry_dir / manifest.slug
     entry = cleaned.get(manifest.entry)
-    if entry is None:
+    if entry is None and not (game_dir / manifest.entry).exists():
         raise ManifestError(f"entry file {manifest.entry!r} is required in the upload")
 
     game_dir.mkdir(parents=True, exist_ok=True)
@@ -414,6 +456,10 @@ def save_game(registry_dir: Path, manifest: Manifest, files: dict[str, str]) -> 
         target = game_dir / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
+    for relative, data in binary_cleaned.items():
+        target = game_dir / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
     write_manifest(game_dir, manifest)
     return read_manifest(game_dir)
 
@@ -433,4 +479,22 @@ def read_game_files(registry_dir: Path, slug: str) -> dict[str, str]:
         if path.name == MANIFEST_NAME or path.suffix.lower() not in TEXT_EXTENSIONS:
             continue
         files[relative.as_posix()] = path.read_text(encoding="utf-8")
+    return files
+
+
+def read_binary_files(registry_dir: Path, slug: str) -> dict[str, str]:
+    """Return every binary asset in a game as base64, for the pull API."""
+    base = registry_dir / slug
+    if not base.is_dir():
+        raise ManifestError(f"game not found: {slug}")
+    files: dict[str, str] = {}
+    for path in sorted(base.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(base)
+        if any(part in IGNORED_DIRS for part in relative.parts):
+            continue
+        if path.name == MANIFEST_NAME or path.suffix.lower() not in BINARY_EXTENSIONS:
+            continue
+        files[relative.as_posix()] = base64.b64encode(path.read_bytes()).decode("ascii")
     return files

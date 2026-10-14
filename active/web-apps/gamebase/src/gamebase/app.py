@@ -111,6 +111,10 @@ def _register_error_handlers(app: Flask) -> None:
     def _not_found(error: models.NotFound):
         return jsonify({"error": str(error)}), 404
 
+    @app.errorhandler(models.Conflict)
+    def _conflict(error: models.Conflict):
+        return jsonify({"error": str(error), "current_revision": error.current_revision}), 409
+
     @app.errorhandler(models.RateLimited)
     def _rate_limited(error: models.RateLimited):
         retry_after = int(error.retry_after + 0.999)

@@ -59,6 +59,13 @@ capabilities:
         type: meta
         key: level
         gte: 5
+    - id: explorer
+      title: Explorer
+      points: 8
+      criteria:
+        type: distinct
+        key: year
+        gte: 3
     - id: secret
       title: Secret
       hidden: true

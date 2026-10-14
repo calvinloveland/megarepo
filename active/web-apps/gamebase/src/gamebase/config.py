@@ -30,6 +30,7 @@ class Settings:
     score_rate_limit_seconds: float = 3.0
     theme: str = "default"
     auto_rescan: bool = True
+    state_max_bytes: int = 8 * 1024 * 1024
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -42,4 +43,5 @@ class Settings:
             score_rate_limit_seconds=float(os.environ.get("GAMEBASE_SCORE_RATE_LIMIT", "3")),
             theme=os.environ.get("GAMEBASE_THEME", "default"),
             auto_rescan=os.environ.get("GAMEBASE_AUTO_RESCAN", "1").lower() not in ("0", "false", "no", "off"),
+            state_max_bytes=int(os.environ.get("GAMEBASE_STATE_MAX_BYTES", str(8 * 1024 * 1024))),
         )

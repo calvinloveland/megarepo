@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+
 from conftest import auth, create_player
 
 
@@ -131,3 +133,61 @@ def test_pull_returns_manifest_and_files(client):
 
 def test_pull_missing_game_returns_404(client):
     assert client.get("/api/games/ghost/files").status_code == 404
+
+
+PNG_BASE64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+)
+
+
+def _simple_manifest(slug: str) -> dict:
+    return {"slug": slug, "title": slug.replace("-", " ").title(), "version": "1.0.0", "entry": "index.html"}
+
+
+def test_push_and_serve_binary_assets(client):
+    token, _ = create_player(client, handle="sprite-pusher")
+    response = client.post(
+        "/api/games",
+        json={
+            "manifest": _simple_manifest("sprite-game"),
+            "files": {"index.html": "<!doctype html><img src='sprite.png'>"},
+            "binary": {"sprite.png": PNG_BASE64},
+        },
+        headers=auth(token),
+    )
+    assert response.status_code == 201
+
+    served = client.get("/play/sprite-game/sprite.png")
+    assert served.status_code == 200
+    assert served.data == base64.b64decode(PNG_BASE64)
+    assert "image/png" in served.headers["Content-Type"]
+
+    pulled = client.get("/api/games/sprite-game/files").get_json()
+    assert pulled["binary"]["sprite.png"] == PNG_BASE64
+
+
+def test_push_rejects_unsupported_binary_types(client):
+    token, _ = create_player(client, handle="bad-binary")
+    response = client.post(
+        "/api/games",
+        json={
+            "manifest": _simple_manifest("bad-binary"),
+            "files": {"index.html": "<!doctype html>"},
+            "binary": {"malware.exe": PNG_BASE64},
+        },
+        headers=auth(token),
+    )
+    assert response.status_code == 400
+
+
+def test_cli_collect_files_splits_text_and_binary(tmp_path):
+    from gamebase.cli import _collect_files
+
+    (tmp_path / "index.html").write_text("<html>", encoding="utf-8")
+    (tmp_path / "sprite.png").write_bytes(base64.b64decode(PNG_BASE64))
+    (tmp_path / "game.yaml").write_text("slug: x\ntitle: X\n", encoding="utf-8")
+
+    text, binary = _collect_files(tmp_path)
+    assert "index.html" in text
+    assert "game.yaml" not in text and "game.yaml" not in binary
+    assert binary["sprite.png"] == PNG_BASE64
