@@ -62,3 +62,14 @@ def test_sdk_is_served(client):
 
 def test_healthz(client):
     assert client.get("/healthz").get_json() == {"status": "ok"}
+
+
+def test_theme_setting_adds_stylesheet(tmp_path, registry_dir):
+    from conftest import make_settings
+    from gamebase.app import create_app
+
+    application = create_app(make_settings(tmp_path, registry_dir, theme="playful"))
+    application.config.update(TESTING=True)
+    with application.test_client() as themed:
+        body = themed.get("/").get_data(as_text=True)
+    assert "/static/themes/playful.css" in body

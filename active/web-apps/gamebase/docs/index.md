@@ -164,6 +164,8 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | `GET` | `/api/matches/<id>` | Read a match. |
 | `POST` | `/api/matches/<id>/result` | Report `{result}`; completes when all report. |
 | `POST` | `/api/games/<slug>/remix` | Copy into `{new_slug, title?}`; records lineage. |
+| `POST` | `/api/games` | **Push**: create or update a game from `{manifest, files, changelog}`. |
+| `GET` | `/api/games/<slug>/files` | **Pull**: manifest plus all text files. |
 | `POST` | `/api/games/<slug>/publish` | Re-sync disk manifest and record `{changelog}`. |
 | `POST` | `/api/rescan` | Re-scan the registry. |
 
@@ -174,7 +176,31 @@ gamebase serve                  # run the platform (or: python3 -m gamebase)
 gamebase list                   # list registry games
 gamebase new comet-dodger --title "Comet Dodger" --author me
 gamebase publish comet-dodger --changelog "Added power-ups"
+
+gamebase push ./comet-dodger --url http://localhost:5121   # deploy a local folder
+gamebase pull comet-dodger --out ./comet-dodger           # download a game's source
 ```
+
+`push` and `pull` are the agent/deploy path: they talk to the REST API and
+need no server filesystem access. `push` reads `game.yaml` plus every text
+asset in the folder and sends them to `POST /api/games`; `pull` writes the
+result of `GET /api/games/<slug>/files` back to disk. Auth uses `--token`,
+`$GAMEBASE_TOKEN`, or a fresh guest identity created automatically.
+
+### Publishing from an agent
+
+Because `push` is self-contained, an agent can create a game by writing a
+folder and running one command:
+
+```bash
+gamebase push ./my-game --url http://localhost:5121 --changelog "Initial"
+```
+
+The API accepts only text files with known web extensions (`.html`, `.js`,
+`.mjs`, `.css`, `.json`, `.svg`, `.md`, `.yaml`, …), rejects path traversal and
+absolute paths, caps individual files at 512 KB and uploads at 8 MB, and
+requires the declared `entry` file to be present. Updating sends the full file
+set (a push is a complete publish, not a patch).
 
 ## Remix and update workflow
 
@@ -212,6 +238,7 @@ with ordinary file edits — no build step or deploy pipeline required.
 | `GAMEBASE_REGISTRY_DIR` | `<project>/registry` | Where games live. |
 | `GAMEBASE_DB_PATH` | `<project>/instance/gamebase.sqlite3` | SQLite database. |
 | `GAMEBASE_SCORE_RATE_LIMIT` | `3` | Minimum seconds between score submissions per player/game. |
+| `GAMEBASE_THEME` | `default` | Set to `playful` for the brighter arcade theme in `static/themes/`. |
 | `PORT` | `5120` | Server port (`5121` in the launcher registry). |
 
 ## Running and testing

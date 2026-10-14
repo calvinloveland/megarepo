@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 import shutil
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -22,6 +22,15 @@ DEFAULT_VERSION = "0.1.0"
 
 # Directories that should never be copied into a remix or scanned as assets.
 IGNORED_DIRS = {"node_modules", ".git", "__pycache__", ".pytest_cache", "dist", ".venv"}
+
+# Files the push API accepts. Games are HTML/JS/CSS artifacts, so text is the
+# right boundary: it keeps validation simple and blocks binary abuse.
+TEXT_EXTENSIONS = {
+    ".html", ".htm", ".js", ".mjs", ".cjs", ".css", ".json", ".txt",
+    ".md", ".yaml", ".yml", ".svg", ".csv",
+}
+MAX_FILE_BYTES = 512 * 1024
+MAX_TOTAL_BYTES = 8 * 1024 * 1024
 
 
 class ManifestError(ValueError):
@@ -342,3 +351,76 @@ def game_asset_path(registry_dir: Path, slug: str, relative: str) -> Path | None
     if candidate != base and base not in candidate.parents:
         return None
     return candidate
+
+
+# ── Publishing by API/CLI ────────────────────────────────────────────────────
+
+
+def _clean_relative_path(raw: str) -> PurePosixPath:
+    if not isinstance(raw, str) or not raw.strip():
+        raise ManifestError("file paths must be non-empty strings")
+    candidate = PurePosixPath(raw.replace("\\", "/"))
+    if candidate.is_absolute() or ".." in candidate.parts or candidate.parts[0] in ("", "."):
+        raise ManifestError(f"unsafe file path: {raw!r}")
+    if candidate.suffix.lower() not in TEXT_EXTENSIONS:
+        raise ManifestError(f"unsupported file type: {raw!r}")
+    return candidate
+
+
+def validate_files(files: Any) -> dict[str, str]:
+    """Validate a ``{path: text}`` mapping for writing into a game folder."""
+    if not isinstance(files, dict) or not files:
+        raise ManifestError("files must be a non-empty mapping")
+    cleaned: dict[str, str] = {}
+    total = 0
+    for raw_path, content in files.items():
+        if not isinstance(content, str):
+            raise ManifestError(f"file {raw_path!r} must be text")
+        path = _clean_relative_path(raw_path)
+        size = len(content.encode("utf-8"))
+        if size > MAX_FILE_BYTES:
+            raise ManifestError(f"file {raw_path!r} exceeds {MAX_FILE_BYTES} bytes")
+        total += size
+        if total > MAX_TOTAL_BYTES:
+            raise ManifestError(f"total upload exceeds {MAX_TOTAL_BYTES} bytes")
+        cleaned[path.as_posix()] = content
+    return cleaned
+
+
+def save_game(registry_dir: Path, manifest: Manifest, files: dict[str, str]) -> Manifest:
+    """Write a manifest and its text files to disk, then re-read to validate.
+
+    Used by the push API and CLI. Overwrites files that already exist so a push
+    is a complete publish, not an incremental patch.
+    """
+    cleaned = validate_files(files)
+    game_dir = registry_dir / manifest.slug
+    entry = cleaned.get(manifest.entry)
+    if entry is None:
+        raise ManifestError(f"entry file {manifest.entry!r} is required in the upload")
+
+    game_dir.mkdir(parents=True, exist_ok=True)
+    for relative, content in cleaned.items():
+        target = game_dir / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    write_manifest(game_dir, manifest)
+    return read_manifest(game_dir)
+
+
+def read_game_files(registry_dir: Path, slug: str) -> dict[str, str]:
+    """Return every text file in a game (excluding ``game.yaml``) for pull API."""
+    base = registry_dir / slug
+    if not base.is_dir():
+        raise ManifestError(f"game not found: {slug}")
+    files: dict[str, str] = {}
+    for path in sorted(base.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(base)
+        if any(part in IGNORED_DIRS for part in relative.parts):
+            continue
+        if path.name == MANIFEST_NAME or path.suffix.lower() not in TEXT_EXTENSIONS:
+            continue
+        files[relative.as_posix()] = path.read_text(encoding="utf-8")
+    return files

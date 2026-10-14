@@ -288,3 +288,45 @@ def rescan():
     registry_dir = _settings().registry_dir
     manifests = models.sync_registry(get_db(), registry_dir)
     return jsonify({"games": sorted(manifests.keys())})
+
+
+@api_bp.post("/games")
+@require_player
+def publish_game(player: dict[str, Any]):
+    """Create or update a game from a manifest + text files (push API)."""
+    body = _json_body()
+    manifest_data = body.get("manifest")
+    if not isinstance(manifest_data, dict):
+        return jsonify({"error": "manifest mapping is required"}), 400
+    registry_dir = _settings().registry_dir
+    files = body.get("files")
+
+    slug = manifest_data.get("slug")
+    existing = models.get_game(get_db(), slug) if isinstance(slug, str) else None
+    data = dict(manifest_data)
+    data.setdefault("author", player["handle"])
+    if existing and not data.get("remix_of"):
+        data["remix_of"] = existing.get("remix_of")
+    manifest = registry.manifest_from_dict(data)
+
+    saved = registry.save_game(registry_dir, manifest, files)
+    models.sync_registry(get_db(), registry_dir)
+    changelog = str(body.get("changelog") or ("Update" if existing else "Initial publish"))
+    models.record_version(get_db(), saved, changelog)
+    return jsonify(saved.to_dict()), (200 if existing else 201)
+
+
+@api_bp.get("/games/<slug>/files")
+def game_files(slug: str):
+    """Return a game's manifest and text files so it can be pulled and remixed."""
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    registry_dir = _settings().registry_dir
+    manifest = registry.read_manifest(registry_dir / slug)
+    return jsonify(
+        {
+            "slug": slug,
+            "manifest": manifest.to_dict(),
+            "files": registry.read_game_files(registry_dir, slug),
+        }
+    )

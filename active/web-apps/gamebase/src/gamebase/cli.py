@@ -1,27 +1,34 @@
-"""Command-line tools for creating and publishing Gamebase games.
+"""Command-line tools for creating, pushing, and pulling Gamebase games.
 
     gamebase serve                 # run the platform
-    gamebase list                  # list games in the registry
+    gamebase list                  # list games in the local registry
     gamebase new <slug> --title …  # scaffold a playable game
-    gamebase publish <slug>        # sync + record a version from disk
+    gamebase publish <slug>        # sync + record a version from local disk
+    gamebase push ./my-game        # publish a local folder to a running server
+    gamebase pull <slug>           # download a game's manifest + files
 
-The CLI deliberately shares the same registry code the web app uses, so there
-is exactly one definition of what a game is.
+The CLI reuses the same registry code as the web app, so there is exactly one
+definition of what a game is.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
 
 from . import models, registry
 from .config import Settings
 from .db import connect, init_db
 
+DEFAULT_SERVER = "http://localhost:5121"
+
 
 def _serve(args: argparse.Namespace) -> int:
-    import os
-
     from .app import create_app
 
     app = create_app()
@@ -77,6 +84,104 @@ def _publish(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── Remote push/pull ────────────────────────────────────────────────────────
+
+
+def _server_url(args: argparse.Namespace) -> str:
+    return (args.url or os.environ.get("GAMEBASE_URL") or DEFAULT_SERVER).rstrip("/")
+
+
+def _http_json(url: str, method: str, payload: dict | None, token: str | None) -> tuple[int, dict]:
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(request) as response:
+            return response.status, json.load(response)
+    except urllib.error.HTTPError as error:
+        body = error.read()
+        try:
+            return error.code, json.loads(body or b"{}")
+        except json.JSONDecodeError:
+            return error.code, {"error": body.decode("utf-8", "replace")}
+
+
+def _resolve_token(server: str, explicit: str | None) -> str:
+    token = explicit or os.environ.get("GAMEBASE_TOKEN")
+    if token:
+        return token
+    status, payload = _http_json(f"{server}/api/identity", "POST", {}, None)
+    if status >= 400 or "token" not in payload:
+        raise RuntimeError(payload.get("error", "could not obtain an identity token"))
+    return payload["token"]
+
+
+def _collect_files(directory: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for path in sorted(directory.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(directory)
+        if any(part in registry.IGNORED_DIRS for part in relative.parts):
+            continue
+        if path.name == registry.MANIFEST_NAME or path.suffix.lower() not in registry.TEXT_EXTENSIONS:
+            continue
+        files[relative.as_posix()] = path.read_text(encoding="utf-8")
+    return files
+
+
+def _push(args: argparse.Namespace) -> int:
+    directory = Path(args.directory).resolve()
+    try:
+        manifest = registry.read_manifest(directory)
+        files = _collect_files(directory)
+    except (registry.ManifestError, OSError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    server = _server_url(args)
+    try:
+        token = _resolve_token(server, args.token)
+    except (RuntimeError, urllib.error.URLError) as error:
+        print(f"error: cannot reach {server}: {error}", file=sys.stderr)
+        return 1
+
+    status, payload = _http_json(
+        f"{server}/api/games",
+        "POST",
+        {"manifest": manifest.to_dict(), "files": files, "changelog": args.changelog or "Push"},
+        token,
+    )
+    if status >= 400:
+        print(f"error: {payload.get('error', 'push failed')}", file=sys.stderr)
+        return 1
+    action = "Updated" if status == 200 else "Created"
+    print(f"{action} {payload['slug']} v{payload['version']} on {server}")
+    return 0
+
+
+def _pull(args: argparse.Namespace) -> int:
+    server = _server_url(args)
+    token = args.token or os.environ.get("GAMEBASE_TOKEN")
+    status, payload = _http_json(f"{server}/api/games/{args.slug}/files", "GET", None, token)
+    if status >= 400:
+        print(f"error: {payload.get('error', 'pull failed')}", file=sys.stderr)
+        return 1
+
+    output = Path(args.out or args.slug).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    manifest = registry.manifest_from_dict(payload["manifest"])
+    registry.write_manifest(output, manifest)
+    for relative, content in payload["files"].items():
+        target = output / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    print(f"Pulled {payload['slug']} ({len(payload['files'])} files) into {output}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="gamebase", description="Gamebase platform tools")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -96,10 +201,24 @@ def build_parser() -> argparse.ArgumentParser:
     new.add_argument("--description")
     new.set_defaults(func=_new)
 
-    publish = sub.add_parser("publish", help="record a new version from disk")
+    publish = sub.add_parser("publish", help="record a new version from local disk")
     publish.add_argument("slug")
     publish.add_argument("--changelog")
     publish.set_defaults(func=_publish)
+
+    push = sub.add_parser("push", help="publish a local game folder to a running server")
+    push.add_argument("directory")
+    push.add_argument("--url", help="server base URL (default: $GAMEBASE_URL or localhost:5121)")
+    push.add_argument("--token", help="API token (default: $GAMEBASE_TOKEN or a new guest identity)")
+    push.add_argument("--changelog")
+    push.set_defaults(func=_push)
+
+    pull = sub.add_parser("pull", help="download a game's manifest and files")
+    pull.add_argument("slug")
+    pull.add_argument("--out", help="output directory (default: ./<slug>)")
+    pull.add_argument("--url")
+    pull.add_argument("--token")
+    pull.set_defaults(func=_pull)
 
     return parser
 
