@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Washing Machine Tycoon</title>
+  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧺</text></svg>">
+</head>
+<body>
+  <div id="app">
+    <!-- Top Bar -->
+    <div id="topbar">
+      <div class="brand">
+        🧺 Washing Machine Tycoon
+        <small>Build the world's most trusted brand</small>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Date</span>
+        <span class="topbar-value" id="topbar-date">—</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Cash</span>
+        <span class="topbar-value" id="topbar-cash">—</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Reputation</span>
+        <span class="topbar-value" id="topbar-rep">—</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Machines Sold</span>
+        <span class="topbar-value" id="topbar-machines">0</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Difficulty</span>
+        <span class="topbar-value" id="topbar-diff" style="color:var(--accent-amber);font-size:12px">—</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Speed</span>
+        <span class="topbar-value" id="topbar-speed" onclick="var g=window.gameState;if(g&&!g.paused){if(g.speed===1){g.speed=5}else if(g.speed===5){g.speed=30}else if(g.speed===30){g.speed=1}}UI.render();">1x</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Pause</span>
+        <span class="topbar-value" id="topbar-pause" style="cursor:pointer" onclick="var g=window.gameState;if(g){g.paused=!g.paused;UI.render();}">⏸</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">R&amp;D</span>
+        <span class="topbar-value" id="topbar-research" style="font-size:11px;color:var(--accent-cyan)">0.0</span>
+      </div>
+      <div class="topbar-item">
+        <span class="topbar-label">Sound</span>
+        <span class="topbar-value" id="topbar-sound" style="cursor:pointer" onclick="SOUND.enabled=!SOUND.enabled;if(SOUND.enabled){SOUND.init();SOUND.setVolume(0.3)}else{SOUND.stopAmbience()}UI.render();">🔊</span>
+      </div>
+      <div class="topbar-item" id="setup-guide-btn" style="cursor:pointer;display:none" onclick="UI.showSetupGuide();">
+        <span class="topbar-label">Setup</span>
+        <span class="topbar-value" style="font-size:11px">📋 Guide</span>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div id="nav">
+      <span class="nav-item active" data-screen="dashboard">📊 Dashboard</span>
+      <span class="nav-item" data-screen="design">🔧 Design Studio</span>
+      <span class="nav-item" data-screen="factory">🏭 Factory</span>
+      <span class="nav-item" data-screen="machines">📦 Machines</span>
+      <span class="nav-item" data-screen="service">🔧 Service</span>
+      <span class="nav-item" data-screen="market">📈 Market</span>
+      <span class="nav-item" data-screen="research">🔬 R&D</span>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main">
+      <!-- Dashboard -->
+      <div id="screen-dashboard" class="screen active"></div>
+
+      <!-- Design Studio -->
+      <div id="screen-design" class="screen"></div>
+
+      <!-- Factory View -->
+      <div id="screen-factory" class="screen"></div>
+
+      <!-- Machine Browser -->
+      <div id="screen-machines" class="screen"></div>
+
+      <!-- Service Department -->
+      <div id="screen-service" class="screen"></div>
+
+      <!-- Market View -->
+      <div id="screen-market" class="screen"></div>
+
+      <!-- Research & Development -->
+      <div id="screen-research" class="screen"></div>
+    </div>
+
+    <!-- Toast Message -->
+    <div id="message-toast"></div>
+  </div>
+
+  <!-- Scripts in dependency order -->
+  <script src="js/data.js?v=10"></script>
+  <script src="js/game.js?v=10"></script>
+  <script src="js/error-reporter.js?v=10"></script>
+  <script src="js/ai.js?v=10"></script>
+  <script src="js/sound.js?v=10"></script>
+  <script src="js/simulation.js?v=10"></script>
+  <script src="js/ui.js?v=10"></script>
+  <!-- Gamebase platform: SDK + bridge. Loaded after the game scripts (so SIM
+       exists) but before main.js boots, so the bridge can wrap the tick and
+       year-end hooks. It injects its own status chip and never edits game DOM. -->
+  <script src="/sdk/gamebase.js"></script>
+  <script src="gamebase-bridge.js"></script>
+  <!-- Difficulty Selection Modal -->
+  <div id="difficulty-modal" class="difficulty-modal">
+    <div class="difficulty-modal-content">
+      <div class="difficulty-header">🧺 Name Your Company</div>
+      <div class="difficulty-subtitle">What will your washing machine brand be called?</div>
+      <div class="difficulty-name-field">
+        <input type="text" id="company-name-input" class="form-input" value="Your Brand" placeholder="e.g., Cascade Appliances, Whirlpool, Miele..."
+          onfocus="this.select()"
+          onkeydown="if(event.key==='Enter')document.querySelector('.difficulty-footer .btn-primary').click()">
+      </div>
+      <div class="difficulty-header" style="padding-top:8px;font-size:16px">Choose Your Difficulty</div>
+      <div class="difficulty-subtitle" style="padding-bottom:8px">AI competitors will design, produce, and sell washing machines against you.</div>
+      <div class="difficulty-options">
+        <div class="difficulty-option" onclick="UI.selectDifficulty('easy')">
+          <div class="diff-name">🌱 Easy</div>
+          <div class="diff-desc">Slow AI innovation, cheaper machines, you get a head start.</div>
+          <div class="diff-stats">AI redesigns every ~9 years · Low production · You start with +10 reputation</div>
+        </div>
+        <div class="difficulty-option selected" onclick="UI.selectDifficulty('medium')">
+          <div class="diff-name">⚖️ Medium</div>
+          <div class="diff-desc">Balanced competition. AI keeps pace and responds to your moves.</div>
+          <div class="diff-stats">AI redesigns every ~6 years · Moderate production · Level playing field</div>
+        </div>
+        <div class="difficulty-option" onclick="UI.selectDifficulty('hard')">
+          <div class="diff-name">💀 Hard</div>
+          <div class="diff-desc">Sharp AI that designs great machines and prices smartly.</div>
+          <div class="diff-stats">AI redesigns every ~4 years · High production · You start with -5 reputation</div>
+        </div>
+        <div class="difficulty-option" onclick="UI.selectDifficulty('nightmare')">
+          <div class="diff-name">🔥 Nightmare</div>
+          <div class="diff-desc">AI has cost advantages, innovates constantly, aggressively undercuts you.</div>
+          <div class="diff-stats">AI redesigns every ~2 years · Very high production · You start with -$100K & -10 rep</div>
+        </div>
+      </div>
+      <div class="difficulty-footer">
+        <button class="btn btn-primary" onclick="UI.confirmDifficulty()">Start Game 🚀</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Random Event Modal -->
+  <div id="event-modal" class="event-modal" style="display:none">
+    <div class="event-modal-content">
+      <div class="event-modal-header" id="event-modal-header">📋 Event</div>
+      <div class="event-modal-title" id="event-modal-title"></div>
+      <div class="event-modal-desc" id="event-modal-desc"></div>
+      <div class="event-modal-narrative" id="event-modal-narrative"></div>
+      <div class="event-modal-choices" id="event-modal-choices"></div>
+      <div class="event-modal-footer" id="event-modal-footer">
+        <button class="btn btn-primary" id="event-modal-btn" onclick="UI.dismissEvent()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paused Indicator (fixed bar at top of screen) -->
+  <div id="paused-indicator" class="paused-indicator" style="display:none"></div>
+
+  <!-- How to Play Overlay (help, accessible anytime) -->
+  <div id="help-overlay" class="help-overlay" style="display:none">
+    <div class="help-modal">
+      <div class="help-header">🧺 How to Play Washing Machine Tycoon</div>
+      <div class="help-body">
+        <p><strong>Your goal:</strong> Build the world's most trusted washing machine brand.</p>
+        <div class="help-section">
+          <div class="help-section-title">🎯 Core Loop</div>
+          <div class="help-step"><span class="help-num">1</span> <strong>Design Studio</strong> — Choose every component (drum, motor, bearings, etc.) to create a machine model.</div>
+          <div class="help-step"><span class="help-num">2</span> <strong>Factory</strong> — Assign your model to a production line. Balance speed vs quality control.</div>
+          <div class="help-step"><span class="help-num">3</span> <strong>Dashboard</strong> — Watch sales, cash, and reputation grow. Handle warranty claims as they arrive.</div>
+          <div class="help-step"><span class="help-num">4</span> <strong>Service</strong> — When machines fail, decide how to respond. Your choices affect your brand.</div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">💡 Key Tips</div>
+          <ul style="margin:4px 0 0 20px;font-size:13px;color:var(--text-secondary)">
+            <li><strong>Premium bearings</strong> are the single best investment — cheap bearings cause catastrophic failures</li>
+            <li><strong>Quality control</strong> slows production but reduces defects. A reputation takes years to build and days to lose</li>
+            <li><strong>Watch the regulations</strong> — new standards punish old designs. A 1970 machine becomes illegal by 1990</li>
+            <li><strong>Invest in R&D</strong> — tech unlocks require research spending. Without it, you will be stuck with 1940s components</li>
+            <li>Hire enough <strong>technicians</strong> for your machine base. Understaffed service = angry customers</li>
+            <li>Use the <strong>Clone</strong> button on existing models as a starting point for new designs</li>
+            <li>The game starts in <strong>1945</strong> and runs through the present day — each decade brings new tech, regulations, and competitors</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">📊 Key Metrics</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;color:var(--text-secondary);margin-top:4px">
+            <div><strong>Reputation</strong> — Brand trust (0-100). Affects sales and customer patience.</div>
+            <div><strong>Customer Satisfaction</strong> — Average across all active machines.</div>
+            <div><strong>Market Share</strong> — Your portion of the total market. AI competitors want it too.</div>
+            <div><strong>Pending Claims</strong> — Open warranty cases needing resolution.</div>
+          </div>
+        </div>
+      </div>
+      <div class="help-footer">
+        <button class="btn btn-primary" onclick="UI.dismissHelp()">Got it!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Setup Guide Overlay (shown on fresh game, paused) -->
+  <div id="setup-guide" class="setup-guide">
+    <div class="setup-guide-content">
+      <div class="setup-guide-header">🧺 Welcome! Let's set up your company.</div>
+      <div class="setup-guide-sub">The game is <strong>paused</strong>. Complete these steps before the simulation starts.</div>
+      <div id="setup-guide-body"></div>
+      <div class="setup-guide-footer">
+        <button class="btn btn-secondary" onclick="UI.hideSetupGuide();">Minimize this guide</button>
+        <button class="btn btn-accent" onclick="UI.showScreen('dashboard');UI.hideSetupGuide();">📊 Go to Dashboard</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/main.js?v=10"></script>
+</body>
+</html>

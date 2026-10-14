@@ -1,0 +1,124 @@
+slug: washing-machine-tycoon
+title: Washing Machine Tycoon
+description: Design, build, and sell washing machines from 1945 to the present. Balance cash, reputation, and R&D to outlast the competition.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - tycoon
+  - simulation
+  - idle
+  - management
+  - single-player
+capabilities:
+  leaderboard:
+    order: desc
+    label: Machines Sold
+    min: 0
+    # Machines sold is an unbounded cumulative counter — no max.
+  achievements:
+    - id: first-sale
+      title: First Sale
+      description: Sell your very first washing machine.
+      icon: 🧺
+      points: 5
+      criteria:
+        type: meta
+        key: totalMachinesSold
+        gte: 1
+    - id: hundred-club
+      title: Hundred Club
+      description: Sell 100 washing machines.
+      icon: 📦
+      points: 15
+      criteria:
+        type: meta
+        key: totalMachinesSold
+        gte: 100
+    - id: thousand-club
+      title: Factory Floor
+      description: Sell 1,000 washing machines.
+      icon: 🏭
+      points: 30
+      criteria:
+        type: meta
+        key: totalMachinesSold
+        gte: 1000
+    - id: ten-thousand-club
+      title: Appliance Empire
+      description: Sell 10,000 washing machines.
+      icon: 🏆
+      points: 50
+      criteria:
+        type: meta
+        key: totalMachinesSold
+        gte: 10000
+    - id: cash-cow
+      title: Cash Cow
+      description: Hold $1,000,000 in cash at once.
+      icon: 💰
+      points: 25
+      criteria:
+        type: meta
+        key: cash
+        gte: 1000000
+    - id: magnate
+      title: Appliance Magnate
+      description: Hold $10,000,000 in cash at once.
+      icon: 🤑
+      points: 40
+      criteria:
+        type: meta
+        key: cash
+        gte: 10000000
+    - id: trusted-brand
+      title: Trusted Brand
+      description: Reach 80 reputation.
+      icon: ⭐
+      points: 30
+      criteria:
+        type: meta
+        key: reputation
+        gte: 80
+    - id: beloved-brand
+      title: Beloved Brand
+      description: Reach 95 reputation.
+      icon: 💖
+      points: 50
+      criteria:
+        type: meta
+        key: reputation
+        gte: 95
+    - id: innovator
+      title: Innovator
+      description: Put five distinct models on the market.
+      icon: 💡
+      points: 20
+      criteria:
+        type: meta
+        key: models
+        gte: 5
+    - id: still-standing
+      title: Still Standing
+      description: Keep the company alive into the year 2000.
+      icon: 📅
+      points: 25
+      criteria:
+        type: meta
+        key: year
+        gte: 2000
+    - id: nightmare-survivor
+      title: Against All Odds
+      description: Run a company on Nightmare difficulty.
+      icon: 🔥
+      points: 15
+      hidden: true
+      criteria:
+        type: meta
+        key: difficulty
+        eq: nightmare
+    - id: brand-new
+      title: Brand New
+      description: Give your company a name of its own.
+      icon: ✏️
+      points: 10
