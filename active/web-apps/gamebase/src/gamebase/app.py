@@ -13,6 +13,7 @@ from flask import Flask, current_app, g, jsonify, send_file
 
 from . import db, models
 from .config import Settings
+from .registry import ManifestError
 
 __all__ = ["create_app", "get_db"]
 
@@ -48,6 +49,10 @@ def create_app(settings: Settings | None = None, *, sync_catalog: bool = True) -
     def healthz():
         return jsonify({"status": "ok"})
 
+    @app.context_processor
+    def inject_theme():
+        return {"theme": settings.theme}
+
     _register_error_handlers(app)
 
     if sync_catalog:
@@ -68,6 +73,10 @@ def get_db() -> sqlite3.Connection:
 
 
 def _register_error_handlers(app: Flask) -> None:
+    @app.errorhandler(ManifestError)
+    def _manifest_error(error: ManifestError):
+        return jsonify({"error": str(error)}), 400
+
     @app.errorhandler(models.NotFound)
     def _not_found(error: models.NotFound):
         return jsonify({"error": str(error)}), 404

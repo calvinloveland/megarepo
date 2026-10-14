@@ -28,6 +28,7 @@ class Settings:
     template_dir: Path
     static_dir: Path
     score_rate_limit_seconds: float = 3.0
+    theme: str = "default"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -38,4 +39,5 @@ class Settings:
             template_dir=PROJECT_ROOT / "templates",
             static_dir=PROJECT_ROOT / "static",
             score_rate_limit_seconds=float(os.environ.get("GAMEBASE_SCORE_RATE_LIMIT", "3")),
+            theme=os.environ.get("GAMEBASE_THEME", "default"),
         )
