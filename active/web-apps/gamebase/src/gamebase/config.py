@@ -29,6 +29,7 @@ class Settings:
     static_dir: Path
     score_rate_limit_seconds: float = 3.0
     theme: str = "default"
+    auto_rescan: bool = True
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -40,4 +41,5 @@ class Settings:
             static_dir=PROJECT_ROOT / "static",
             score_rate_limit_seconds=float(os.environ.get("GAMEBASE_SCORE_RATE_LIMIT", "3")),
             theme=os.environ.get("GAMEBASE_THEME", "default"),
+            auto_rescan=os.environ.get("GAMEBASE_AUTO_RESCAN", "1").lower() not in ("0", "false", "no", "off"),
         )

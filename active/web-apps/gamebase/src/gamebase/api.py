@@ -7,10 +7,12 @@ talking to them directly.
 
 from __future__ import annotations
 
+import json
+import time
 from functools import wraps
 from typing import Any, Callable
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, Response, current_app, jsonify, request, stream_with_context
 
 from . import models, registry
 from .app import get_db
@@ -71,6 +73,10 @@ def _serialize_game(game: dict[str, Any]) -> dict[str, Any]:
         order=(game["capabilities"].get("leaderboard") or {}).get("order", "desc"),
     )
     return {**game, "top_scores": top}
+
+
+def _sse_event(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 # ── Identity ────────────────────────────────────────────────────────────────
@@ -162,6 +168,37 @@ def my_best(slug: str):
             "rank": entry["rank"],
             "is_me": True,
             "achieved_at": entry["created_at"],
+        }
+    )
+
+
+@api_bp.get("/games/<slug>/me")
+@require_player
+def game_progress(player: dict[str, Any], slug: str):
+    """Bundled per-game progress: best score, rank, and achievement state."""
+    game = _require_game(slug)
+    if game is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    connection = get_db()
+    order = (game["capabilities"].get("leaderboard") or {}).get("order", "desc")
+    entry = models.player_best_entry(connection, slug, player["id"], order=order)
+    unlocked = models.unlocked_achievement_ids(connection, player["id"], slug)
+    achievements = []
+    points = 0
+    for achievement in models.list_achievements(connection, slug):
+        is_unlocked = achievement["id"] in unlocked
+        if is_unlocked:
+            points += achievement["points"]
+        if achievement["hidden"] and not is_unlocked:
+            continue
+        achievements.append({**achievement, "unlocked": is_unlocked})
+    return jsonify(
+        {
+            "best": entry["score"] if entry else None,
+            "rank": entry["rank"] if entry else None,
+            "points": points,
+            "unlocked_count": len(unlocked),
+            "achievements": achievements,
         }
     )
 
@@ -265,6 +302,48 @@ def leave_matchmaking(player: dict[str, Any], slug: str):
     return jsonify({"cancelled": cancelled})
 
 
+@api_bp.get("/games/<slug>/matchmaking/stream")
+@require_player
+def matchmaking_stream(player: dict[str, Any], slug: str):
+    """Server-sent events: push the ticket/match the moment it changes.
+
+    The SDK prefers this over polling. ``?timeout`` (seconds) bounds how long
+    the stream stays open; a 0-second timeout emits one snapshot and closes.
+    """
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    try:
+        timeout = min(max(float(request.args.get("timeout", 60)), 0), 120)
+    except ValueError:
+        timeout = 60.0
+    player_id = player["id"]
+
+    def generate():
+        deadline = time.time() + timeout
+        previous = object()
+        while True:
+            ticket = models.open_ticket(get_db(), slug, player_id)
+            state = (
+                (ticket["status"], ticket.get("match_id")) if ticket else (None, None)
+            )
+            if state != previous:
+                previous = state
+                yield _sse_event("status", {"ticket": ticket})
+            if ticket is None or ticket["status"] in ("matched", "cancelled", "completed"):
+                yield _sse_event("done", {"ticket": ticket})
+                return
+            if time.time() >= deadline:
+                yield _sse_event("timeout", {"ticket": ticket})
+                return
+            time.sleep(0.5)
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @api_bp.get("/matches/<match_id>")
 def get_match(match_id: str):
     match = models.get_match(get_db(), match_id)
@@ -327,7 +406,8 @@ def publish(player: dict[str, Any], slug: str):
 
 
 @api_bp.post("/rescan")
-def rescan():
+@require_player
+def rescan(player: dict[str, Any]):
     registry_dir = _settings().registry_dir
     manifests = models.sync_registry(get_db(), registry_dir)
     return jsonify({"games": sorted(manifests.keys())})

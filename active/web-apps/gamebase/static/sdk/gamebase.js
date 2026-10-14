@@ -133,6 +133,61 @@
     return slug;
   }
 
+  function authHeaders(extra) {
+    const headers = Object.assign({}, extra || {});
+    const current = token();
+    if (current) headers.Authorization = "Bearer " + current;
+    return headers;
+  }
+
+  function parseSseChunk(chunk) {
+    let event = "message";
+    const dataLines = [];
+    chunk.split("\n").forEach((line) => {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+    });
+    let data = null;
+    if (dataLines.length) {
+      try {
+        data = JSON.parse(dataLines.join("\n"));
+      } catch (error) {
+        data = null;
+      }
+    }
+    return { event: event, data: data };
+  }
+
+  /** Stream matchmaking via server-sent events. Throws if the stream is unusable. */
+  async function streamMatch(slug, timeoutMs) {
+    const response = await fetch(
+      apiBase() + "/games/" + slug + "/matchmaking/stream?timeout=" + Math.ceil(timeoutMs / 1000),
+      { headers: authHeaders({ Accept: "text/event-stream" }) }
+    );
+    if (!response.ok || !response.body || !response.body.getReader) {
+      throw new Error("match stream unavailable");
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const part = await reader.read();
+      if (part.done) break;
+      buffer += decoder.decode(part.value, { stream: true });
+      let boundary;
+      while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+        const parsed = parseSseChunk(buffer.slice(0, boundary));
+        buffer = buffer.slice(boundary + 2);
+        if (parsed.event === "done") {
+          const ticket = parsed.data && parsed.data.ticket;
+          return ticket && ticket.match ? ticket.match : null;
+        }
+        if (parsed.event === "timeout") return null;
+      }
+    }
+    return null;
+  }
+
   const Gamebase = {
     version: "0.1.0",
     ready,
@@ -154,6 +209,12 @@
       const slug = requireSlug();
       const payload = await request("/games/" + slug + "/my-best");
       return payload.best === null ? null : payload;
+    },
+    /** Best score, rank, points, and achievement state for this game in one call. */
+    async myProgress() {
+      await ready();
+      const slug = requireSlug();
+      return request("/games/" + slug + "/me");
     },
     async submitScore(score, meta) {
       await ready();
@@ -225,11 +286,40 @@
         body: { result: result || {} },
       });
     },
-    /** Poll matchmaking until an opponent joins. */
+    /**
+     * Standard end-of-run handoff: submit the score (which also evaluates
+     * score/count/meta achievements server-side), unlock any extra manual ones,
+     * and emit a `runended` event. One call at game over.
+     */
+    async endRun(result) {
+      const run = result || {};
+      const raw = run.score;
+      const score = typeof raw === "number" ? raw : raw != null ? Number(raw) : null;
+      let submission = null;
+      if (score !== null && !Number.isNaN(score)) {
+        submission = await Gamebase.submitScore(score, run.meta || {});
+      }
+      const unlocked = (submission && submission.unlocked ? submission.unlocked : []).slice();
+      if (run.unlock && run.unlock.length) {
+        unlocked.push(...(await Gamebase.unlock(run.unlock)));
+      }
+      const outcome = { score: score, submission: submission, unlocked: unlocked };
+      emit("runended", outcome);
+      return outcome;
+    },
+    /** Wait for an opponent: SSE push first, polling as a fallback. */
     async waitForMatch(options) {
       const opts = options || {};
-      const interval = opts.interval || 1000;
       const timeout = opts.timeout || 60000;
+      const slug = requireSlug();
+      if (!opts.poll && typeof fetch !== "undefined") {
+        try {
+          return await streamMatch(slug, timeout);
+        } catch (error) {
+          /* stream unavailable — fall back to polling */
+        }
+      }
+      const interval = opts.interval || 1000;
       const started = Date.now();
       for (;;) {
         const ticket = await Gamebase.matchStatus();

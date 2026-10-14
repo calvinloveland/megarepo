@@ -54,12 +54,42 @@ def create_app(settings: Settings | None = None, *, sync_catalog: bool = True) -
         return {"theme": settings.theme}
 
     _register_error_handlers(app)
+    rescan_state = _install_auto_rescan(app, settings)
 
     if sync_catalog:
         with app.app_context():
             models.sync_registry(get_db(), settings.registry_dir)
+    try:
+        rescan_state["mtime"] = settings.registry_dir.stat().st_mtime_ns
+    except OSError:
+        pass
 
     return app
+
+
+def _install_auto_rescan(app: Flask, settings: Settings) -> dict:
+    """Resync the catalog when the registry folder changes (dev convenience).
+
+    Catches new/renamed game folders without a restart. Editing a manifest in
+    place does not change the registry folder's mtime, so the catalog's Rescan
+    button remains available for that case.
+    """
+    state: dict = {"mtime": None}
+
+    @app.before_request
+    def _rescan_if_registry_changed():
+        if not settings.auto_rescan:
+            return
+        try:
+            mtime = settings.registry_dir.stat().st_mtime_ns
+        except OSError:
+            return
+        if state["mtime"] == mtime:
+            return
+        state["mtime"] = mtime
+        models.sync_registry(get_db(), settings.registry_dir)
+
+    return state
 
 
 def get_db() -> sqlite3.Connection:

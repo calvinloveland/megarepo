@@ -77,7 +77,11 @@
       button.disabled = true;
       button.textContent = "Scanning…";
       try {
-        const response = await fetch("/api/rescan", { method: "POST" });
+        const authToken = await ensureIdentity();
+        const response = await fetch("/api/rescan", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + authToken },
+        });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "rescan failed");
         window.location.reload();
