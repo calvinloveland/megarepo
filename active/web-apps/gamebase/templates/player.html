@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ player.handle }} — Gamebase{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>{{ player.handle }}</h1>
+  <p>
+    {{ achievements|length }} achievements · <span class="stat">{{ points }}</span> points
+    {% if player.is_guest %}· <span class="muted">guest player</span>{% endif %}
+  </p>
+</section>
+
+<section class="grid">
+  {% for achievement in achievements %}
+    <article class="card">
+      <div class="achievement unlocked">
+        <span class="icon">{{ achievement.icon or "🏆" }}</span>
+        <span>
+          <span class="title">{{ achievement.title or achievement.achievement_id }}</span>
+          <span class="desc">{{ achievement.description }}</span>
+        </span>
+      </div>
+      <p class="small"><a href="/g/{{ achievement.slug }}">{{ achievement.game_title or achievement.slug }}</a></p>
+    </article>
+  {% else %}
+    <p class="empty">No achievements yet. Go <a href="/">play something</a>.</p>
+  {% endfor %}
+</section>
+{% endblock %}

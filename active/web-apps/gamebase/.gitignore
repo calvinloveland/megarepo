@@ -1,0 +1,7 @@
+# Local SQLite database
+instance/
+
+# Python caches
+__pycache__/
+*.pyc
+.pytest_cache/

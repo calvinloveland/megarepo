@@ -42,6 +42,10 @@ KNOWN_APPS = {
         "server_script": None,
         "browser": "google-chrome-stable",
     },
+    "gamebase": {
+        "dir": REPO_ROOT / "active" / "web-apps" / "gamebase",
+        "server_script": None,
+    },
     "steampunk-tetris": {
         "dir": REPO_ROOT / "active" / "games" / "steampunk-tetris",
         "server_script": "server.mjs",
@@ -192,6 +196,19 @@ def check_vernissage(app: dict, args: argparse.Namespace) -> int:
     return exit_code
 
 
+def check_python_flask(app: dict, args: argparse.Namespace) -> int:
+    """Run a src-layout Flask/package project's pytest suite with src on PYTHONPATH."""
+    app_dir: Path = app["dir"]
+    env = dict(os.environ)
+    src = app_dir / "src"
+    env["PYTHONPATH"] = str(src) + os.pathsep + env.get("PYTHONPATH", "")
+    print("\n=== pytest ===")
+    result = subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd=app_dir, env=env)
+    if result.returncode != 0:
+        print("FAILED: pytest")
+    return result.returncode
+
+
 def check() -> int:
     parser = argparse.ArgumentParser(description="Check a web app project")
     parser.add_argument("app_name", choices=list(KNOWN_APPS.keys()), help="which web app to check")
@@ -212,6 +229,7 @@ def check() -> int:
         "esp-array-sim": check_node_sim,
         "watch-forge": check_node_sim,
         "vroomon": check_vroomon,
+        "gamebase": check_python_flask,
         "steampunk-tetris": check_steampunk_tetris,
     }
     exit_code = checkers[args.app_name](app, args)

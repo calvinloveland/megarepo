@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orb Tap</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game">
+    <h1>Orb Tap</h1>
+    <p class="hint">Click the orb. Every ten points submits your score.</p>
+    <button id="orb" aria-label="Score a point">&#9670;</button>
+    <p class="score">Score: <span id="score">0</span></p>
+    <p class="best">Personal best: <span id="best">&mdash;</span></p>
+    <p class="status" id="status"></p>
+  </main>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

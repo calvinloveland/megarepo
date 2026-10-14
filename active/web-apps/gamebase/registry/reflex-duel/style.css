@@ -1,0 +1,51 @@
+:root {
+  color-scheme: dark;
+  --bg: #0a0e17;
+  --idle: #1d2740;
+  --wait: #b45309;
+  --go: #16a34a;
+  --accent: #4ade80;
+  --text: #e2e8f0;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "SF Mono", "Consolas", monospace;
+}
+
+.arena { text-align: center; width: min(420px, 90vw); }
+
+h1 { letter-spacing: 2px; text-transform: uppercase; }
+
+.phase { color: #93a2ba; min-height: 20px; }
+
+.action {
+  width: 100%;
+  padding: 40px 16px;
+  margin: 16px 0;
+  border: none;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 20px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #e2e8f0;
+  background: var(--idle);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.action.wait { background: var(--wait); }
+.action.go { background: var(--go); color: #04150b; }
+
+.players { display: flex; justify-content: space-between; font-size: 13px; color: #93a2ba; }
+.players strong { color: var(--accent); }
+
+.result { min-height: 22px; font-size: 14px; }

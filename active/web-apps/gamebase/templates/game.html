@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ game.title }} — Gamebase{% endblock %}
+{% block content %}
+{% set board = game.capabilities.leaderboard %}
+<div class="game-layout">
+  <div>
+    <h1 style="margin: 8px 0 4px;">{{ game.title }}</h1>
+    <p class="muted small" style="margin: 0 0 8px;">
+      by {{ game.author or "unknown" }} · v{{ game.current_version }}
+      {% if lineage %}· remixed from
+        {% for ancestor in lineage %}<a href="/g/{{ ancestor }}">{{ ancestor }}</a>{% if not loop.last %} → {% endif %}{% endfor %}
+      {% endif %}
+    </p>
+    <div class="tag-row" style="margin-bottom: 14px;">
+      {% for tag in game.tags %}<span class="pill muted">{{ tag }}</span>{% endfor %}
+      {% if game.capabilities.matchmaking %}<span class="pill">matchmaking</span>{% endif %}
+      {% if board %}<span class="pill">high scores</span>{% endif %}
+    </div>
+    <iframe
+      class="play-frame"
+      src="/play/{{ game.slug }}/"
+      title="{{ game.title }}"
+      sandbox="allow-scripts allow-same-origin allow-forms"
+      allow="fullscreen"
+    ></iframe>
+    <p class="muted small">{{ game.description }}</p>
+  </div>
+
+  <aside class="sidebar">
+    {% if board %}
+    <section class="panel">
+      <h2>High scores · {{ board.label }}</h2>
+      {% if leaderboard %}
+        <table class="score-table">
+          {% for entry in leaderboard %}
+            <tr>
+              <td class="rank">{{ entry.rank }}</td>
+              <td><a href="/players/{{ entry.handle }}">{{ entry.handle }}</a></td>
+              <td class="value">{{ entry.score }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      {% else %}
+        <p class="empty">No scores yet — be the first.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="panel" data-achievements="{{ game.slug }}">
+      <h2>Achievements</h2>
+      {% for achievement in achievements %}
+        <div class="achievement" data-achievement="{{ achievement.id }}">
+          <span class="icon">{{ achievement.icon if not achievement.hidden else "❓" }}</span>
+          <span>
+            <span class="title">{{ achievement.title if not achievement.hidden else "Hidden achievement" }}</span>
+            <span class="desc">{{ achievement.description }}</span>
+          </span>
+          <span class="points">{{ achievement.points }}p</span>
+        </div>
+      {% else %}
+        <p class="empty">This game has no achievements.</p>
+      {% endfor %}
+    </section>
+
+    <section class="panel">
+      <h2>Remix this game</h2>
+      <p class="muted small">Copy the game into a new editable project with its own slug and leaderboard.</p>
+      <form data-remix-form="{{ game.slug }}">
+        <label for="new_slug">New slug</label>
+        <input id="new_slug" name="new_slug" pattern="[a-z0-9][a-z0-9-]{1,48}" placeholder="{{ game.slug }}-remix" required />
+        <div class="spacer"></div>
+        <button class="btn small" type="submit">Create remix</button>
+      </form>
+      <p class="small" id="remix-status"></p>
+    </section>
+
+    {% if versions|length > 1 %}
+    <section class="panel">
+      <h2>Version history</h2>
+      {% for version in versions %}
+        <p class="small" style="margin: 4px 0;">
+          <strong>v{{ version.version }}</strong> — {{ version.changelog }}
+        </p>
+      {% endfor %}
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

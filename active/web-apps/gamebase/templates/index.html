@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Gamebase — Arcade{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1><span class="stat">{{ game_count }}</span> games, one platform</h1>
+  <p>
+    Host, play, and remix browser games with built-in identity, high scores,
+    achievements, and matchmaking. Every game is a folder — remix one in a click.
+  </p>
+</section>
+
+<section class="grid">
+  {% for card in cards %}
+    <article class="card">
+      <div class="tag-row">
+        {% for tag in card.tags %}<span class="pill muted">{{ tag }}</span>{% endfor %}
+      </div>
+      <h3><a href="/g/{{ card.slug }}">{{ card.title }}</a></h3>
+      <p>{{ card.description or "No description yet." }}</p>
+      <div class="meta">
+        <span>
+          {% if card.top_score %}
+            Top: <strong>{{ card.top_score.score }}</strong> {{ card.top_score.handle }}
+          {% else %}
+            No scores yet
+          {% endif %}
+        </span>
+        <span>{{ card.achievement_count }} 🏆</span>
+      </div>
+      <div class="tag-row">
+        <a class="btn small" href="/g/{{ card.slug }}">Play</a>
+        <button class="btn small secondary" data-remix="{{ card.slug }}">Remix</button>
+      </div>
+    </article>
+  {% else %}
+    <p class="empty">No games yet. <a href="/create">Create the first one.</a></p>
+  {% endfor %}
+</section>
+{% endblock %}

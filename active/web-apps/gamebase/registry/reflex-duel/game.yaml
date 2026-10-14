@@ -1,0 +1,33 @@
+slug: reflex-duel
+title: Reflex Duel
+description: A head-to-head reaction test. Queue up, wait for green, and tap fastest.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - multiplayer
+  - reflex
+capabilities:
+  leaderboard:
+    order: asc
+    min: 1
+    max: 5000
+    label: Reaction (ms)
+  achievements:
+    - id: first-duel
+      title: First Duel
+      description: Finish a head-to-head duel.
+      icon: ⚔️
+      points: 10
+      criteria: {}
+    - id: lightning
+      title: Lightning
+      description: React in under 200 ms.
+      icon: ⚡
+      points: 25
+      criteria:
+        type: score
+        lte: 200
+  matchmaking:
+    players: 2
+    mode: duel

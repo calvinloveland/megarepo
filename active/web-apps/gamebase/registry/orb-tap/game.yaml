@@ -1,0 +1,38 @@
+slug: orb-tap
+title: Orb Tap
+description: Tap the orb as fast as you can. A tiny demo of Gamebase scores and achievements.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - arcade
+  - clicker
+capabilities:
+  leaderboard:
+    order: desc
+    label: Score
+  achievements:
+    - id: first-point
+      title: First Point
+      description: Score your first point.
+      icon: ⭐
+      points: 5
+      criteria:
+        type: score
+        gte: 1
+    - id: century
+      title: Century
+      description: Reach a score of 100.
+      icon: 💯
+      points: 20
+      criteria:
+        type: score
+        gte: 100
+    - id: persistent
+      title: Persistent
+      description: Submit 25 scores.
+      icon: 🔁
+      points: 15
+      criteria:
+        type: count
+        gte: 25

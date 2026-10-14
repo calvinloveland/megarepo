@@ -334,4 +334,15 @@ apps:
     start_cmd: "node server.mjs 2>&1"
     env:
       PORT: "5122"
+  - id: gamebase
+    name: Gamebase
+    description: Arcade hosting platform for AI-created web games — identity, high scores, achievements, matchmaking, and one-click remixes
+    icon: 🕹️
+    subdomain: games
+    path: ../gamebase
+    type: flask
+    port: 5121
+    module: gamebase
+    env:
+      PORT: "5121"
 
