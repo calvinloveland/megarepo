@@ -4,7 +4,8 @@
  * A real-time first-person deathmatch. The arena is a Wolfenstein/Doom-style
  * raycast grid rendered to a 2D canvas; remote players are billboards that are
  * interpolated between the ~15 Hz `state` messages relayed by the Gamebase
- * real-time room (see Gamebase.joinRealtime). There is no server-side
+ * real-time room. Peers connect directly (WebRTC) with a relay fallback; see
+ * Gamebase.connectPeers. There is no server-side
  * simulation: each client owns its own health and announces its own death.
  *
  * The game keeps a small debug surface on `window.ArenaFPS` so the online flow
@@ -426,7 +427,7 @@
       world.phase = "waiting";
       setOverlay("Waiting for opponent…", "Your opponent found the match. Waiting for them to connect.", { status: "Waiting for opponent…" });
 
-      const channel = await Gamebase.joinRealtime(match.id);
+      const channel = await Gamebase.connectPeers(match.id);
       world.channel = channel;
       channel.on("open", () => {
         send({ t: "hello", name: world.myHandle });

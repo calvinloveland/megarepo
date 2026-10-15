@@ -450,6 +450,27 @@ Not ported (and why):
 - `conway-game-of-war` (hyphenated) — an LLM-vs-LLM harness, not a playable web game.
 - `esp32-led-sync` — hardware tooling, not a game.
 
+## Who runs the game (resource model)
+
+Gamebase is deliberately thin so that idle time costs nothing:
+
+- **Games are static files.** There is no per-game backend, so a game nobody is
+  playing uses no CPU or memory.
+- **One shared platform process.** The platform (identity, scores, ratings,
+  comments, matchmaking, save state) is the only always-on service, and it is idle
+  when nobody is connected.
+- **Multiplayer transports allocate only while in use.** Turn-based games use
+  `/api/matches/<id>/state`; real-time games use the `/api/rt` WebSocket room.
+  Both cost nothing when no clients are connected.
+- **Peer-to-peer removes the server from the data path.** `Gamebase.connectPeers`
+  signals WebRTC data channels through the room, then peers talk directly. Once
+  open, the server relays no game traffic; if a direct connection fails
+  (symmetric NAT, no TURN) it falls back to the relay automatically. `arena-fps`
+  uses this.
+- **Host-authoritative games.** `match.players[0]` is the host, so a game that
+  needs a "server" (a dealer, an AI director, an authoritative sim) can run it on
+  the host client. Nothing is provisioned until a match starts.
+
 ## Shared game kit
 
 The six newest ports share `/static/kit/gamekit.css` and `/static/kit/gamekit.js`

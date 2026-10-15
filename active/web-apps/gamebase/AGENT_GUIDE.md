@@ -154,6 +154,14 @@ inside the strict sandbox (no cookies needed). Keep messages small and JSON, and
 send your own state at ~10–20 Hz. See `registry/arena-fps/game.js` for a full
 first-person example, and `waitForMatch`/`match` for the turn-based relay.
 
+For lower latency and **zero relay load**, `Gamebase.connectPeers(matchId)`
+returns the same `send` / `on("open"|"roster"|"message"|"close")` API but
+connects peers **directly with WebRTC data channels**, falling back to the relay
+automatically if a direct connection cannot be made. `match.players[0]` is the
+host (`Gamebase.hostId(matchId)` / `channel.isHost`), so the host can run the
+authoritative simulation while peers only send input — no server compute per
+game, and nothing runs when nobody is connected.
+
 The platform handles community features for you: players rate games 1–5 stars,
 comment, and every launch is counted for the “most played” ranking. The SDK
 exposes `rate`/`rating`, `comments`/`comment`, and `play` if you want to surface

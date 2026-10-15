@@ -351,7 +351,7 @@
    */
   function openPeerMesh(matchId, match, options) {
     const opts = options || {};
-    const players = match.players || [];
+    let players = match.players || [];
     const myId = cachedPlayer ? cachedPlayer.id : null;
     const hostId = matchHostId(match);
     const isHost = Boolean(myId) && myId === hostId;
@@ -391,7 +391,9 @@
       } catch (error) {
         return;
       }
-      emit("message", { from: peerId, data: data });
+      // Match the relay's shape: the message object itself, with `from` added.
+      if (data && typeof data === "object" && !data.from) data.from = peerId;
+      emit("message", data);
     }
 
     function bindChannel(peerId, channel) {
@@ -486,6 +488,9 @@
       get mode() {
         return mode;
       },
+      get connected() {
+        return Boolean(channels.size) || Boolean(signal && signal.connected);
+      },
       get peerIds() {
         return Array.from(channels.keys());
       },
@@ -531,7 +536,16 @@
       .then((info) => {
         signal = openRealtimeChannel(matchId, info);
         signal.on("open", () => { if (mode === "connecting") offerToKnownPeers(); });
-        signal.on("roster", () => offerToKnownPeers());
+        signal.on("roster", async () => {
+          try {
+            const latest = await request("/matches/" + matchId);
+            players = latest.players || players;
+          } catch (error) {
+            /* keep the known players */
+          }
+          offerToKnownPeers();
+          emit("roster", players.map((player) => player.player_id));
+        });
         signal.on("message", (message) => {
           if (!message) return;
           if (message.t === "p2p") return void onSignal(message);

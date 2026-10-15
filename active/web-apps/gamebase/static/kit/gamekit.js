@@ -124,6 +124,11 @@
     return global.Gamebase.endRun(run).catch(() => {});
   };
 
+  /** Peer-to-peer helpers: direct data channels with a relay fallback. */
+  GameKit.online.peers = function (matchId, options) {
+    return global.Gamebase.connectPeers(matchId, options);
+  };
+
   GameKit.playerId = function () {
     return global.Gamebase.player ? global.Gamebase.player.id : null;
   };
