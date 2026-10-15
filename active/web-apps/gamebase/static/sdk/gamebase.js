@@ -339,6 +339,217 @@
     return channel;
   }
 
+  /** Where the match `players[0]` is the host, so games can pick an authority. */
+  function matchHostId(match) {
+    return match && match.players && match.players[0] ? match.players[0].player_id : null;
+  }
+
+  /**
+   * Peer-to-peer data channels signalled through the match room, with a relay
+   * fallback. Once any data channel opens, messages stop touching the server —
+   * for a host-authoritative game the host simulates and peers just send input.
+   */
+  function openPeerMesh(matchId, match, options) {
+    const opts = options || {};
+    const players = match.players || [];
+    const myId = cachedPlayer ? cachedPlayer.id : null;
+    const hostId = matchHostId(match);
+    const isHost = Boolean(myId) && myId === hostId;
+    const handlers = {};
+    const connections = new Map(); // peerId -> { pc, remoteSet, pending }
+    const channels = new Map(); // peerId -> RTCDataChannel
+    const iceServers = opts.iceServers || [{ urls: "stun:stun.l.google.com:19302" }];
+    const useP2P = !opts.relayOnly && typeof global.RTCPeerConnection === "function";
+    let signal = null;
+    let closed = false;
+    let mode = useP2P ? "connecting" : "relay";
+
+    function emit(event, detail) {
+      (handlers[event] || []).forEach((callback) => {
+        try {
+          callback(detail);
+        } catch (error) {
+          console.error("[gamebase] peers listener failed", error);
+        }
+      });
+    }
+
+    function setMode(next) {
+      if (mode === next) return;
+      mode = next;
+      emit("modechange", { mode: mode });
+    }
+
+    function sendSignal(message) {
+      if (signal && signal.connected) signal.send(message);
+    }
+
+    function emitData(peerId, raw) {
+      let data = null;
+      try {
+        data = typeof raw === "string" ? JSON.parse(raw) : raw;
+      } catch (error) {
+        return;
+      }
+      emit("message", { from: peerId, data: data });
+    }
+
+    function bindChannel(peerId, channel) {
+      channels.set(peerId, channel);
+      channel.addEventListener("open", () => {
+        if (mode !== "p2p") setMode("p2p");
+        emit("open", { peerId: peerId });
+      });
+      channel.addEventListener("message", (event) => emitData(peerId, event.data));
+      channel.addEventListener("close", () => {
+        channels.delete(peerId);
+        emit("close", { peerId: peerId, transport: "p2p" });
+        if (!channels.size && !closed) setMode(signal && signal.connected ? "relay" : "closed");
+      });
+    }
+
+    function newConnection(peerId, initiator) {
+      const record = { pc: new global.RTCPeerConnection({ iceServers: iceServers }), remoteSet: false, pending: [] };
+      connections.set(peerId, record);
+      record.pc.addEventListener("icecandidate", (event) => {
+        if (event.candidate) sendSignal({ t: "p2p", to: peerId, kind: "ice", candidate: event.candidate });
+      });
+      if (initiator) {
+        const channel = record.pc.createDataChannel("gamebase", { ordered: opts.ordered !== false });
+        bindChannel(peerId, channel);
+        record.pc.addEventListener("negotiationneeded", async () => {
+          try {
+            const offer = await record.pc.createOffer();
+            await record.pc.setLocalDescription(offer);
+            sendSignal({ t: "p2p", to: peerId, kind: "offer", sdp: record.pc.localDescription });
+          } catch (error) {
+            /* fall back to the relay */
+          }
+        });
+      } else {
+        record.pc.addEventListener("datachannel", (event) => bindChannel(peerId, event.channel));
+      }
+      return record;
+    }
+
+    async function flushCandidates(record) {
+      record.remoteSet = true;
+      const queued = record.pending.splice(0);
+      for (const candidate of queued) {
+        try {
+          await record.pc.addIceCandidate(candidate);
+        } catch (error) {
+          /* ignore */
+        }
+      }
+    }
+
+    async function onSignal(message) {
+      const peerId = message.from;
+      if (!peerId || (message.to && message.to !== myId)) return;
+      try {
+        if (message.kind === "offer") {
+          const record = connections.get(peerId) || newConnection(peerId, false);
+          await record.pc.setRemoteDescription(message.sdp);
+          await flushCandidates(record);
+          const answer = await record.pc.createAnswer();
+          await record.pc.setLocalDescription(answer);
+          sendSignal({ t: "p2p", to: peerId, kind: "answer", sdp: record.pc.localDescription });
+        } else if (message.kind === "answer") {
+          const record = connections.get(peerId);
+          if (!record) return;
+          await record.pc.setRemoteDescription(message.sdp);
+          await flushCandidates(record);
+        } else if (message.kind === "ice" && message.candidate) {
+          const record = connections.get(peerId);
+          if (!record) return;
+          if (record.remoteSet) await record.pc.addIceCandidate(message.candidate);
+          else record.pending.push(message.candidate);
+        }
+      } catch (error) {
+        console.warn("[gamebase] peer signalling failed", error);
+      }
+    }
+
+    function offerToKnownPeers() {
+      if (!isHost || !useP2P) return;
+      players.forEach((player) => {
+        if (player.player_id !== myId && !connections.has(player.player_id)) newConnection(player.player_id, true);
+      });
+    }
+
+    const api = {
+      matchId: matchId,
+      myId: myId,
+      hostId: hostId,
+      isHost: isHost,
+      get mode() {
+        return mode;
+      },
+      get peerIds() {
+        return Array.from(channels.keys());
+      },
+      send(data) {
+        const serialized = JSON.stringify(data);
+        if (channels.size) {
+          channels.forEach((channel) => {
+            if (channel.readyState === "open") {
+              try {
+                channel.send(serialized);
+              } catch (error) {
+                /* ignore */
+              }
+            }
+          });
+          return;
+        }
+        if (signal && signal.connected) signal.send({ t: "data", data: data });
+      },
+      on(event, callback) {
+        (handlers[event] = handlers[event] || []).push(callback);
+      },
+      close() {
+        closed = true;
+        connections.forEach((record) => {
+          try {
+            record.pc.close();
+          } catch (error) {
+            /* ignore */
+          }
+        });
+        connections.clear();
+        channels.clear();
+        if (signal) signal.close();
+      },
+    };
+
+    const timeout = setTimeout(() => {
+      if (!channels.size && mode === "connecting") setMode(signal && signal.connected ? "relay" : "closed");
+    }, opts.timeout || 8000);
+
+    request("/matches/" + matchId + "/rt-token", { method: "POST" })
+      .then((info) => {
+        signal = openRealtimeChannel(matchId, info);
+        signal.on("open", () => { if (mode === "connecting") offerToKnownPeers(); });
+        signal.on("roster", () => offerToKnownPeers());
+        signal.on("message", (message) => {
+          if (!message) return;
+          if (message.t === "p2p") return void onSignal(message);
+          if (message.t === "data" && mode !== "p2p" && message.from) emitData(message.from, JSON.stringify(message.data));
+        });
+        signal.on("close", () => {
+          if (!channels.size) setMode("closed");
+        });
+      })
+      .catch(() => {
+        clearTimeout(timeout);
+        setMode(typeof global.RTCPeerConnection === "function" ? "relay" : "closed");
+        emit("error", new Error("realtime unavailable"));
+      });
+
+    return api;
+  }
+
   /** Shared score/meta/unlock submission for endRun() and checkpoint(). */
   async function runCheckpoint(result, eventName) {
     const run = result || {};
@@ -489,6 +700,16 @@
     },
     async match(matchId) {
       return request("/matches/" + matchId);
+    },
+    /** The host of a match is players[0]; a host-authoritative game runs here. */
+    async hostId(matchId) {
+      return matchHostId(await request("/matches/" + matchId));
+    },
+    /** Connect peers directly (WebRTC) with a relay fallback. */
+    async connectPeers(matchId, options) {
+      await ready();
+      const match = await request("/matches/" + matchId);
+      return openPeerMesh(matchId, match, options);
     },
     /**
      * Publish shared turn-based state to a match (members only). Pass the last
