@@ -1,0 +1,99 @@
+slug: watch-forge
+title: Watch Forge
+description: Breed a population of mechanical-watch chromosomes toward a charter —
+  skeleton exposure, minimalist chronometry, slim grand complications, and more —
+  then submit the champion you forged.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+- simulation
+- evolution
+- genetic-algorithm
+- watches
+- idle
+thumbnail: thumbnail.png
+remix_of: null
+capabilities:
+  sandbox: same-origin
+  leaderboard:
+    order: desc
+    min: 0
+    label: Charter Score
+  achievements:
+  - id: first-forge
+    title: First Forge
+    description: Submit a champion to Gamebase.
+    icon: ⌚
+    points: 5
+    hidden: false
+    criteria: {}
+  - id: glass-palace
+    title: Glass Palace
+    description: Submit a champion bred for the Glass Palace charter.
+    icon: 🔍
+    points: 15
+    hidden: false
+    criteria:
+      type: meta
+      key: charter
+      eq: skeleton
+  - id: railway-grade
+    title: Railway Grade
+    description: Submit a Chronometer Trials champion.
+    icon: 🎯
+    points: 20
+    hidden: false
+    criteria:
+      type: meta
+      key: charter
+      eq: chronometer
+  - id: grand-complication
+    title: Grand Complication
+    description: Submit a champion with 10 or more complications.
+    icon: 👑
+    points: 25
+    hidden: false
+    criteria:
+      type: meta
+      key: complications
+      gte: 10
+  - id: slim-king
+    title: Slim King
+    description: Submit a champion 6 mm thin or less.
+    icon: 🪶
+    points: 25
+    hidden: false
+    criteria:
+      type: meta
+      key: thickness
+      lte: 6
+  - id: precision-engine
+    title: Precision Engine
+    description: Submit a champion accurate to 1.5 s/day or better.
+    icon: ⚙
+    points: 30
+    hidden: false
+    criteria:
+      type: meta
+      key: accuracy
+      lte: 1.5
+  - id: masterpiece
+    title: Masterpiece
+    description: Submit a champion worth 2,000 charter points.
+    icon: 🏆
+    points: 30
+    hidden: false
+    criteria:
+      type: score
+      gte: 2000
+  - id: renaissance
+    title: Renaissance Watchmaker
+    description: Submit champions under three different charters.
+    icon: 🎨
+    points: 30
+    hidden: false
+    criteria:
+      type: distinct
+      key: charter
+      gte: 3

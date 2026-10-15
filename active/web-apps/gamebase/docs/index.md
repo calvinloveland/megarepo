@@ -422,6 +422,61 @@ Classic arcade and board games, all built on the same SDK:
 - **Ports of existing megarepo games** — Marble Survivors (roguelite) and
   Washing Machine Tycoon (continuous simulation with save state).
 
+## Ported megarepo games
+
+Every browser game in the megarepo that can run as a static client has been
+ported; each is a self-contained folder under `registry/`.
+
+| Megarepo project | Gamebase slug | Notes |
+| --- | --- | --- |
+| `marble-survivors` | `marble-survivors` | copied; `endRun` on game over |
+| `washing-machine-tycoon` | `washing-machine-tycoon` | copied; `capabilities.sandbox: same-origin` (its own `localStorage` save) |
+| `watch-forge` | `watch-forge` | copied; same-origin (Hall of Fame/theme in `localStorage`) |
+| `code_reviewdle` | `code-reviewdle` | client-only rewrite of the Flask daily puzzle (bundled puzzle bank, `saveState` progress) |
+| `MancalaAI` | `mancala` | client rewrite + AI + online |
+| `conway_game_of_war` | `conway-war` | client rewrite (smaller board, one heuristic AI) |
+| `wizard_fight` | `wizard-duel` | client rewrite of the spell duel; AI + online |
+| `super_ultimate_trading_card_game` | `trading-cards` | client rewrite of the lane battler vs AI |
+
+Not ported (and why):
+
+- `lets-holdem-together` — server-driven multiplayer poker with bot sandboxes;
+  needs either a client rewrite or hosting its Flask backend behind a
+  nested iframe (the Gamebase sandbox has no network).
+- `powder_play` — its material generation is an LLM backend (`mix_server`); the
+  falling-sand sim could be ported with a bundled material set, but the mixing
+  feature would be lost.
+- `vroomon` — Electron + Python simulation, not a browser game.
+- `conway-game-of-war` (hyphenated) — an LLM-vs-LLM harness, not a playable web game.
+- `esp32-led-sync` — hardware tooling, not a game.
+
+## Shared game kit
+
+The six newest ports share `/static/kit/gamekit.css` and `/static/kit/gamekit.js`
+instead of re-implementing common code:
+
+- **CSS** — theme tokens and the components every game repeated: `gb-shell`,
+  `gb-topbar`, `gb-tag`, `gb-status`, `gb-btn`, `gb-hud`, `gb-board`, `gb-cell`,
+  `gb-overlay`, `gb-card`, `gb-panel`.
+- **JS** — `GameKit.ready`, `overlay`, `modeCycle`, `localStore`, `escapeHtml`,
+  and the online helpers `online.findMatch/realtime/publish/poll` + `finish`.
+
+See [AGENT_GUIDE.md](../AGENT_GUIDE.md) for usage.
+
+### Remaining sharing opportunities
+
+- **AI search** — chess, checkers, reversi, connect-four, mancala, and
+  tic-tac-toe each hand-roll alpha-beta/negamax. A `gamekit-ai.js` with a small
+  game adapter (`moves`, `apply`, `undo`, `evaluate`) would remove six copies.
+- **Online turn-based loop** — the pre-kit board games (chess, checkers,
+  reversi, connect-four, tic-tac-toe, stratego) each duplicate the
+  `findMatch` → colour → `updateMatch` → poll loop that `GameKit.online` now
+  encapsulates; migrating them would dedupe it.
+- **Cards** — `trading-cards` (and, if ported, holdem/wizard hands) could share a
+  card-rendering component.
+- **Assets** — there is little binary duplication today (sound is procedural and
+  thumbnails are per game), so the wins are in code, not files.
+
 ## Not yet built
 
 - Full accounts (email/OAuth). Recovery codes cover basic cross-device play.

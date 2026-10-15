@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" role="img" aria-label="Code Reviewdle">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#111c33"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="400" fill="url(#bg)"/>
+  <rect x="48" y="54" width="544" height="292" rx="16" fill="#0f172a" stroke="#243244" stroke-width="2"/>
+  <rect x="48" y="54" width="544" height="42" rx="16" fill="#16233c"/>
+  <rect x="48" y="80" width="544" height="16" fill="#16233c"/>
+  <circle cx="76" cy="75" r="7" fill="#f87171"/>
+  <circle cx="100" cy="75" r="7" fill="#fbbf24"/>
+  <circle cx="124" cy="75" r="7" fill="#4ade80"/>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">
+    <text x="84" y="145" fill="#60748a">01</text>
+    <text x="132" y="145" fill="#c084fc">function</text>
+    <text x="252" y="145" fill="#60a5fa">verify</text>
+    <text x="336" y="145" fill="#dbeafe">(token) {</text>
+    <text x="84" y="181" fill="#60748a">02</text>
+    <text x="132" y="181" fill="#dbeafe">  if (!token) </text>
+    <text x="320" y="181" fill="#f87171">return true;</text>
+    <rect x="70" y="196" width="500" height="34" rx="7" fill="rgba(248,113,113,.14)" stroke="#f87171" stroke-width="2"/>
+    <text x="132" y="219" fill="#fda4af">  const ok = check(token);</text>
+    <text x="84" y="255" fill="#60748a">04</text>
+    <text x="132" y="255" fill="#86efac">  return ok;</text>
+    <text x="84" y="291" fill="#60748a">05</text>
+    <text x="132" y="291" fill="#94a3b8">}</text>
+  </g>
+  <g>
+    <rect x="454" y="18" width="150" height="36" rx="18" fill="rgba(74,222,128,.14)" stroke="rgba(74,222,128,.4)"/>
+    <text x="529" y="42" text-anchor="middle" font-family="ui-monospace, monospace" font-size="17" fill="#4ade80">FOUND IT</text>
+  </g>
+</svg>

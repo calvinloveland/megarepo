@@ -1,0 +1,103 @@
+slug: code-reviewdle
+title: Code Reviewdle
+description: A daily code-review puzzle. Inspect a real code snippet, find the single
+  flawed line, and classify the issue type. Every miss narrows the selectable lines
+  and eliminates a whole issue category. Six guesses — fewer is worth more.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+- puzzle
+- daily
+- code
+- review
+- word
+thumbnail: thumbnail.svg
+remix_of: null
+capabilities:
+  leaderboard:
+    order: desc
+    min: 0
+    max: 600
+    label: Review Points
+  achievements:
+  - id: first-review
+    title: First Review
+    description: Finish a daily code-review round.
+    icon: 🔎
+    points: 5
+    hidden: false
+    criteria: {}
+  - id: solved-it
+    title: Found It
+    description: Solve a daily puzzle.
+    icon: 🟩
+    points: 10
+    hidden: false
+    criteria:
+      type: score
+      gte: 100
+  - id: sharp-eye
+    title: Sharp Eye
+    description: Solve a puzzle in two guesses or fewer.
+    icon: 👀
+    points: 20
+    hidden: false
+    criteria:
+      type: all
+      all:
+      - type: meta
+        key: solved
+        eq: 1
+      - type: meta
+        key: guesses
+        lte: 2
+  - id: perfect-review
+    title: Perfect Review
+    description: Solve a puzzle on the very first guess.
+    icon: 🎯
+    points: 30
+    hidden: false
+    criteria:
+      type: all
+      all:
+      - type: meta
+        key: solved
+        eq: 1
+      - type: meta
+        key: guesses
+        eq: 1
+  - id: security-savvy
+    title: Security Savvy
+    description: Solve a security and trust puzzle.
+    icon: 🔐
+    points: 25
+    hidden: false
+    criteria:
+      type: all
+      all:
+      - type: meta
+        key: solved
+        eq: 1
+      - type: meta
+        key: category
+        eq: Security and trust
+  - id: polyglot
+    title: Polyglot
+    description: Review puzzles written in three different languages.
+    icon: 🌐
+    points: 25
+    hidden: false
+    criteria:
+      type: distinct
+      key: language
+      gte: 3
+  - id: devoted
+    title: Devoted Reviewer
+    description: Complete five daily code-review rounds.
+    icon: 🔥
+    points: 25
+    hidden: false
+    criteria:
+      type: count
+      gte: 5

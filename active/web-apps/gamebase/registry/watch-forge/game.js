@@ -86,7 +86,83 @@
     wmLoad: $('#wmLoadBtn'), wmSeed: $('#wmSeedBtn'),
     scoreBreakdown: $('#scoreBreakdown'),
     rngSeed: $('#rngSeed'),
+    tag: $('#tag'),
+    submitScoreBtn: $('#submitScoreBtn'),
+    submitStatus: $('#submitStatus'),
+    runOverlay: $('#runOverlay'),
+    runOverlayTitle: $('#runOverlayTitle'),
+    runOverlayBody: $('#runOverlayBody'),
+    runOverlayBtn: $('#runOverlayBtn'),
   };
+
+  // Gamebase kit overlay: reused for the post-submission summary.
+  const runOverlay = (window.GameKit && window.GameKit.overlay) ? window.GameKit.overlay({
+    overlay: els.runOverlay,
+    title: els.runOverlayTitle,
+    body: els.runOverlayBody,
+    button: els.runOverlayBtn,
+  }) : null;
+
+  function showRunOverlay(title, body) {
+    if (runOverlay) {
+      runOverlay.show(title, body, 'Continue', () => runOverlay.hide());
+    } else if (els.runOverlay) {
+      els.runOverlayTitle.textContent = title;
+      els.runOverlayBody.textContent = body;
+      els.runOverlay.hidden = false;
+    }
+  }
+
+  // Submit the current champion's charter score to Gamebase. This is the
+  // game's "end of run": the score is the objective the population optimised.
+  async function submitChampion() {
+    const c = G.champion;
+    if (!c) return;
+    if (!window.Gamebase) {
+      els.submitStatus.textContent = 'Gamebase unavailable — serving offline.';
+      return;
+    }
+    const button = els.submitScoreBtn;
+    if (button) button.disabled = true;
+    els.submitStatus.textContent = 'Submitting champion…';
+    try {
+      const outcome = await window.Gamebase.endRun({
+        score: Math.max(0, Number(c.score.toFixed(2))),
+        meta: {
+          charter: G.challengeId,
+          hybrid: G.hybrid ? G.hybrid.secondary : '',
+          generation: G.generation,
+          components: c.pheno.componentCount,
+          visible: c.pheno.visibleComponents,
+          complications: c.pheno.compCount,
+          gradeSum: c.pheno.compGradeSum,
+          thickness: c.pheno.thickness,
+          accuracy: c.pheno.accuracy,
+          powerReserve: c.pheno.powerReserve,
+          reliability: c.pheno.reliability,
+          cost: c.pheno.cost,
+        },
+        unlock: ['first-forge'],
+      });
+      const submission = outcome && outcome.submission;
+      const parts = [];
+      if (submission) {
+        parts.push(`${submission.is_personal_best ? '★ new best ' : 'best '}${Number(submission.score).toFixed(1)}`);
+        if (submission.rank) parts.push(`rank #${submission.rank}`);
+      }
+      const unlocked = (outcome && outcome.unlocked) || [];
+      if (unlocked.length) parts.push('unlocked ' + unlocked.map((a) => a.title).join(', '));
+      const message = parts.join(' · ') || 'Champion recorded.';
+      els.submitStatus.textContent = message;
+      showRunOverlay('Champion submitted', message);
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error);
+      els.submitStatus.textContent = 'Submit failed: ' + message;
+      showRunOverlay('Submit failed', message);
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
 
   // -----------------------------------------------------------------------
   // Canvas setup (DPR aware)
@@ -797,10 +873,24 @@
     window.addEventListener('beforeunload', persistSession);
     // Cover hash-only navigations (same-document): a user pasting a #watch=
     // link over an already-open lab should import it too.
+    els.submitScoreBtn.addEventListener('click', submitChampion);
     window.addEventListener('hashchange', () => {
       if (/watch=/.test(location.hash)) loadSharedBuild();
     });
     requestAnimationFrame(frame);
+
+    // Player identity + best score chip (no-op when served offline).
+    if (window.GameKit) {
+      window.GameKit.ready({
+        tagElement: els.tag,
+        onPlayer: async (player) => {
+          try {
+            const best = await window.Gamebase.myBest();
+            if (best) els.tag.textContent = `${player.handle} · best ${Number(best.best).toFixed(1)}`;
+          } catch (error) { /* no best yet */ }
+        },
+      }).catch(() => { els.tag.textContent = 'guest'; });
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -989,6 +1079,6 @@
     stepGeneration, stepMany, newPopulation, updateChampionUI,
     recordSeries, seedPopulationFromWatchmaker, saveChampion,
     exportSpecSheet, pushLineage, renderLineage,
-    shareUrl, persistSession, loadSharedBuild,
+    shareUrl, persistSession, loadSharedBuild, submitChampion,
   };
 })();

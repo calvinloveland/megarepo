@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Code Reviewdle — Gamebase</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/static/kit/gamekit.css">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Daily code review puzzle</p>
+          <h1>Code Reviewdle</h1>
+        </div>
+        <div class="topbar-meta">
+          <span class="gb-tag" id="tag" title="Gamebase player">···</span>
+          <span class="meta-pill" id="meta-language">…</span>
+          <span class="meta-pill" id="meta-guesses">6/6 guesses</span>
+          <span class="meta-pill" id="meta-date">…</span>
+        </div>
+      </header>
+
+      <section class="notice" id="notice" hidden></section>
+
+      <section class="ide-shell" aria-label="Gameplay">
+        <div class="ide-titlebar">
+          <div class="window-controls" aria-hidden="true">
+            <span class="window-dot dot-close"></span>
+            <span class="window-dot dot-minimize"></span>
+            <span class="window-dot dot-expand"></span>
+          </div>
+          <div class="tab-strip">
+            <span class="tab active-tab" id="tab-title">reviewdle</span>
+            <span class="tab muted-tab" id="tab-language">reviewdle/code</span>
+          </div>
+          <div class="titlebar-stats">
+            <span id="stat-lines">…</span>
+            <span id="stat-categories">…</span>
+            <span id="stat-types">…</span>
+          </div>
+        </div>
+
+        <div class="workspace-grid">
+          <section class="editor-pane">
+            <div class="pane-header">
+              <div>
+                <h2 id="puzzle-title">Loading puzzle…</h2>
+                <p>Play first. Context and review notes live below the fold.</p>
+              </div>
+              <div class="editor-status">Only active lines are selectable.</div>
+            </div>
+
+            <div class="code-frame" role="region" aria-label="Code snippet">
+              <table class="code-table">
+                <tbody id="code-body"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <aside class="inspector-pane">
+            <section class="inspector-block">
+              <div class="inspector-label">Current review</div>
+              <div id="guess-form" class="guess-form">
+                <label class="field-label" for="line-number">Remaining line</label>
+                <select id="line-number" required></select>
+
+                <label class="field-label" for="issue-type">Remaining issue type</label>
+                <select id="issue-type" required></select>
+
+                <button class="primary-button" id="guess-button" type="button">Submit guess</button>
+              </div>
+            </section>
+
+            <section class="inspector-block compact-block">
+              <div class="inspector-label">Automatic narrowing</div>
+              <dl class="metric-list">
+                <div><dt>Selectable lines</dt><dd id="metric-lines">…</dd></div>
+                <div><dt>Issue categories</dt><dd id="metric-categories">…</dd></div>
+                <div><dt>Issue types</dt><dd id="metric-types">…</dd></div>
+              </dl>
+            </section>
+
+            <section class="inspector-block compact-block">
+              <div class="inspector-label">Recent guesses</div>
+              <ul class="guess-list" id="guess-list"></ul>
+            </section>
+          </aside>
+        </div>
+
+        <div class="statusbar">
+          <span>review loop active</span>
+          <span>misses remove whole issue categories</span>
+          <span>share result on completion</span>
+        </div>
+      </section>
+
+      <section class="below-fold">
+        <details class="fold-section">
+          <summary>Context</summary>
+          <div class="fold-content" id="context-content"></div>
+        </details>
+
+        <details class="fold-section">
+          <summary>Full guess history</summary>
+          <div class="fold-content" id="history-content"></div>
+        </details>
+
+        <details class="fold-section" id="outcome-fold" hidden>
+          <summary>Outcome + share</summary>
+          <div class="fold-content result-stack" id="outcome-content"></div>
+        </details>
+      </section>
+    </main>
+
+    <div class="gb-overlay" id="runOverlay" hidden>
+      <div class="gb-card">
+        <h2 id="runOverlayTitle">Round over</h2>
+        <p id="runOverlayBody"></p>
+        <button id="runOverlayBtn" class="gb-btn" type="button">View breakdown</button>
+      </div>
+    </div>
+
+    <script src="/sdk/gamebase.js"></script>
+    <script src="/static/kit/gamekit.js"></script>
+    <script src="puzzles.js"></script>
+    <script src="game.js"></script>
+  </body>
+</html>
