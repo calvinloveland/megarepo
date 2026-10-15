@@ -15,6 +15,11 @@
 <section class="grid">
   {% for card in cards %}
     <article class="card">
+      {% if card.thumbnail %}
+        <a class="card-thumb" href="/g/{{ card.slug }}" aria-hidden="true" tabindex="-1">
+          <img src="/play/{{ card.slug }}/{{ card.thumbnail }}" alt="" loading="lazy" />
+        </a>
+      {% endif %}
       <div class="tag-row">
         {% for tag in card.tags %}<span class="pill muted">{{ tag }}</span>{% endfor %}
       </div>
