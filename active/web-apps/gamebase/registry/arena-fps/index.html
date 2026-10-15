@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Arena FPS — Gamebase</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="stage">
+    <canvas id="scene" tabindex="0"></canvas>
+
+    <!-- Heads-up display -->
+    <div id="hud" hidden>
+      <div class="hud-top">
+        <div class="hud-health">
+          <span class="hud-label">HP</span>
+          <div class="hp-bar"><div id="hp-fill"></div></div>
+          <span id="hp-text">100</span>
+        </div>
+        <div class="hud-timer" id="timer">3:00</div>
+        <div class="hud-score">
+          <span class="you">YOU <b id="my-frags">0</b></span>
+          <span class="dash">·</span>
+          <span class="opp"><b id="opp-frags">0</b> <span id="opp-name">OPP</span></span>
+        </div>
+      </div>
+      <div class="hud-opp-health" title="Opponent health">
+        <div id="opp-hp-fill"></div>
+      </div>
+    </div>
+
+    <div id="crosshair" hidden>
+      <span class="ch-dot"></span>
+      <span class="ch-arm ch-up"></span>
+      <span class="ch-arm ch-down"></span>
+      <span class="ch-arm ch-left"></span>
+      <span class="ch-arm ch-right"></span>
+    </div>
+    <div id="hitmarker" hidden>✕</div>
+    <div id="killfeed"></div>
+    <div id="toast"></div>
+    <div id="lock-hint" hidden>Click to look · Esc to release</div>
+
+    <!-- Menu / matchmaking / result -->
+    <div id="overlay" class="overlay">
+      <div class="overlay-card">
+        <div class="overlay-logo">◤ ARENA FPS ◢</div>
+        <h1 id="overlay-title">Arena FPS</h1>
+        <p id="overlay-body" class="overlay-body">
+          Real-time first-person deathmatch against another player.
+          First to 10 frags — or the highest frag count in 3 minutes — wins.
+        </p>
+        <div id="overlay-status" class="overlay-status" role="status" aria-live="polite"></div>
+        <button id="overlay-btn" class="btn primary" type="button">Find match</button>
+        <div id="connect-hint" class="conn-hint"></div>
+        <p class="hint">WASD move · Mouse look · Click / Space fire · Esc release pointer</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/sdk/gamebase.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

@@ -224,6 +224,8 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | `GET` | `/api/matches/<id>` | Read a match. |
 | `POST` | `/api/matches/<id>/result` | Report `{result}`; completes when all report. |
 | `PUT` | `/api/matches/<id>/state` | Relay shared turn-based game state (members only). |
+| `POST` | `/api/matches/<id>/rt-token` | Mint a short-lived token for the real-time room. |
+| `WS` | `/api/rt?token=` | WebSocket room; relays messages to the other match members. |
 | `POST` | `/api/games/<slug>/remix` | Copy into `{new_slug, title?}`; records lineage. |
 | `POST` | `/api/games` | **Push**: create or update a game from `{manifest, files, changelog}`. |
 | `GET` | `/api/games/<slug>/files` | **Pull**: manifest plus all text files. |
@@ -373,6 +375,7 @@ are revalidation hints and are not part of the ETag.
 | `GAMEBASE_COMMENT_RATE_LIMIT` | `15` | Minimum seconds between a player's comments on one game. |
 | `GAMEBASE_MAX_CONTENT_BYTES` | `16777216` | Maximum request body size. |
 | `GAMEBASE_ADMIN_TOKEN` | _(unset)_ | If set, `X-Admin-Token` may edit operator-managed games. |
+| `GAMEBASE_RT_SECRET` | `SECRET_KEY` | HMAC key for real-time WebSocket room tokens. |
 | `PORT` | `5120` | Server port (`5121` in the launcher registry). |
 
 ## Running and testing
@@ -398,7 +401,8 @@ python scripts/check_all.py gamebase
 Classic arcade and board games, all built on the same SDK:
 
 - **Board / strategy** — Chess (full rules + AI), Checkers, Stratego, Reversi,
-  Connect Four, Tic-Tac-Toe (perfect-play AI).
+  Connect Four, Tic-Tac-Toe (perfect-play AI). Each has online play.
+- **Action** — Arena FPS (real-time 1v1 deathmatch over WebSockets).
 - **Arcade** — 2048, Snake, Breakout, Simon, Memory, Orb Tap, Reflex Duel
   (1v1 matchmaking).
 - **Ports of existing megarepo games** — Marble Survivors (roguelite) and

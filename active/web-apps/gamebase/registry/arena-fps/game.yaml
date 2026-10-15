@@ -1,0 +1,65 @@
+slug: arena-fps
+title: Arena FPS
+description: A fast real-time first-person deathmatch. Queue up, frag the other player, first to 10 kills or best score in 3 minutes wins.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+- fps
+- arena
+- deathmatch
+- multiplayer
+- online
+thumbnail: thumbnail.png
+remix_of: null
+capabilities:
+  leaderboard:
+    order: desc
+    min: 0
+    label: Kills
+  matchmaking:
+    players: 2
+    mode: deathmatch
+  achievements:
+  - id: first-frag
+    title: First Frag
+    description: Score a kill in an online deathmatch.
+    icon: ⭐
+    points: 5
+    hidden: false
+    criteria:
+      type: score
+      gte: 1
+  - id: first-blood
+    title: First Blood
+    description: Draw first blood in a deathmatch.
+    icon: 🩸
+    points: 10
+    hidden: false
+    criteria: {}
+  - id: frag-machine
+    title: Frag Machine
+    description: Score 5 kills in a single match.
+    icon: 💥
+    points: 20
+    hidden: false
+    criteria:
+      type: meta
+      key: kills
+      gte: 5
+  - id: victor
+    title: Arena Victor
+    description: Win an online deathmatch.
+    icon: 🏆
+    points: 25
+    hidden: false
+    criteria: {}
+  - id: duelist
+    title: Duelist
+    description: Finish 3 online deathmatches.
+    icon: 🎖
+    points: 20
+    hidden: false
+    criteria:
+      type: count
+      gte: 3

@@ -132,6 +132,28 @@ simultaneous writes (a stale revision returns 409). Call
 `registry/tic-tac-toe/game.js` (chess, checkers, reversi, connect-four, and
 stratego follow the same pattern).
 
+### Real-time games (action / FPS)
+
+For games that need more than a turn every second, open a WebSocket room bound
+to the match:
+
+```js
+await Gamebase.findMatch();
+const match = await Gamebase.waitForMatch({ timeout: 120000 });
+const channel = await Gamebase.joinRealtime(match.id);
+channel.on("open", () => {});
+channel.on("roster", (playerIds) => {});   // who is connected
+channel.on("message", (data) => {});       // data.from = sender player id
+channel.send({ t: "state", x, y, angle, hp });
+```
+
+Messages you `send` are relayed to the other room members with `from` added; the
+server does not simulate. Behind the scenes the host page mints a short-lived,
+member-scoped token and the game connects to `wss://<host>/api/rt`; this works
+inside the strict sandbox (no cookies needed). Keep messages small and JSON, and
+send your own state at ~10–20 Hz. See `registry/arena-fps/game.js` for a full
+first-person example, and `waitForMatch`/`match` for the turn-based relay.
+
 The platform handles community features for you: players rate games 1–5 stars,
 comment, and every launch is counted for the “most played” ranking. The SDK
 exposes `rate`/`rating`, `comments`/`comment`, and `play` if you want to surface
