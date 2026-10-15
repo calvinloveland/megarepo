@@ -437,15 +437,13 @@ ported; each is a self-contained folder under `registry/`.
 | `conway_game_of_war` | `conway-war` | client rewrite (smaller board, one heuristic AI) |
 | `wizard_fight` | `wizard-duel` | client rewrite of the spell duel; AI + online |
 | `super_ultimate_trading_card_game` | `trading-cards` | client rewrite of the lane battler vs AI |
+| `lets-holdem-together` | `holdem` | client rewrite of Texas Hold'em; host-authoritative P2P online + bots, evaluator cross-checked against the Python engine |
 
 Not ported (and why):
 
-- `lets-holdem-together` — server-driven multiplayer poker with bot sandboxes;
-  needs either a client rewrite or hosting its Flask backend behind a
-  nested iframe (the Gamebase sandbox has no network).
-- `powder_play` — its material generation is an LLM backend (`mix_server`); the
-  falling-sand sim could be ported with a bundled material set, but the mixing
-  feature would be lost.
+- `powder_play` — its material generation is an LLM backend (`mix_server`), which
+  the hosting rule forbids as an always-on service; a static port would need a
+  bundled material set and would lose the mixing feature.
 - `vroomon` — Electron + Python simulation, not a browser game.
 - `conway-game-of-war` (hyphenated) — an LLM-vs-LLM harness, not a playable web game.
 - `esp32-led-sync` — hardware tooling, not a game.
@@ -469,7 +467,11 @@ Gamebase is deliberately thin so that idle time costs nothing:
   uses this.
 - **Host-authoritative games.** `match.players[0]` is the host, so a game that
   needs a "server" (a dealer, an AI director, an authoritative sim) can run it on
-  the host client. Nothing is provisioned until a match starts.
+  the host client. Nothing is provisioned until a match starts. This is a hard
+  platform rule — `tests/test_hosting_policy.py` fails the build if any game
+  calls an off-platform service, opens its own socket, loads a third-party
+  resource, or declares a backend capability. `holdem` is the worked example: the
+  host runs the dealer, peers send actions, and bots fill the remaining seats.
 
 ## Shared game kit
 

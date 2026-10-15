@@ -1,0 +1,208 @@
+/* Hold 'Em Together — table, seats, cards and controls.
+ * Builds on the shared Gamebase kit tokens (gamekit.css). */
+
+.holdem-shell { width: min(960px, 97vw); }
+
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+
+.table-wrap { margin: 12px 0 4px; }
+
+.table {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 320px;
+  border-radius: 46% / 40%;
+  background:
+    radial-gradient(circle at 50% 42%, #1b6b46 0%, #0f4a30 58%, #0a2f21 100%);
+  border: 10px solid #2a1a10;
+  box-shadow:
+    inset 0 0 70px rgba(0, 0, 0, 0.55),
+    0 20px 45px rgba(0, 0, 0, 0.45);
+}
+
+.table .center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.board {
+  display: flex;
+  gap: 6px;
+  min-height: 62px;
+  align-items: center;
+}
+
+.pot {
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: #d9f7e6;
+  background: rgba(4, 20, 13, 0.55);
+  border: 1px solid rgba(217, 247, 230, 0.25);
+  border-radius: 999px;
+  padding: 4px 14px;
+}
+
+/* ── Seats ───────────────────────────────────────────────────────────────── */
+
+.seats { position: absolute; inset: 0; }
+
+.seat {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 118px;
+  padding: 6px 6px 5px;
+  border-radius: 10px;
+  background: rgba(6, 14, 10, 0.72);
+  border: 1px solid rgba(217, 247, 230, 0.14);
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.seat.active {
+  border-color: var(--gb-accent);
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.35), 0 0 18px rgba(74, 222, 128, 0.25);
+}
+
+.seat.winner { border-color: var(--gb-warn); box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.4); }
+.seat.folded { opacity: 0.5; }
+.seat.me .seat-name { color: var(--gb-accent); }
+
+.seat-cards { display: flex; justify-content: center; gap: 3px; margin-bottom: 4px; min-height: 46px; }
+
+.seat-info { display: flex; flex-direction: column; gap: 1px; }
+
+.seat-name {
+  font-size: 11px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  color: #eaf6ef;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat-stack { font-size: 12px; color: var(--gb-warn); }
+.seat-status { font-size: 10px; letter-spacing: 1px; color: var(--gb-muted); min-height: 12px; text-transform: uppercase; }
+
+.seat-bet {
+  position: absolute;
+  font-size: 11px;
+  color: #04150b;
+  background: var(--gb-warn);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-weight: 700;
+  min-width: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -12px;
+}
+.seat-bet[hidden] { display: none; }
+
+.dealer-chip {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f8fafc;
+  color: #0a2f21;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 20px;
+  border: 2px solid #0a2f21;
+}
+.dealer-chip[hidden] { display: none; }
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+
+.card {
+  width: 34px;
+  height: 46px;
+  border-radius: 5px;
+  background: #f8fafc;
+  color: #0b1220;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  user-select: none;
+}
+.card .suit { font-size: 13px; }
+.card.red { color: #d81f3a; }
+.card.back {
+  background:
+    repeating-linear-gradient(45deg, #1e3a8a 0 5px, #172554 5px 10px);
+  border-color: #0b1220;
+}
+.card.back::after { content: "♦"; color: rgba(255, 255, 255, 0.25); font-size: 18px; }
+.card.placeholder { background: transparent; border: 1px dashed rgba(255, 255, 255, 0.12); box-shadow: none; }
+.card.placeholder::after { content: ""; }
+
+.board .card { width: 44px; height: 60px; font-size: 19px; }
+.board .card .suit { font-size: 16px; }
+
+/* ── Controls ────────────────────────────────────────────────────────────── */
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0 4px;
+  min-height: 40px;
+}
+
+.raise-wrap { display: flex; align-items: center; gap: 8px; }
+.raise-input { width: 84px; font: inherit; font-size: 13px; padding: 8px 8px; border-radius: 8px; border: 1px solid var(--gb-border); background: var(--gb-panel); color: var(--gb-text); }
+.raise-slider { width: 130px; accent-color: var(--gb-accent); }
+
+/* ── Overlay extras ──────────────────────────────────────────────────────── */
+
+.overlay-card { max-width: 460px; }
+.overlay-actions { justify-content: center; margin-top: 4px; }
+
+.seat-choices { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 4px 0 14px; flex-wrap: wrap; }
+.seat-choices-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--gb-muted); margin-right: 4px; }
+.seat-choice {
+  font: inherit;
+  font-size: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--gb-border);
+  background: transparent;
+  color: var(--gb-text);
+  cursor: pointer;
+}
+.seat-choice.selected { background: var(--gb-accent); color: #04150b; border-color: transparent; font-weight: 700; }
+
+@media (max-width: 620px) {
+  .table { aspect-ratio: 4 / 5; }
+  .seat { width: 96px; }
+  .card { width: 28px; height: 40px; font-size: 13px; }
+  .board .card { width: 36px; height: 50px; }
+  .raise-slider { width: 90px; }
+}

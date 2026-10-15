@@ -204,6 +204,13 @@ The declared `entry` file is required. Paths must be relative (no `..`).
 
 ## Rules
 
+- **No game may have an always-on backend.** A game is static files that run in
+  the browser and use the shared Gamebase platform for identity, scores,
+  achievements, and peer transport. Anything that would normally need a server —
+  a dealer, an AI director, an authoritative simulation — runs on the **host
+  client** (`match.players[0]`) and/or **peer-to-peer** (`Gamebase.connectPeers`),
+  or as local bots. There is no per-game service, so an unplayed game costs
+  nothing. `tests/test_hosting_policy.py` enforces this across the whole registry.
 - Link the **shared kit** instead of re-implementing common UI and plumbing:
   ```html
   <link rel="stylesheet" href="/static/kit/gamekit.css">
