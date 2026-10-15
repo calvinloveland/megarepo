@@ -92,6 +92,10 @@ def test_api_games_include_rating_and_stats(client):
     assert game["stats"]["plays"] == 1
 
 
+def _grid(html: str) -> str:
+    return html[html.index('class="grid"'):]
+
+
 def test_catalog_sort_by_popularity(client, registry_dir):
     write_game(registry_dir, "zzz-game", "slug: zzz-game\ntitle: Zzz Game\nversion: 1.0.0")
     token, _ = create_player(client, handle="FFF")
@@ -99,10 +103,24 @@ def test_catalog_sort_by_popularity(client, registry_dir):
 
     popular = client.get("/?sort=popular").get_data(as_text=True)
     alphabetical = client.get("/?sort=az").get_data(as_text=True)
-    assert popular.index("Zzz Game") < popular.index("Time Trial")
-    assert alphabetical.index("Zzz Game") > alphabetical.index("Time Trial")
+    assert _grid(popular).index("Zzz Game") < _grid(popular).index("Time Trial")
+    assert _grid(alphabetical).index("Zzz Game") > _grid(alphabetical).index("Time Trial")
 
 
 def test_catalog_pages_render_for_every_sort(client):
     for sort in ("az", "popular", "rated", "new", "bogus"):
         assert client.get(f"/?sort={sort}").status_code == 200
+
+
+def test_tag_filter_limits_the_catalog(client):
+    tagged = client.get("/?tag=arcade").get_data(as_text=True)
+    assert "Test Game" in tagged
+    assert "Time Trial" not in tagged
+
+    empty = client.get("/?tag=nonexistent").get_data(as_text=True)
+    assert "No games match" in empty
+
+
+def test_tag_chips_appear_on_the_catalog(client):
+    page = client.get("/").get_data(as_text=True)
+    assert "/?tag=arcade" in page

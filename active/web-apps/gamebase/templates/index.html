@@ -1,9 +1,34 @@
 {% extends "base.html" %}
 {% macro stars(avg) %}{% set filled = (avg + 0.5) | int %}<span class="stars-mini" role="img" aria-label="{{ '%.1f'|format(avg) }} out of 5">{% for i in range(1, 6) %}<span class="star{% if i <= filled %} on{% endif %}" aria-hidden="true">★</span>{% endfor %}</span>{% endmacro %}
+{% macro card(c) %}
+<article class="card">
+  {% if c.thumbnail %}
+    <a class="card-thumb" href="/g/{{ c.slug }}" aria-hidden="true" tabindex="-1">
+      <img src="/play/{{ c.slug }}/{{ c.thumbnail }}" alt="" loading="lazy" />
+    </a>
+  {% endif %}
+  <div class="tag-row">
+    {% for tag in c.tags %}<a class="pill muted" href="/?tag={{ tag|urlencode }}">{{ tag }}</a>{% endfor %}
+  </div>
+  <h2 class="card-title"><a href="/g/{{ c.slug }}">{{ c.title }}</a></h2>
+  <p>{{ c.description or "No description yet." }}</p>
+  <div class="meta">
+    <span>{{ stars(c.rating.average) }} <span class="muted">{{ '%.1f'|format(c.rating.average) }} ({{ c.rating.count }})</span></span>
+    <span>{{ c.stats.plays }} ▶</span>
+  </div>
+  <div class="tag-row" style="justify-content: space-between; align-items: center;">
+    <span class="tag-row">
+      <a class="btn small" href="/g/{{ c.slug }}">Play</a>
+      <button class="btn small secondary" data-remix="{{ c.slug }}">Remix</button>
+    </span>
+    <span class="muted small">{{ c.achievement_count }} 🏆</span>
+  </div>
+</article>
+{% endmacro %}
 {% block title %}Gamebase — Arcade{% endblock %}
 {% block content %}
 <section class="hero">
-  <h1><span class="stat">{{ game_count }}</span> games, one platform</h1>
+  <h1><span class="stat">{{ total_count }}</span> games, one platform</h1>
   <p>
     Host, play, and remix browser games with built-in identity, high scores,
     achievements, and matchmaking. Every game is a folder — remix one in a click.
@@ -16,39 +41,38 @@
       {% for key, label in sort_options.items() %}
         <a class="sort-link{% if sort == key %} active{% endif %}"
            {% if sort == key %}aria-current="true"{% endif %}
-           href="/?sort={{ key }}">{{ label }}</a>
+           href="/?sort={{ key }}{% if active_tag %}&tag={{ active_tag|urlencode }}{% endif %}">{{ label }}</a>
       {% endfor %}
     </nav>
   </div>
+  {% if tags %}
+  <nav class="tag-filter" aria-label="Categories">
+    <a class="chip{% if not active_tag %} active{% endif %}" href="/">All</a>
+    {% for tag, count in tags %}
+      <a class="chip{% if active_tag == tag %} active{% endif %}"
+         {% if active_tag == tag %}aria-current="true"{% endif %}
+         href="/?tag={{ tag|urlencode }}">{{ tag }} <span class="muted">{{ count }}</span></a>
+    {% endfor %}
+  </nav>
+  {% endif %}
+  {% if active_tag %}
+    <p class="small muted">Showing {{ game_count }} game{{ '' if game_count == 1 else 's' }} tagged
+      “{{ active_tag }}” · <a href="/">clear</a></p>
+  {% endif %}
 </section>
 
-<section class="grid" aria-label="Games">
-  {% for card in cards %}
-    <article class="card">
-      {% if card.thumbnail %}
-        <a class="card-thumb" href="/g/{{ card.slug }}" aria-hidden="true" tabindex="-1">
-          <img src="/play/{{ card.slug }}/{{ card.thumbnail }}" alt="" loading="lazy" />
-        </a>
-      {% endif %}
-      <div class="tag-row">
-        {% for tag in card.tags %}<span class="pill muted">{{ tag }}</span>{% endfor %}
-      </div>
-      <h2 class="card-title"><a href="/g/{{ card.slug }}">{{ card.title }}</a></h2>
-      <p>{{ card.description or "No description yet." }}</p>
-      <div class="meta">
-        <span>{{ stars(card.rating.average) }} <span class="muted">{{ '%.1f'|format(card.rating.average) }} ({{ card.rating.count }})</span></span>
-        <span>{{ card.stats.plays }} ▶</span>
-      </div>
-      <div class="tag-row" style="justify-content: space-between; align-items: center;">
-        <span class="tag-row">
-          <a class="btn small" href="/g/{{ card.slug }}">Play</a>
-          <button class="btn small secondary" data-remix="{{ card.slug }}">Remix</button>
-        </span>
-        <span class="muted small">{{ card.achievement_count }} 🏆</span>
-      </div>
-    </article>
-  {% else %}
-    <p class="empty">No games yet. <a href="/create">Create the first one.</a></p>
+{% if rails %}
+<section class="rail" aria-label="Most played games">
+  <h2 class="rail-title">Most played</h2>
+  <div class="rail-row">
+    {% for c in rails %}{{ card(c) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="grid" aria-label="All games">
+  {% for c in cards %}{{ card(c) }}{% else %}
+    <p class="empty">No games match. <a href="/">Clear filters.</a></p>
   {% endfor %}
 </section>
 {% endblock %}

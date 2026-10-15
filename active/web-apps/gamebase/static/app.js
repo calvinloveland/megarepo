@@ -306,7 +306,64 @@
     return api(`/api/games/${slug}/remix`, { method: "POST", body: { new_slug: newSlug } });
   }
 
+  // ── Sandboxed-game broker (postMessage RPC) ──────────────────────────────
+
+  function proxyAllowed(path, method, slug) {
+    const pathname = path.split("?")[0];
+    const scope = "/api/games/" + slug + "/";
+    if (pathname.startsWith(scope)) {
+      const sub = pathname.slice(scope.length);
+      const allowed = [
+        "leaderboard", "my-best", "me", "rating", "comments",
+        "achievements", "state", "scores", "progress", "play", "matchmaking",
+      ];
+      return allowed.some((name) => sub === name || sub.startsWith(name + "/"));
+    }
+    if (pathname === "/api/session" || pathname === "/api/me") return method === "GET";
+    if (pathname === "/api/identity") return method === "POST";
+    if (/^\/api\/matches\/[A-Za-z0-9_-]+\/result$/.test(pathname)) return method === "POST";
+    if (/^\/api\/matches\/[A-Za-z0-9_-]+$/.test(pathname)) return method === "GET";
+    if (/^\/api\/comments\/\d+$/.test(pathname)) return method === "DELETE";
+    return false;
+  }
+
+  function initGameBroker() {
+    const meta = document.getElementById("game-meta");
+    const frame = document.querySelector("iframe.play-frame");
+    if (!meta || !frame || meta.dataset.sandbox !== "strict") return;
+    const slug = meta.dataset.slug;
+
+    window.addEventListener("message", async (event) => {
+      if (!frame.contentWindow || event.source !== frame.contentWindow) return;
+      const message = event.data;
+      if (!message || message.__gamebase !== true || message.id === undefined) return;
+      const reply = (payload) =>
+        frame.contentWindow.postMessage(Object.assign({ __gamebase: true, id: message.id }, payload), "*");
+
+      const method = (message.method || "GET").toUpperCase();
+      const path = message.path;
+      if (typeof path !== "string" || !proxyAllowed(path, method, slug)) {
+        reply({ ok: false, status: 403, error: "request not allowed from a game" });
+        return;
+      }
+      try {
+        const response = await fetch(path, {
+          method: method,
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: message.body !== undefined && message.body !== null ? JSON.stringify(message.body) : undefined,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok) reply({ ok: true, status: response.status, data: data });
+        else reply({ ok: false, status: response.status, error: data.error || response.statusText, retryAfter: data.retry_after_seconds });
+      } catch (error) {
+        reply({ ok: false, status: 0, error: String(error) });
+      }
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
+    initGameBroker();
     ensureIdentity()
       .then((player) => {
         renderIdentityChip(player);

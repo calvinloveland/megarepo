@@ -188,6 +188,11 @@ def _parse_capabilities(raw: Any) -> dict[str, Any]:
             "mode": str(matchmaking.get("mode") or "standard"),
         }
 
+    sandbox = str(raw.get("sandbox") or "strict").lower()
+    if sandbox not in ("strict", "same-origin"):
+        raise ManifestError("capabilities.sandbox must be 'strict' or 'same-origin'")
+    capabilities["sandbox"] = sandbox
+
     return capabilities
 
 

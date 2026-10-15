@@ -164,11 +164,17 @@ The declared `entry` file is required. Paths must be relative (no `..`).
 - Absolute `/sdk/gamebase.js` and relative asset paths both work.
 - Add a square-ish preview image (`thumbnail.png`, ~16:10) next to the game and
   set `thumbnail: thumbnail.png` in the manifest so the catalog shows it.
-- The game runs in a sandboxed iframe with an HTML canvas or DOM; mobile-friendly
-  and keyboard-friendly is best.
+- The game runs in a **strict, opaque-origin sandbox** by default: no cookies, no
+  `localStorage`, and no access to the host page. Use the SDK for everything,
+  including persistence (`Gamebase.saveState`/`loadState`). The host page brokers
+  API calls and only allows calls a game needs for *its own* slug. A trusted game
+  that truly needs same-origin (e.g. its own `localStorage` save) can set
+  `capabilities.sandbox: same-origin`, but prefer the SDK.
+- The game runs in an iframe with an HTML canvas or DOM; mobile-friendly and
+  keyboard-friendly is best.
 - To find `my-best` outside the top 100, use `Gamebase.myBest()` — do not scan
   the leaderboard.
-- Games share the platform origin, so do not add third-party scripts.
+- Do not add third-party scripts; the sandbox blocks cross-origin network access.
 
 ---
 

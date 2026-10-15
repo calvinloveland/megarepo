@@ -300,6 +300,40 @@ textarea { min-height: 84px; resize: vertical; }
 
 .card-title { margin: 0; font-size: 17px; }
 
+/* ── Discovery: categories + rail ───────────────────────── */
+.tag-filter { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+}
+.chip:hover { color: var(--accent); border-color: rgba(74, 222, 128, 0.4); text-decoration: none; }
+.chip.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(74, 222, 128, 0.4); }
+.chip .muted { font-size: 10px; }
+.pill.muted[href]:hover { color: var(--accent); text-decoration: none; }
+
+.rail { margin-top: 28px; }
+.rail-title { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.rail-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(240px, 1fr);
+  gap: 18px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+}
+.rail-row .card { scroll-snap-align: start; }
+@media (min-width: 1100px) {
+  .rail-row { grid-auto-columns: minmax(0, 1fr); overflow: visible; }
+}
+
 /* Game page: comments span full width and stack last on mobile. */
 .community-comments { grid-column: 1 / -1; }
 

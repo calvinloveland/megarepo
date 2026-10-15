@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from conftest import create_player
+from conftest import create_player, write_game
 
 
 def test_api_lists_games(client):
@@ -37,6 +37,23 @@ def test_game_page_renders_play_frame(client):
     response = client.get("/g/test-game")
     assert response.status_code == 200
     assert "/play/test-game/" in response.get_data(as_text=True)
+
+
+def test_games_are_sandboxed_strictly_by_default(client):
+    body = client.get("/g/test-game").get_data(as_text=True)
+    assert 'sandbox="allow-scripts allow-pointer-lock"' in body
+    assert "allow-same-origin" not in body
+
+
+def test_games_can_opt_into_same_origin(client, registry_dir):
+    write_game(
+        registry_dir,
+        "legacy-game",
+        "slug: legacy-game\ntitle: Legacy Game\nversion: 1.0.0\n"
+        "capabilities:\n  sandbox: same-origin\n",
+    )
+    body = client.get("/g/legacy-game").get_data(as_text=True)
+    assert "allow-same-origin" in body
 
 
 def test_play_serves_entry_and_assets(client):

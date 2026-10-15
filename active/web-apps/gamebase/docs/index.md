@@ -305,11 +305,14 @@ port produced.
 - Score submission is rate-limited (`GAMEBASE_SCORE_RATE_LIMIT`, seconds). A 429
   response carries `Retry-After` and `retry_after_seconds`, and the SDK retries
   a submission once when the cooldown is short so a fast run is not lost.
-- **Games are not fully isolated from each other.** The iframe is same-origin so
-  in-game `localStorage` works. The session token is now an **httpOnly cookie**,
-  so game JavaScript cannot read it, but a game you publish can still call the
-  API as the current player. Only publish games you trust; per-game isolation
-  (opaque-origin iframe + `postMessage` broker) remains future work.
+- **Games are isolated by default.** `/g/<slug>` frames the game with
+  `sandbox="allow-scripts allow-pointer-lock"` (opaque origin), so it cannot read
+  cookies, `localStorage`, or the host page. The SDK talks to the page over
+  `postMessage`, and the broker only proxies calls scoped to that game's slug
+  (plus identity, own matches, and deleting own comments) — a published game
+  cannot touch other games or your account. A trusted game can opt out with
+  `capabilities.sandbox: same-origin` (the ported Washing Machine Tycoon does,
+  because it owns a large `localStorage` save).
 - **Writes are owned.** A game created through the API is owned by the creating
   player; only that player (or an `X-Admin-Token`) can overwrite it. Games that
   exist only on disk are treated as operator-managed and rejected by the API.

@@ -91,6 +91,9 @@ def test_invalid_manifest_numbers_return_400(client):
     bad_max = _push(client, token, "bad-max", capabilities={"leaderboard": {"max": {"nope": 1}}})
     assert bad_max.status_code == 400
 
+    bad_sandbox = _push(client, token, "bad-sandbox", capabilities={"sandbox": "wide-open"})
+    assert bad_sandbox.status_code == 400
+
 
 def test_unknown_unlock_id_does_not_break_a_score(client):
     token, _ = create_player(client, handle="UNK")

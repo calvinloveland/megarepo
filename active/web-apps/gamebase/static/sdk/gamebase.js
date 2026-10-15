@@ -35,6 +35,62 @@
     return match ? match[1] : null;
   }
 
+  // An opaque-origin sandbox cannot fetch the API or touch localStorage; those
+  // games talk to the host page over postMessage instead.
+  const SANDBOXED = (function () {
+    try {
+      void global.localStorage.length; // throws SecurityError when sandboxed
+    } catch (error) {
+      return true;
+    }
+    try {
+      return String(global.location.origin) === "null" || String(global.origin) === "null";
+    } catch (error) {
+      return true;
+    }
+  })();
+
+  let rpcCounter = 0;
+  const rpcPending = new Map();
+
+  if (typeof global.addEventListener === "function") {
+    global.addEventListener("message", (event) => {
+      const message = event.data;
+      if (!message || message.__gamebase !== true || message.id === undefined) return;
+      const pending = rpcPending.get(message.id);
+      if (!pending) return;
+      rpcPending.delete(message.id);
+      if (message.ok) {
+        pending.resolve(message.data);
+      } else {
+        const error = new Error(message.error || "request failed");
+        error.status = message.status;
+        if (typeof message.retryAfter === "number") error.retryAfter = message.retryAfter;
+        pending.reject(error);
+      }
+    });
+  }
+
+  function rpc(path, method, body) {
+    return new Promise((resolve, reject) => {
+      const id = "gb-" + (++rpcCounter) + "-" + Math.random().toString(36).slice(2);
+      rpcPending.set(id, { resolve: resolve, reject: reject });
+      try {
+        global.parent.postMessage({ __gamebase: true, id: id, path: path, method: method, body: body }, "*");
+      } catch (error) {
+        rpcPending.delete(id);
+        reject(error);
+        return;
+      }
+      setTimeout(() => {
+        if (rpcPending.has(id)) {
+          rpcPending.delete(id);
+          reject(new Error("gamebase request timed out"));
+        }
+      }, 20000);
+    });
+  }
+
   function clearLegacyToken() {
     try {
       global.localStorage.removeItem(LEGACY_TOKEN_KEY);
@@ -63,6 +119,9 @@
 
   async function request(path, options) {
     const opts = options || {};
+    if (SANDBOXED) {
+      return rpc(apiBase() + path, (opts.method || "GET").toUpperCase(), opts.body);
+    }
     const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
     const response = await fetch(apiBase() + path, {
       method: opts.method || "GET",
@@ -168,6 +227,7 @@
 
   /** Stream matchmaking via server-sent events. Throws if the stream is unusable. */
   async function streamMatch(slug, timeoutMs) {
+    if (SANDBOXED) throw new Error("streaming unavailable in sandbox");
     const response = await fetch(
       apiBase() + "/games/" + slug + "/matchmaking/stream?timeout=" + Math.ceil(timeoutMs / 1000),
       { headers: authHeaders({ Accept: "text/event-stream" }) }

@@ -43,23 +43,44 @@ def index(sort_key: str | None = None):
             }
         )
 
+    tag_counts: dict[str, int] = {}
+    for card in cards:
+        for tag in card["tags"]:
+            key = tag.lower()
+            tag_counts[key] = tag_counts.get(key, 0) + 1
+
+    active_tag = (request.args.get("tag") or "").strip().lower() or None
+    visible = [
+        card for card in cards
+        if not active_tag or active_tag in {tag.lower() for tag in card["tags"]}
+    ]
+
     sort = sort_key or request.args.get("sort", "az")
     if sort == "popular":
-        cards.sort(key=lambda c: (-c["stats"]["plays"], -c["rating"]["average"], c["title"].lower()))
+        visible.sort(key=lambda c: (-c["stats"]["plays"], -c["rating"]["average"], c["title"].lower()))
     elif sort == "rated":
-        cards.sort(key=lambda c: (-c["rating"]["average"], -c["rating"]["count"], c["title"].lower()))
+        visible.sort(key=lambda c: (-c["rating"]["average"], -c["rating"]["count"], c["title"].lower()))
     elif sort == "new":
-        cards.sort(key=lambda c: (c.get("created_at") or "", c["title"].lower()), reverse=True)
+        visible.sort(key=lambda c: (c.get("created_at") or "", c["title"].lower()), reverse=True)
     else:
         sort = "az"
-        cards.sort(key=lambda c: c["title"].lower())
+        visible.sort(key=lambda c: c["title"].lower())
+
+    rails = None
+    if not active_tag and sort == "az":
+        trending = sorted(cards, key=lambda c: (-c["stats"]["plays"], -c["rating"]["average"], c["title"].lower()))
+        rails = [card for card in trending if card["stats"]["plays"] > 0][:4]
 
     return render_template(
         "index.html",
-        cards=cards,
-        game_count=len(cards),
+        cards=visible,
+        game_count=len(visible),
+        total_count=len(cards),
         sort=sort,
         sort_options=SORT_OPTIONS,
+        tags=sorted(tag_counts.items(), key=lambda item: (-item[1], item[0])),
+        active_tag=active_tag,
+        rails=rails,
     )
 
 

@@ -2,7 +2,8 @@
 {% block title %}{{ game.title }} — Gamebase{% endblock %}
 {% block content %}
 {% set board = game.capabilities.leaderboard %}
-<span id="game-meta" data-slug="{{ game.slug }}" data-plays="{{ stats.plays }}" hidden></span>
+{% set strict = game.capabilities.get('sandbox', 'strict') == 'strict' %}
+<span id="game-meta" data-slug="{{ game.slug }}" data-plays="{{ stats.plays }}" data-sandbox="{{ 'strict' if strict else 'same-origin' }}" hidden></span>
 <div class="game-layout">
   <div class="game-main">
     <h1 style="margin: 8px 0 4px;">{{ game.title }}</h1>
@@ -17,14 +18,25 @@
       {% if game.capabilities.matchmaking %}<span class="pill">matchmaking</span>{% endif %}
       {% if board %}<span class="pill">high scores</span>{% endif %}
     </div>
+    {% if strict %}
     <iframe
       class="play-frame"
       data-src="/play/{{ game.slug }}/"
       title="{{ game.title }} (game)"
       tabindex="0"
-      sandbox="allow-scripts allow-same-origin allow-forms"
-      allow="fullscreen"
+      sandbox="allow-scripts allow-pointer-lock"
+      allow="fullscreen; accelerometer; gyroscope; autoplay; gamepad"
     ></iframe>
+    {% else %}
+    <iframe
+      class="play-frame"
+      data-src="/play/{{ game.slug }}/"
+      title="{{ game.title }} (game)"
+      tabindex="0"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock"
+      allow="fullscreen; accelerometer; gyroscope; autoplay; gamepad"
+    ></iframe>
+    {% endif %}
     <p class="muted small">Click the game to focus keyboard controls.</p>
     <p class="muted small">{{ game.description }}</p>
   </div>
