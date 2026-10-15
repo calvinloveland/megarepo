@@ -323,6 +323,7 @@
     if (pathname === "/api/identity") return method === "POST";
     if (/^\/api\/matches\/[A-Za-z0-9_-]+\/result$/.test(pathname)) return method === "POST";
     if (/^\/api\/matches\/[A-Za-z0-9_-]+\/state$/.test(pathname)) return method === "PUT";
+    if (/^\/api\/matches\/[A-Za-z0-9_-]+\/rt-token$/.test(pathname)) return method === "POST";
     if (/^\/api\/matches\/[A-Za-z0-9_-]+$/.test(pathname)) return method === "GET";
     if (/^\/api\/comments\/\d+$/.test(pathname)) return method === "DELETE";
     return false;

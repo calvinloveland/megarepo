@@ -21,12 +21,12 @@ import threading
 import time
 from typing import Any
 
-from flask import Flask, jsonify, request
+from flask import Flask, request
 
 from . import models
 from .app import get_db
 
-try:  # pragma: no cover - exercised only where the dependency is present
+try:  # pragma: no cover - depends on the optional dependency
     from flask_sock import Sock
 
     WEBSOCKETS_AVAILABLE = True
@@ -123,39 +123,17 @@ class RealtimeHub:
 HUB = RealtimeHub()
 
 
-# ── Flask wiring ────────────────────────────────────────────────────────────
-
-
-def _rt_secret(app: Flask) -> str:
-    import os
-
-    return os.environ.get("GAMEBASE_RT_SECRET") or app.config.get("SECRET_KEY") or "gamebase-rt"
-
-
 def init_realtime(app: Flask) -> None:
-    """Register the WebSocket endpoint and the token REST route."""
+    """Register the WebSocket room endpoint on the app."""
     if not WEBSOCKETS_AVAILABLE:
         app.logger.warning("flask-sock is not installed; real-time multiplayer is disabled")
         return
 
     sock = Sock(app)
-    secret = _rt_secret(app)
-
-    @app.post("/api/matches/<match_id>/rt-token")
-    def rt_token(match_id: str):
-        player = models.player_for_token(get_db(), request.headers.get("Authorization", "")[7:].strip() or request.cookies.get("gamebase_token") or (request.get_json(silent=True) or {}).get("token"))
-        if player is None:
-            return jsonify({"error": "authentication required"}), 401
-        match = models.get_match(get_db(), match_id)
-        if match is None:
-            return jsonify({"error": f"match not found: {match_id}"}), 404
-        if player["id"] not in {member["player_id"] for member in match["players"]}:
-            return jsonify({"error": "not a member of this match"}), 403
-        token = issue_rt_token(match_id, player["id"], secret)
-        return jsonify({"token": token, "match_id": match_id, "path": f"{ROOM_WS_PATH}?token={token}"})
 
     @sock.route(ROOM_WS_PATH)
     def realtime_room(ws):
+        secret = app.config["GAMEBASE_RT_SECRET"]
         payload = verify_rt_token(request.args.get("token"), secret)
         if payload is None:
             HUB.send(ws, {"t": "error", "error": "invalid or expired token"})

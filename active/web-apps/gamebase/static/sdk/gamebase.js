@@ -256,6 +256,89 @@
     return null;
   }
 
+  /** Derive the WebSocket URL for a realtime token (works inside the sandbox). */
+  function realtimeUrl(info) {
+    const secure = String(global.location.protocol) === "https:";
+    const host = global.location.host;
+    const path = info.path || "/api/rt?token=" + encodeURIComponent(info.token);
+    return (secure ? "wss://" : "ws://") + host + path;
+  }
+
+  function openRealtimeChannel(matchId, initialInfo) {
+    const handlers = {};
+    let info = initialInfo;
+    let socket = null;
+    let closed = false;
+
+    const channel = {
+      matchId: matchId,
+      connected: false,
+      players: [],
+      send(data) {
+        if (socket && socket.readyState === 1) socket.send(JSON.stringify(data));
+      },
+      on(event, callback) {
+        (handlers[event] = handlers[event] || []).push(callback);
+        return () => {
+          handlers[event] = handlers[event].filter((fn) => fn !== callback);
+        };
+      },
+      close() {
+        closed = true;
+        if (socket) socket.close();
+      },
+    };
+
+    function emit(event, detail) {
+      (handlers[event] || []).forEach((fn) => {
+        try {
+          fn(detail);
+        } catch (error) {
+          console.error("[gamebase] realtime listener failed", error);
+        }
+      });
+    }
+
+    function connect() {
+      if (typeof WebSocket === "undefined") {
+        emit("error", new Error("WebSocket unavailable"));
+        return;
+      }
+      socket = new WebSocket(realtimeUrl(info));
+      socket.addEventListener("open", () => {
+        channel.connected = true;
+        emit("open");
+      });
+      socket.addEventListener("message", (event) => {
+        let data = null;
+        try {
+          data = JSON.parse(event.data);
+        } catch (error) {
+          return;
+        }
+        if (data && data.t === "roster") {
+          channel.players = data.players || [];
+          emit("roster", channel.players);
+        }
+        emit("message", data);
+      });
+      socket.addEventListener("close", () => {
+        channel.connected = false;
+        emit("close");
+        if (closed) return;
+        request("/matches/" + matchId + "/rt-token", { method: "POST" })
+          .then((fresh) => {
+            info = fresh;
+            setTimeout(connect, 500);
+          })
+          .catch(() => {});
+      });
+    }
+
+    connect();
+    return channel;
+  }
+
   /** Shared score/meta/unlock submission for endRun() and checkpoint(). */
   async function runCheckpoint(result, eventName) {
     const run = result || {};
@@ -393,6 +476,16 @@
       await ready();
       const slug = requireSlug();
       return request("/games/" + slug + "/matchmaking", { method: "DELETE" });
+    },
+    /**
+     * Open a real-time channel for an action game. The match must already exist
+     * (use findMatch/waitForMatch), and the returned channel relays messages to
+     * the other members: `channel.send(obj)` / `channel.on("message", cb)`.
+     */
+    async joinRealtime(matchId) {
+      await ready();
+      const info = await request("/matches/" + matchId + "/rt-token", { method: "POST" });
+      return openRealtimeChannel(matchId, info);
     },
     async match(matchId) {
       return request("/matches/" + matchId);

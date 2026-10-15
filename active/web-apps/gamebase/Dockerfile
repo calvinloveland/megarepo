@@ -33,5 +33,5 @@ ENV PYTHONPATH=/app/src \
 
 EXPOSE 5121
 
-# gthread + a generous timeout so SSE matchmaking streams are not killed.
-CMD ["gunicorn", "-k", "gthread", "--threads", "8", "-w", "1", "--timeout", "180", "-b", "0.0.0.0:5121", "gamebase.app:create_app()"]
+# gevent worker so WebSocket rooms (real-time games) are handled, not blocked.
+CMD ["gunicorn", "-k", "gevent", "--worker-connections", "2000", "-w", "1", "--timeout", "180", "-b", "0.0.0.0:5121", "gamebase.app:create_app()"]

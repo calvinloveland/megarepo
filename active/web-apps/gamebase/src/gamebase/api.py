@@ -646,6 +646,21 @@ def relay_match_state(player: dict[str, Any], match_id: str):
     return jsonify(result)
 
 
+@api_bp.post("/matches/<match_id>/rt-token")
+@require_player
+def realtime_token(player: dict[str, Any], match_id: str):
+    """Issue a short-lived WebSocket token for a match (members only)."""
+    match = models.get_match(get_db(), match_id)
+    if match is None:
+        return jsonify({"error": f"match not found: {match_id}"}), 404
+    if player["id"] not in {member["player_id"] for member in match["players"]}:
+        return jsonify({"error": "not a member of this match"}), 403
+    from .realtime import ROOM_WS_PATH, issue_rt_token
+
+    token = issue_rt_token(match_id, player["id"], current_app.config["GAMEBASE_RT_SECRET"])
+    return jsonify({"token": token, "match_id": match_id, "path": f"{ROOM_WS_PATH}?token={token}"})
+
+
 # ── Remix, publish, and rescan ──────────────────────────────────────────────
 
 

@@ -7,6 +7,7 @@ gamebase`` and the CLI use it, and tests build isolated instances.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 
 from flask import Flask, current_app, g, jsonify, render_template, request, send_file
@@ -28,6 +29,7 @@ def create_app(settings: Settings | None = None, *, sync_catalog: bool = True) -
     )
     app.config["GAMEBASE"] = settings
     app.config["SECRET_KEY"] = "gamebase-dev-secret"
+    app.config["GAMEBASE_RT_SECRET"] = os.environ.get("GAMEBASE_RT_SECRET") or app.config["SECRET_KEY"]
     app.config["MAX_CONTENT_LENGTH"] = settings.max_content_bytes
 
     @app.after_request
@@ -48,6 +50,10 @@ def create_app(settings: Settings | None = None, *, sync_catalog: bool = True) -
 
     app.register_blueprint(views_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
+
+    from . import realtime
+
+    realtime.init_realtime(app)
 
     @app.get("/sdk/gamebase.js")
     def gamebase_sdk():

@@ -12,6 +12,8 @@ dependencies = [
     "Flask>=3.0",
     "PyYAML>=6.0",
     "gunicorn>=21.2",
+    "flask-sock>=0.7",
+    "gevent>=23.9",
 ]
 
 [project.optional-dependencies]
