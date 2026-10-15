@@ -397,6 +397,16 @@
   // --- UI -------------------------------------------------------------------
   if (typeof document === "undefined") return;
 
+  // The host (match.players[0]) always commands the bottom army and moves
+  // first; the guest commands the top army.
+  const HOST_SIDE = HUMAN, GUEST_SIDE = AI;
+  const MODES = ["ai", "local", "online"];
+  const MODE_LABELS = {
+    ai: "Mode: vs AI",
+    local: "Mode: 2-player",
+    online: "Mode: Online",
+  };
+
   const cellsEl = document.getElementById("board");
   const els = {
     status: document.getElementById("status"),
@@ -410,12 +420,16 @@
     shuffle: document.getElementById("shuffle"),
     start: document.getElementById("start"),
     undo: document.getElementById("undo"),
+    mode: document.getElementById("mode"),
     log: document.getElementById("log"),
   };
 
   const ui = {
     st: createState(),
+    mode: "ai",             // ai | local | online
     phase: "setup",         // setup | battle | over
+    setupSide: HUMAN,       // local hot-seat: side currently deploying
+    viewerSide: HUMAN,      // local hot-seat: side whose pieces are face-up
     selected: -1,
     validMoves: [],
     swapSel: -1,
@@ -425,6 +439,26 @@
     finishedText: "",
   };
   const manualUnlocks = new Set();
+  let overlayAction = null;
+
+  // Online relay bookkeeping. The relayed state is a single shared JSON blob;
+  // only the player whose turn it is writes to it.
+  const online = {
+    matchId: null,
+    myId: null,
+    hostId: null,
+    guestId: null,
+    opponentId: null,
+    isHost: false,
+    mySide: null,
+    revision: 0,
+    armyReady: false,
+    reported: false,
+    active: false,
+    searchPhase: "finding", // finding | waiting | matched
+    pollTimer: null,
+    generation: 0, // bumped on reset so stale matchmaking promises bail out
+  };
 
   let cellEls = [];
 
@@ -442,8 +476,45 @@
     }
   }
 
+  // Which army the local player is allowed to see/command. AI mode always
+  // views the bottom army; local hot-seat flips with the pass-screen; online
+  // is fixed to the side assigned at matchmaking.
+  function viewerSide() {
+    if (ui.mode === "online") return online.mySide != null ? online.mySide : HUMAN;
+    if (ui.mode === "local") return ui.viewerSide;
+    return HUMAN;
+  }
+
+  function activeSetupSide() {
+    if (ui.mode === "local") return ui.setupSide;
+    return viewerSide();
+  }
+
+  function opponentSide() {
+    return viewerSide() === HUMAN ? AI : HUMAN;
+  }
+
+  function myTurn() {
+    if (ui.phase !== "battle" || ui.busy) return false;
+    if (ui.mode === "ai") return ui.st.turn === HUMAN;
+    if (ui.mode === "online") return Boolean(online.matchId) && ui.st.turn === online.mySide;
+    if (ui.mode === "local") return ui.viewerSide != null && ui.st.turn === ui.viewerSide;
+    return false;
+  }
+
+  function ownerName(owner) {
+    if (ui.mode === "online") return owner === online.mySide ? "You" : "Opponent";
+    if (ui.mode === "local") return owner === HUMAN ? "Player 1" : "Player 2";
+    return owner === HUMAN ? "You" : "AI";
+  }
+
   function render() {
     const st = ui.st;
+    const viewer = viewerSide();
+    let interactive = null;
+    if (ui.phase === "setup") interactive = activeSetupSide();
+    else if (ui.phase === "battle" && myTurn()) interactive = viewer;
+
     for (let s = 0; s < 100; s++) {
       const el = cellEls[s];
       const c = idxFile(s), r = idxRank(s);
@@ -454,20 +525,21 @@
 
       const p = st.board[s];
       if (p) {
-        if (p.owner === HUMAN || p.revealed) {
+        const mine = viewer != null && p.owner === viewer;
+        if (mine || p.revealed) {
           const tile = document.createElement("div");
-          const base = p.owner === HUMAN ? "own" : "enemy revealed";
-          tile.className = "tile " + base + (p.owner === HUMAN ? " " + rankClass(p.rank) : "");
+          const base = mine ? "own" : "enemy revealed";
+          tile.className = "tile " + base + (mine ? " " + rankClass(p.rank) : "");
           tile.textContent = pieceLabel(p.rank);
           el.appendChild(tile);
-          if (p.owner === HUMAN && ui.phase === "setup") el.classList.add("own");
         } else {
+          // Hidden opponents are face-down; ranks only appear after a battle.
           const tile = document.createElement("div");
           tile.className = "tile enemy";
           tile.textContent = "\u25A0";
           el.appendChild(tile);
         }
-        if (p.owner === HUMAN && (ui.phase === "setup" || (ui.phase === "battle" && st.turn === HUMAN))) el.classList.add("own");
+        if (p.owner === interactive) el.classList.add("own");
       }
 
       if (ui.lastMoveOk(s)) el.classList.add("last");
@@ -492,35 +564,84 @@
   };
 
   function renderCounts() {
-    const st = ui.st;
     let human = 0, ai = 0;
-    for (const p of st.pieces) {
+    for (const p of ui.st.pieces) {
       if (!p.alive) continue;
-      if (p.owner === HUMAN) human++;
-      else ai++;
+      if (p.owner === HUMAN) human++; else ai++;
     }
-    els.counts.textContent = `you ${human} · AI ${ai}`;
+    if (ui.mode === "local") {
+      els.counts.textContent = `P1 ${human} \u00b7 P2 ${ai}`;
+    } else if (ui.mode === "online") {
+      const mine = online.mySide === HUMAN ? human : ai;
+      const theirs = online.mySide === HUMAN ? ai : human;
+      els.counts.textContent = `you ${mine} \u00b7 opponent ${theirs}`;
+    } else {
+      els.counts.textContent = `you ${human} \u00b7 AI ${ai}`;
+    }
   }
 
   function renderStatus() {
     if (ui.phase === "setup") {
-      els.status.textContent = "Deploy your army, then Start battle";
+      if (ui.mode === "online") {
+        if (!online.matchId) {
+          els.status.textContent = online.searchPhase === "waiting" ? "Waiting for an opponent\u2026" : "Finding an opponent\u2026";
+        } else if (!online.armyReady) {
+          els.status.textContent = "Deploy your army, then Ready";
+        } else {
+          els.status.textContent = "Waiting for opponent\u2026";
+        }
+      } else if (ui.mode === "local") {
+        els.status.textContent = ui.setupSide === HUMAN ? "Player 1: deploy your army" : "Player 2: deploy your army";
+      } else {
+        els.status.textContent = "Deploy your army, then Start battle";
+      }
     } else if (ui.phase === "over") {
       els.status.textContent = ui.finishedText || "Game over";
+    } else if (ui.mode === "online") {
+      els.status.textContent = ui.st.turn === online.mySide ? "Your move" : "Waiting for opponent\u2026";
+    } else if (ui.mode === "local") {
+      els.status.textContent = (ui.st.turn === HUMAN ? "Player 1" : "Player 2") + "'s move";
     } else if (ui.busy || ui.st.turn !== HUMAN) {
-      els.status.textContent = "AI thinking…";
+      els.status.textContent = "AI thinking\u2026";
     } else {
       els.status.textContent = "Your move";
     }
   }
 
+  function logText(entry) {
+    const res = entry.result;
+    const aLabel = pieceLabel(entry.attacker.rank);
+    const dLabel = pieceLabel(entry.defender.rank);
+    let outcome;
+    if (res.flag) outcome = "CAPTURE THE FLAG!";
+    else if (res.defused) outcome = "defuses the Bomb";
+    else if (res.spyKill) outcome = "Spy kills the Marshal!";
+    else if (res.attackerDies && res.defenderDies) outcome = "both destroyed";
+    else if (res.attackerDies) outcome = `${ownerName(entry.defender.owner)} ${dLabel} survives`;
+    else outcome = `captures ${ownerName(entry.defender.owner)} ${dLabel}`;
+    return `${ownerName(entry.attacker.owner)} ${aLabel} \u2694 ${ownerName(entry.defender.owner)} ${dLabel}: ${outcome}`;
+  }
+
+  function logClass(entry) {
+    const viewer = viewerSide();
+    if (viewer == null) return "";
+    const res = entry.result;
+    if (res.attackerDies && res.defenderDies) return "";
+    return entry.attacker.owner === viewer ? "win" : "bad";
+  }
+
   function renderLog() {
-    const log = ui.st.log;
     els.log.innerHTML = "";
-    for (const entry of log.slice(-40)) {
+    for (const entry of ui.st.log.slice(-40)) {
       const li = document.createElement("li");
-      li.textContent = entry.text;
-      if (entry.cls) li.className = entry.cls;
+      if (entry && entry.type === "battle") {
+        li.textContent = logText(entry);
+        const cls = logClass(entry);
+        if (cls) li.className = cls;
+      } else if (entry && entry.text) {
+        li.textContent = entry.text;
+        if (entry.cls) li.className = entry.cls;
+      }
       els.log.appendChild(li);
     }
     els.log.scrollTop = els.log.scrollHeight;
@@ -528,16 +649,19 @@
 
   function updateControls() {
     const setup = ui.phase === "setup";
-    const battle = ui.phase === "battle";
-    els.shuffle.disabled = !setup;
-    els.start.disabled = !setup;
-    els.undo.disabled = setup || ui.history.length === 0;
+    const onlineLocked = ui.mode === "online" && online.armyReady;
+    els.shuffle.disabled = !setup || onlineLocked;
+    els.start.disabled = !setup || onlineLocked;
+    els.undo.disabled = setup || ui.history.length === 0 || ui.mode !== "ai";
+    els.start.textContent = setup ? (ui.mode === "ai" ? "Start battle" : "Ready") : "Start battle";
   }
 
   function onCellClick(s) {
     if (ui.phase === "setup") {
+      if (ui.mode === "online" && online.armyReady) return;
+      const side = activeSetupSide();
       const p = ui.st.board[s];
-      if (p && p.owner === HUMAN) {
+      if (p && p.owner === side) {
         if (ui.swapSel < 0) ui.swapSel = s;
         else if (ui.swapSel === s) ui.swapSel = -1;
         else { swapPieces(ui.swapSel, s); ui.swapSel = -1; }
@@ -545,10 +669,10 @@
       }
       return;
     }
-    if (ui.phase !== "battle" || ui.busy || ui.st.turn !== HUMAN) return;
+    if (ui.phase !== "battle" || !myTurn()) return;
 
     const p = ui.st.board[s];
-    if (p && p.owner === HUMAN) {
+    if (p && p.owner === viewerSide()) {
       ui.selected = s;
       ui.validMoves = movesForPiece(ui.st, p);
       render();
@@ -568,17 +692,29 @@
   }
 
   function humanMove(move) {
-    ui.history.push({ state: snapshot(ui.st), stats: Object.assign({}, ui.stats) });
+    if (ui.mode === "ai") {
+      ui.history.push({ state: snapshot(ui.st), stats: Object.assign({}, ui.stats) });
+    }
     const info = applyMove(ui.st, move);
     recordBattle(info);
     ui.selected = -1;
     ui.validMoves = [];
     updateControls();
     render();
+    if (ui.mode === "online") {
+      // Publish even when this move ended the game so the opponent learns.
+      publishPlay();
+      if (ui.st.over) endGame();
+      return;
+    }
     if (ui.st.over) { endGame(); return; }
-    ui.busy = true;
-    renderStatus();
-    setTimeout(aiTurn, 130);
+    if (ui.mode === "ai") {
+      ui.busy = true;
+      renderStatus();
+      setTimeout(aiTurn, 130);
+    } else if (ui.mode === "local") {
+      handoff(ui.st.turn, null);
+    }
   }
 
   function aiTurn() {
@@ -596,84 +732,108 @@
   function recordBattle(info) {
     if (!info.attack) return;
     const res = info.result;
-    const attackerIsHuman = info.attacker.owner === HUMAN;
-    const prefix = attackerIsHuman ? "You" : "AI";
-    const victimPrefix = attackerIsHuman ? "AI" : "your";
-    const aLabel = pieceLabel(info.attacker.rank);
-    const dLabel = pieceLabel(info.defender.rank);
+    ui.st.log.push({
+      type: "battle",
+      attacker: { owner: info.attacker.owner, rank: info.attacker.rank },
+      defender: { owner: info.defender.owner, rank: info.defender.rank },
+      result: {
+        attackerDies: !!res.attackerDies,
+        defenderDies: !!res.defenderDies,
+        flag: !!res.flag,
+        defused: !!res.defused,
+        spyKill: !!res.spyKill,
+      },
+    });
 
-    let outcome;
-    let cls = "";
-    if (res.flag) {
-      outcome = attackerIsHuman ? "CAPTURE THE FLAG!" : "capture your flag!";
-      cls = attackerIsHuman ? "win" : "bad";
-    } else if (res.defused) {
-      outcome = "defuse the Bomb";
-      cls = attackerIsHuman ? "win" : "bad";
-    } else if (res.spyKill) {
-      outcome = "Spy kills the Marshal!";
-      cls = attackerIsHuman ? "win" : "bad";
-    } else if (res.attackerDies && res.defenderDies) {
-      outcome = "both destroyed";
-    } else if (res.attackerDies) {
-      outcome = `${victimPrefix} ${dLabel} survives`;
-      cls = attackerIsHuman ? "bad" : "win";
-    } else {
-      outcome = `capture ${victimPrefix} ${dLabel}`;
-      cls = attackerIsHuman ? "win" : "bad";
-    }
-
-    ui.st.log.push({ text: `${prefix} ${aLabel} \u2694 ${victimPrefix} ${dLabel}: ${outcome}`, cls });
-
-    if (attackerIsHuman) {
+    if (info.attacker.owner === viewerSide()) {
       if (res.defused) ui.stats.bombsDefused += 1;
       if (res.spyKill) { ui.stats.spyKills += 1; manualUnlocks.add("spy-master"); }
       if (res.flag) manualUnlocks.add("flag-bearer");
     }
   }
 
+  function showOverlay(title, body, buttonText, action) {
+    els.overlayTitle.textContent = title;
+    els.overlayBody.textContent = body;
+    els.overlayBtn.textContent = buttonText;
+    els.overlay.hidden = false;
+    overlayAction = action;
+  }
+
+  function hideOverlay() {
+    els.overlay.hidden = true;
+    overlayAction = null;
+  }
+
+  // Hot-seat pass screen: hide every rank until the next player confirms.
+  function handoff(side, then) {
+    ui.viewerSide = null;
+    const name = side === HUMAN ? "Player 1 (bottom)" : "Player 2 (top)";
+    showOverlay("Pass the device", "Hand the device to " + name + ", then press Ready.", "Ready", () => {
+      hideOverlay();
+      ui.viewerSide = side;
+      if (then) then();
+      render();
+    });
+  }
+
   function endGame() {
+    if (ui.phase === "over") return;
     ui.phase = "over";
+    stopOnlinePolling();
     const st = ui.st;
+    const viewer = ui.mode === "online" ? online.mySide : HUMAN;
     let result, title, body;
     if (st.draw) {
       result = "draw";
       title = "Draw";
       body = "No battle for 300 plies.";
-    } else if (st.winner === HUMAN) {
-      result = "win";
-      title = "Victory!";
-      body = st.flagCaptured === HUMAN ? "You captured the flag." : "The AI has no legal moves left.";
     } else {
-      result = "loss";
-      title = "Defeat";
-      body = st.flagCaptured === AI ? "Your flag was captured." : "You have no legal moves left.";
+      const won = st.winner === viewer;
+      result = won ? "win" : "loss";
+      if (ui.mode === "local") {
+        title = (st.winner === HUMAN ? "Player 1" : "Player 2") + " wins!";
+        body = st.flagCaptured != null ? "Flag captured." : "No legal moves left.";
+      } else if (won) {
+        title = "Victory!";
+        body = st.flagCaptured === viewer ? "You captured the flag." : "The opponent has no legal moves left.";
+      } else {
+        title = "Defeat";
+        body = st.flagCaptured != null ? "Your flag was captured." : "You have no legal moves left.";
+      }
     }
     const score = result === "win" ? 3 : result === "draw" ? 1 : 0;
     manualUnlocks.add("first-battle");
     ui.finishedText = title;
-    els.overlayTitle.textContent = title;
-    els.overlayBody.textContent = body;
-    els.overlay.hidden = false;
+    showOverlay(title, body, "New game", null);
     updateControls();
     render();
 
+    if (ui.mode === "online" && online.matchId && !online.reported) {
+      online.reported = true;
+      Gamebase.reportResult(online.matchId, { result }).catch((err) => console.warn("[stratego] reportResult failed", err));
+    }
     Gamebase.endRun({
       score,
       meta: {
         result,
+        mode: ui.mode,
         moves: st.moveCount,
         bombsDefused: ui.stats.bombsDefused,
         spyKills: ui.stats.spyKills,
-        flagCaptured: st.flagCaptured === HUMAN ? 1 : 0,
+        flagCaptured: st.flagCaptured === viewer ? 1 : 0,
       },
       unlock: Array.from(manualUnlocks),
     }).catch((err) => console.warn("[stratego] endRun failed", err));
   }
 
   function newGame() {
+    stopOnlinePolling();
+    onlineReset();
     ui.st = createState();
     ui.phase = "setup";
+    ui.setupSide = HUMAN;
+    ui.viewerSide = HUMAN;
     ui.selected = -1;
     ui.validMoves = [];
     ui.swapSel = -1;
@@ -682,13 +842,31 @@
     ui.stats = { bombsDefused: 0, spyKills: 0 };
     manualUnlocks.clear();
     ui.finishedText = "";
-    els.overlay.hidden = true;
+    hideOverlay();
     updateControls();
     render();
+    if (ui.mode === "online") startOnline();
   }
 
   function startBattle() {
     if (ui.phase !== "setup") return;
+    if (ui.mode === "online") {
+      publishSetupArmy();
+      return;
+    }
+    if (ui.mode === "local") {
+      ui.swapSel = -1;
+      if (ui.setupSide === HUMAN) {
+        // Player 2 still has to deploy; pass the device without resetting.
+        handoff(AI, () => { ui.setupSide = AI; });
+        return;
+      }
+      ui.phase = "battle";
+      ui.st.turn = HUMAN;
+      updateControls();
+      handoff(HUMAN, null);
+      return;
+    }
     ui.phase = "battle";
     ui.swapSel = -1;
     ui.st.turn = HUMAN;
@@ -698,12 +876,14 @@
 
   function shufflePlayer() {
     if (ui.phase !== "setup") return;
-    setupArmy(ui.st, HUMAN);
+    if (ui.mode === "online" && online.armyReady) return;
+    setupArmy(ui.st, activeSetupSide());
     ui.swapSel = -1;
     render();
   }
 
   function undo() {
+    if (ui.mode !== "ai") return;
     if (ui.phase !== "battle" || ui.busy || ui.history.length === 0) return;
     const snap = ui.history.pop();
     ui.st = snap.state;
@@ -711,16 +891,380 @@
     ui.selected = -1;
     ui.validMoves = [];
     ui.phase = "battle";
-    els.overlay.hidden = true;
+    hideOverlay();
     updateControls();
     render();
   }
 
+  // ── Online ────────────────────────────────────────────────────────────────
+  //
+  // Hidden-information caveat: the relay is a single shared JSON object, so
+  // resolving battles requires shipping every piece's rank through it. A
+  // determined player could read the opposing ranks from devtools. This is an
+  // accepted casual-play limitation; a production build would use per-player
+  // blind writes or a server-side rules engine.
+
+  function onlineReset() {
+    stopOnlinePolling();
+    online.matchId = null;
+    online.myId = null;
+    online.hostId = null;
+    online.guestId = null;
+    online.opponentId = null;
+    online.isHost = false;
+    online.mySide = null;
+    online.revision = 0;
+    online.armyReady = false;
+    online.reported = false;
+    online.active = false;
+    online.searchPhase = "finding";
+    online.generation = (online.generation || 0) + 1;
+  }
+
+  function stopOnlinePolling() {
+    if (online.pollTimer) {
+      clearTimeout(online.pollTimer);
+      online.pollTimer = null;
+    }
+  }
+
+  function serializeArmy(owner) {
+    return ui.st.pieces
+      .filter((p) => p.owner === owner)
+      .map((p) => ({ id: p.id, owner: p.owner, rank: p.rank, alive: p.alive, revealed: p.revealed, pos: p.pos }));
+  }
+
+  function serializeGame() {
+    const st = ui.st;
+    return {
+      phase: "play",
+      pieces: st.pieces.map((p) => ({ id: p.id, owner: p.owner, rank: p.rank, alive: p.alive, revealed: p.revealed, pos: p.pos })),
+      turn: st.turn,
+      moveCount: st.moveCount,
+      halfmove: st.halfmove,
+      battleCount: st.battleCount,
+      over: st.over,
+      winner: st.winner,
+      draw: st.draw,
+      flagCaptured: st.flagCaptured,
+      lastMove: st.lastMove ? { from: st.lastMove.from, to: st.lastMove.to } : null,
+      log: st.log,
+    };
+  }
+
+  // Deterministic merge of the two published armies into a playable state.
+  // Host army first so both clients agree on piece ids.
+  function combineArmies(state) {
+    const armies = (state && state.armies) || {};
+    const groups = [
+      { list: armies[online.hostId], owner: HOST_SIDE },
+      { list: armies[online.guestId], owner: GUEST_SIDE },
+    ];
+    const pieces = [];
+    let nid = 1;
+    for (const group of groups) {
+      if (!Array.isArray(group.list)) continue;
+      for (const p of group.list) {
+        pieces.push({
+          id: nid++,
+          owner: typeof p.owner === "number" ? p.owner : group.owner,
+          rank: p.rank,
+          alive: p.alive !== false,
+          revealed: !!p.revealed,
+          pos: typeof p.pos === "number" ? p.pos : -1,
+        });
+      }
+    }
+    const board = new Array(100).fill(null);
+    for (const p of pieces) if (p.alive && p.pos >= 0) board[p.pos] = p;
+    return { board, pieces };
+  }
+
+  function bothArmies(state) {
+    const armies = state && state.armies;
+    return Boolean(
+      armies &&
+      Array.isArray(armies[online.hostId]) &&
+      Array.isArray(armies[online.guestId])
+    );
+  }
+
+  function stateFromPieces(data) {
+    const pieces = (data.pieces || []).map((p) => ({
+      id: p.id,
+      owner: p.owner,
+      rank: p.rank,
+      alive: p.alive !== false,
+      revealed: !!p.revealed,
+      pos: typeof p.pos === "number" ? p.pos : -1,
+    }));
+    const board = new Array(100).fill(null);
+    for (const p of pieces) if (p.alive && p.pos >= 0) board[p.pos] = p;
+    return {
+      board,
+      pieces,
+      turn: typeof data.turn === "number" ? data.turn : HOST_SIDE,
+      moveCount: data.moveCount || 0,
+      halfmove: data.halfmove || 0,
+      battleCount: data.battleCount || 0,
+      over: !!data.over,
+      winner: typeof data.winner === "number" ? data.winner : null,
+      draw: !!data.draw,
+      flagCaptured: typeof data.flagCaptured === "number" ? data.flagCaptured : null,
+      lastMove: data.lastMove ? { from: data.lastMove.from, to: data.lastMove.to } : null,
+      log: Array.isArray(data.log) ? data.log : [],
+    };
+  }
+
+  function applyPlayState(state) {
+    if (!state || !Array.isArray(state.pieces)) return;
+    if (ui.phase === "over") return; // never un-finish a completed game
+    ui.st = stateFromPieces(state);
+    ui.phase = "battle";
+    ui.selected = -1;
+    ui.validMoves = [];
+    ui.swapSel = -1;
+    ui.history = [];
+    updateControls();
+    render();
+    if (ui.st.over) endGame();
+  }
+
+  // Show the opponent's face-down army once it arrives during setup.
+  function applySetupPreview(state) {
+    if (!state || !state.armies) return;
+    const guestArmy = state.armies[online.guestId];
+    const hostArmy = state.armies[online.hostId];
+    if (!Array.isArray(hostArmy) || !Array.isArray(guestArmy)) return;
+    const base = combineArmies(state);
+    ui.st = {
+      board: base.board,
+      pieces: base.pieces,
+      turn: HOST_SIDE,
+      moveCount: 0,
+      halfmove: 0,
+      battleCount: 0,
+      over: false,
+      winner: null,
+      draw: false,
+      flagCaptured: null,
+      lastMove: null,
+      log: Array.isArray(state.log) ? state.log : [],
+    };
+    ui.phase = "setup";
+  }
+
+  // Publish this player's own army without clobbering the opponent's half.
+  async function publishSetupArmy() {
+    if (ui.mode !== "online" || !online.matchId || online.armyReady) return;
+    online.armyReady = true;
+    ui.selected = -1;
+    ui.validMoves = [];
+    ui.swapSel = -1;
+    updateControls();
+    renderStatus();
+    const army = serializeArmy(online.mySide);
+    for (let attempt = 0; attempt < 6; attempt++) {
+      let match;
+      try {
+        match = await Gamebase.match(online.matchId);
+      } catch (error) {
+        console.warn("[stratego] setup fetch failed", error);
+        online.armyReady = false;
+        updateControls();
+        return;
+      }
+      if (!match) { online.armyReady = false; updateControls(); return; }
+      online.revision = match.revision || 0;
+      const current = match.game_state && typeof match.game_state === "object" ? match.game_state : {};
+      if (current.phase === "play") {
+        applyPlayState(current);
+        return;
+      }
+      const merged = Object.assign({}, current);
+      merged.phase = "setup";
+      merged.armies = Object.assign({}, current.armies);
+      merged.armies[online.myId] = army;
+      try {
+        const saved = await Gamebase.updateMatch(online.matchId, merged, online.revision);
+        if (saved && typeof saved.revision === "number") online.revision = saved.revision;
+        if (bothArmies(merged)) finalizeSetup(merged);
+        return;
+      } catch (error) {
+        if (error.status === 409) continue; // refetch and re-merge
+        console.warn("[stratego] publishSetup failed", error);
+        online.armyReady = false;
+        updateControls();
+        return;
+      }
+    }
+  }
+
+  // Both armies are in: promote the relayed state to the play schema.
+  async function finalizeSetup(baseState) {
+    if (!bothArmies(baseState)) return;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const base = combineArmies(baseState);
+      const play = {
+        phase: "play",
+        pieces: base.pieces,
+        turn: HOST_SIDE,
+        moveCount: 0,
+        halfmove: 0,
+        battleCount: 0,
+        over: false,
+        winner: null,
+        draw: false,
+        flagCaptured: null,
+        lastMove: null,
+        log: [],
+      };
+      try {
+        const saved = await Gamebase.updateMatch(online.matchId, play, online.revision);
+        if (saved && typeof saved.revision === "number") online.revision = saved.revision;
+        applyPlayState(play);
+        return;
+      } catch (error) {
+        if (error.status === 409) {
+          const match = await Gamebase.match(online.matchId).catch(() => null);
+          if (!match) return;
+          online.revision = match.revision || 0;
+          if (match.game_state && match.game_state.phase === "play") {
+            applyPlayState(match.game_state);
+            return;
+          }
+          if (bothArmies(match.game_state)) { baseState = match.game_state; continue; }
+        }
+        console.warn("[stratego] finalize setup failed", error);
+        return;
+      }
+    }
+  }
+
+  async function startOnline() {
+    stopOnlinePolling();
+    onlineReset();
+    const generation = online.generation;
+    online.active = true;
+    online.searchPhase = "finding";
+    ui.phase = "setup";
+    ui.st = createState();
+    ui.selected = -1;
+    ui.validMoves = [];
+    ui.swapSel = -1;
+    ui.busy = false;
+    ui.history = [];
+    render();
+    try {
+      await Gamebase.findMatch();
+      if (ui.mode !== "online" || !online.active || online.generation !== generation) return;
+      online.searchPhase = "waiting";
+      renderStatus();
+      const match = await Gamebase.waitForMatch({ timeout: 120000 });
+      if (ui.mode !== "online" || !online.active || online.generation !== generation) return;
+      if (!match) {
+        els.status.textContent = "No opponent found \u2014 try again.";
+        return;
+      }
+      const me = Gamebase.player;
+      online.matchId = match.id;
+      online.myId = me.id;
+      online.hostId = match.players[0].player_id;
+      online.guestId = (match.players.find((p) => p.player_id !== online.hostId) || {}).player_id || null;
+      online.isHost = online.hostId === me.id;
+      online.opponentId = online.isHost ? online.guestId : online.hostId;
+      online.mySide = online.isHost ? HOST_SIDE : GUEST_SIDE;
+      online.searchPhase = "matched";
+      online.revision = match.revision || 0;
+      const state = match.game_state || {};
+      if (state.phase === "play") {
+        applyPlayState(state);
+        pollOnline();
+        return;
+      }
+      await publishSetupArmy();
+      pollOnline();
+    } catch (error) {
+      els.status.textContent = "Matchmaking failed: " + error.message;
+    }
+  }
+
+  async function publishPlay() {
+    if (ui.mode !== "online" || !online.matchId) return;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      try {
+        const saved = await Gamebase.updateMatch(online.matchId, serializeGame(), online.revision);
+        if (saved && typeof saved.revision === "number") online.revision = saved.revision;
+        return;
+      } catch (error) {
+        if (error.status === 409) {
+          const match = await Gamebase.match(online.matchId).catch(() => null);
+          if (!match) return;
+          online.revision = match.revision || 0;
+          if (match.game_state && match.game_state.phase === "play") {
+            applyPlayState(match.game_state);
+            return;
+          }
+          continue;
+        }
+        console.warn("[stratego] publishPlay failed", error);
+        return;
+      }
+    }
+  }
+
+  async function pollOnline() {
+    if (ui.mode !== "online" || !online.matchId || !online.active || ui.phase === "over") return;
+    try {
+      const match = await Gamebase.match(online.matchId);
+      if (match && (match.revision || 0) > online.revision) {
+        online.revision = match.revision || 0;
+        const state = match.game_state || {};
+        if (state.phase === "play") {
+          applyPlayState(state);
+        } else if (state.phase === "setup") {
+          if (online.armyReady) applySetupPreview(state);
+          if (bothArmies(state) && ui.phase === "setup") finalizeSetup(state);
+          else render();
+        }
+      }
+    } catch (error) {
+      /* keep polling */
+    }
+    if (ui.mode === "online" && online.active && ui.phase !== "over") {
+      online.pollTimer = setTimeout(pollOnline, 1500);
+    }
+  }
+
+  // ── Mode + controls ──────────────────────────────────────────────────────
+
+  function setMode(next) {
+    ui.mode = next;
+    els.mode.textContent = MODE_LABELS[next];
+    if (next !== "online") {
+      online.active = false;
+      stopOnlinePolling();
+    }
+    newGame();
+  }
+
   els.newGame.addEventListener("click", newGame);
-  els.overlayBtn.addEventListener("click", newGame);
+  els.overlayBtn.addEventListener("click", () => {
+    if (overlayAction) {
+      const action = overlayAction;
+      overlayAction = null;
+      action();
+    } else {
+      newGame();
+    }
+  });
   els.start.addEventListener("click", startBattle);
   els.shuffle.addEventListener("click", shufflePlayer);
   els.undo.addEventListener("click", undo);
+  els.mode.addEventListener("click", () => {
+    const index = MODES.indexOf(ui.mode);
+    setMode(MODES[(index + 1) % MODES.length]);
+  });
 
   buildBoard();
   updateControls();

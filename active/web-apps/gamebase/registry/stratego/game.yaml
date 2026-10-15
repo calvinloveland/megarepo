@@ -7,7 +7,11 @@ description: 'Faithful full 10x10 Stratego against a heuristic AI with hidden in
   Marshal, and flag capture or immobilisation as win conditions. Simplifications:
   pieces stay face-up once a battle reveals them (a memory aid rather than physical
   play), and the competitive two-square and no-chase anti-stalling rules are omitted
-  (a 300-ply no-battle draw ends dead games).'
+  (a 300-ply no-battle draw ends dead games). Play vs AI, local 2-player hot-seat,
+  or online: online play relays each side''s army and every move through the match
+  relay. Because battles are resolved client-side, the relayed state carries piece
+  ranks; a determined player could inspect them with devtools. That is an accepted
+  casual-play limitation, not tournament-grade hidden information.'
 author: gamebase
 version: 1.0.0
 entry: index.html

@@ -31,6 +31,7 @@
 
     <div class="controls">
       <button id="new-game" class="btn primary">New game</button>
+      <button id="mode" class="btn">Mode: vs AI</button>
       <button id="shuffle" class="btn">Shuffle</button>
       <button id="start" class="btn accent">Start battle</button>
       <button id="undo" class="btn">Undo</button>
@@ -41,7 +42,7 @@
       <ul id="log" class="log"></ul>
     </section>
 
-    <p class="hint">Deploy: click two of your pieces to swap, then Start. Move one square orthogonally; Scouts go any distance. Your ranks are visible; the AI's are not until they fight.</p>
+    <p class="hint">Modes cycle vs AI, local 2-player hot-seat, and online. Deploy: click two of your pieces to swap, then Start/Ready. Move one square orthogonally; Scouts go any distance. Your ranks are visible; hidden pieces stay face-down until they fight. Online relay ships ranks so battles resolve, so a determined opponent could inspect them in devtools — fine for casual play.</p>
   </main>
   <script src="/sdk/gamebase.js"></script>
   <script src="game.js"></script>
