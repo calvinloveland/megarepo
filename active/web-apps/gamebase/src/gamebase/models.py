@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 import secrets
+import string
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,15 +20,10 @@ from typing import Any
 from . import registry
 from .registry import Manifest
 
-# Handle generation vocabulary. Kept small and pronounceable.
-_ADJECTIVES = (
-    "swift", "neon", "cosmic", "lucky", "turbo", "pixel", "mint", "wild",
-    "quiet", "brave", "retro", "amber", "vivid", "noble", "brisk", "sunny",
-)
-_NOUNS = (
-    "otter", "comet", "rover", "ninja", "pilot", "goblin", "panda", "falcon",
-    "wizard", "mecha", "drifter", "ember", "lynx", "raven", "knight", "sprout",
-)
+# Classic arcade 3-character tags are the primary identity. The alphabet allows
+# digits so the space is 36^3 while staying typable on a keyboard.
+_TAG_ALPHABET = string.ascii_uppercase + string.digits
+_TAG_PATTERN = re.compile(r"^[A-Za-z0-9]{3}$")
 
 
 class RateLimited(Exception):
@@ -78,13 +75,19 @@ def _loads(value: str | None) -> Any:
 # ── Identity ────────────────────────────────────────────────────────────────
 
 
-def _generate_handle(conn) -> str:
-    for _ in range(64):
-        candidate = f"{secrets.choice(_ADJECTIVES)}-{secrets.choice(_NOUNS)}-{secrets.randbelow(900) + 100}"
-        exists = conn.execute("SELECT 1 FROM players WHERE handle = ?", (candidate,)).fetchone()
-        if not exists:
+def _generate_tag(conn) -> str:
+    """Generate an unused 3-character arcade tag."""
+    for _ in range(200):
+        candidate = "".join(secrets.choice(_TAG_ALPHABET) for _ in range(3))
+        if not conn.execute("SELECT 1 FROM players WHERE handle = ?", (candidate,)).fetchone():
             return candidate
-    return f"player-{_new_id()[:8]}"  # pragma: no cover - astronomically unlikely
+    return f"P{secrets.token_hex(2).upper()}"  # pragma: no cover - collision fallback
+
+
+def normalize_tag(handle: str) -> str:
+    """Uppercase a 3-character tag; leave any other handle untouched."""
+    clean = str(handle or "").strip()
+    return clean.upper() if _TAG_PATTERN.match(clean) else clean
 
 
 def format_recovery_code(secret: str) -> str:
@@ -105,12 +108,12 @@ def create_player(conn, handle: str | None = None, *, is_guest: bool = True) -> 
     """
     timestamp = utcnow()
     if handle:
-        clean = handle.strip()
+        clean = normalize_tag(handle)
         taken = conn.execute("SELECT 1 FROM players WHERE handle = ?", (clean,)).fetchone()
         if taken:
             raise ValueError(f"handle already taken: {clean}")
     else:
-        clean = _generate_handle(conn)
+        clean = _generate_tag(conn)
 
     player_id = _new_id()
     recovery_secret = secrets.token_hex(6)
