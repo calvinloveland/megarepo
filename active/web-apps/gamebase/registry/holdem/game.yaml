@@ -1,0 +1,87 @@
+slug: holdem
+title: Hold 'Em Together
+description: >-
+  Texas Hold'em with real blinds, betting rounds, side pots, all-ins and a
+  faithful best-five-of-seven hand evaluator. Play a 2-6 seat table against
+  bots, or go online for peer-to-peer heads-up poker where the host client runs
+  the dealer. No game server: peers talk directly and the host broadcasts the
+  table and each player's own hole cards.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+- cards
+- poker
+- holdem
+- strategy
+- multiplayer
+- online
+thumbnail: thumbnail.png
+remix_of: null
+capabilities:
+  leaderboard:
+    order: desc
+    min: 0
+    label: Chips Won
+  matchmaking:
+    players: 2
+    mode: head-to-head
+  sandbox: strict
+  achievements:
+  - id: first-hand
+    title: Ante Up
+    description: Play your first hand of Hold 'Em.
+    icon: 🃏
+    points: 5
+    hidden: false
+    criteria: {}
+  - id: first-pot
+    title: First Pot
+    description: Win a hand.
+    icon: 🏆
+    points: 15
+    hidden: false
+    criteria:
+      type: meta
+      key: hands_won
+      gte: 1
+  - id: big-pot
+    title: Big Pot
+    description: Win a pot of 500 chips or more.
+    icon: 💰
+    points: 25
+    hidden: false
+    criteria:
+      type: meta
+      key: biggest_pot
+      gte: 500
+  - id: all-in-hero
+    title: All-In Hero
+    description: Win an all-in showdown.
+    icon: 🚀
+    points: 25
+    hidden: false
+    criteria:
+      type: meta
+      key: all_in_win
+      gte: 1
+  - id: veteran
+    title: Table Veteran
+    description: Play 25 hands.
+    icon: 🎖
+    points: 20
+    hidden: false
+    criteria:
+      type: meta
+      key: hands_played
+      gte: 25
+  - id: profitable
+    title: In the Black
+    description: Win 1,000 chips over your career.
+    icon: 📈
+    points: 30
+    hidden: false
+    criteria:
+      type: meta
+      key: chips_won
+      gte: 1000

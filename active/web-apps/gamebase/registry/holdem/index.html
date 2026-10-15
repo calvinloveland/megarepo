@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Hold 'Em Together — Gamebase</title>
+  <link rel="stylesheet" href="/static/kit/gamekit.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="gb">
+  <main class="gb-shell holdem-shell">
+    <header class="gb-topbar">
+      <h1 class="gb-title">Hold 'Em Together</h1>
+      <div class="gb-row">
+        <span class="gb-tag" id="tag">···</span>
+        <button id="mode" class="gb-btn secondary" type="button">Solo</button>
+      </div>
+    </header>
+
+    <div class="table-wrap">
+      <div id="table" class="table" aria-label="Poker table">
+        <div id="seats" class="seats"></div>
+        <div class="center">
+          <div class="board" id="board" aria-label="Community cards"></div>
+          <div class="pot" id="pot">Pot · 0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <span id="status" class="gb-status" aria-live="polite">Loading…</span>
+      <span id="stats" class="gb-hint"></span>
+    </div>
+
+    <div class="controls" id="controls">
+      <button id="fold" class="gb-btn secondary" type="button">Fold</button>
+      <button id="call" class="gb-btn" type="button">Check</button>
+      <button id="raise" class="gb-btn" type="button">Raise</button>
+      <label class="raise-wrap" for="raise-amount">
+        <input id="raise-amount" class="raise-input" type="number" min="0" step="1" inputmode="numeric" aria-label="Raise to amount" />
+        <input id="raise-slider" class="raise-slider" type="range" min="0" max="1000" step="1" aria-label="Raise amount slider" />
+      </label>
+      <button id="allin" class="gb-btn secondary" type="button">All-in</button>
+      <button id="next-hand" class="gb-btn" type="button" hidden>Next hand</button>
+    </div>
+
+    <p class="hint gb-hint">
+      Texas Hold'em · best five of seven · blinds, side pots, all-ins. Online play is
+      peer-to-peer — the host client runs the dealer, peers send actions.
+    </p>
+
+    <div id="overlay" class="gb-overlay" hidden>
+      <div class="gb-card overlay-card">
+        <h2 id="overlay-title">Hold 'Em Together</h2>
+        <p id="overlay-body"></p>
+        <div class="seat-choices" id="seat-choices" role="group" aria-label="Table size">
+          <span class="seat-choices-label">Table size</span>
+          <button class="seat-choice" data-seats="2" type="button">2</button>
+          <button class="seat-choice" data-seats="3" type="button">3</button>
+          <button class="seat-choice" data-seats="4" type="button">4</button>
+          <button class="seat-choice" data-seats="5" type="button">5</button>
+          <button class="seat-choice selected" data-seats="6" type="button">6</button>
+        </div>
+        <div class="gb-row overlay-actions">
+          <button id="overlay-btn" class="gb-btn" type="button">Play vs bots</button>
+          <button id="overlay-online" class="gb-btn secondary" type="button">Play online</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="/static/kit/gamekit.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
