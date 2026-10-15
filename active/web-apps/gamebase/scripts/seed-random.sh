@@ -55,7 +55,7 @@ for g in json.load(sys.stdin)["games"]:
     lb = (g.get("capabilities") or {}).get("leaderboard") or {}
     lo = lb.get("min")
     hi = lb.get("max")
-    print(f"{g[\"slug\"]}|{lo if lo is not None else 0}|{hi if hi is not None else 100000}")
+    print("{}|{}|{}".format(g["slug"], lo if lo is not None else 0, hi if hi is not None else 100000))
 ')
 
 if [ -z "$GAMES" ]; then
@@ -67,15 +67,17 @@ game_count=$(printf '%s\n' "$GAMES" | wc -l)
 echo "games: $game_count  players: $PLAYERS"
 
 made=0
+IDENTITY_JSON=$(mktemp -t gb-seed-identity.XXXXXX)
+trap 'rm -f "$IDENTITY_JSON"' EXIT
 for (( p=0; p<PLAYERS; p++ )); do
   token=""
   for _ in 1 2 3 4 5 6; do
     candidate="$(rand_tag)"
-    code=$(curl -s -o /tmp/gb-seed-identity.json -w '%{http_code}' \
+    code=$(curl -s -o "$IDENTITY_JSON" -w '%{http_code}' \
       -X POST "$BASE/api/identity" -H 'Content-Type: application/json' \
       --data "{\"handle\":\"$candidate\"}")
     if [ "$code" = "201" ]; then
-      token=$(python3 -c 'import json; print(json.load(open("/tmp/gb-seed-identity.json"))["token"])')
+      token=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["token"])' "$IDENTITY_JSON")
       break
     fi
   done
