@@ -1085,7 +1085,35 @@ def get_match(conn, match_id: str) -> dict[str, Any] | None:
     match = dict(row)
     match["players"] = _loads(match.get("players")) or []
     match["result"] = _loads(match.get("result")) or {}
+    match["game_state"] = _loads(match.get("game_state")) or {}
     return match
+
+
+def set_match_game_state(
+    conn, match_id: str, player_id: str, game_state: Any, revision: int | None = None
+) -> dict[str, Any]:
+    """Relay shared turn-based game state between the two match members.
+
+    Members only; ``revision`` gives optimistic locking so a simultaneous write
+    is rejected instead of silently clobbering the opponent's move.
+    """
+    match = get_match(conn, match_id)
+    if match is None:
+        raise NotFound(f"unknown match: {match_id}")
+    if player_id not in {player["player_id"] for player in match["players"]}:
+        raise PermissionError("player is not part of this match")
+    if match["state"] == "completed":
+        raise ValueError("match is already complete")
+    current = int(match.get("revision") or 0)
+    if revision is not None and int(revision) != current:
+        raise Conflict(current)
+    new_revision = current + 1
+    conn.execute(
+        "UPDATE matches SET game_state = ?, revision = ?, updated_at = ? WHERE id = ?",
+        (_dumps(game_state), new_revision, utcnow(), match_id),
+    )
+    conn.commit()
+    return {"revision": new_revision}
 
 
 def report_match_result(conn, match_id: str, player_id: str, result: dict[str, Any]) -> dict[str, Any]:

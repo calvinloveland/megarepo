@@ -397,6 +397,16 @@
     async match(matchId) {
       return request("/matches/" + matchId);
     },
+    /**
+     * Publish shared turn-based state to a match (members only). Pass the last
+     * `revision` you saw to avoid clobbering a simultaneous opponent move.
+     */
+    async updateMatch(matchId, state, revision) {
+      await ready();
+      const body = { state: state };
+      if (typeof revision === "number") body.revision = revision;
+      return request("/matches/" + matchId + "/state", { method: "PUT", body: body });
+    },
     async reportResult(matchId, result) {
       await ready();
       return request("/matches/" + matchId + "/result", {

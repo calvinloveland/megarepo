@@ -644,6 +644,27 @@
   };
   ui.st.keys.push(positionKey(ui.st));
 
+  const MODES = ["ai", "human", "online"];
+  const MODE_LABELS = {
+    ai: "Mode: vs AI",
+    human: "Mode: 2-player",
+    online: "Mode: Online",
+  };
+
+  const online = {
+    matchId: null,
+    myId: null,
+    opponentId: null,
+    myColor: WHITE,
+    revision: 0,
+    pollTimer: null,
+    active: false,
+  };
+
+  function localColor() {
+    return ui.mode === "online" ? online.myColor : ui.humanColor;
+  }
+
   let squareEls = [];
 
   function buildBoard() {
@@ -705,7 +726,11 @@
     }
     const st = ui.st;
     const check = inCheck(st, st.turn) ? " — check!" : "";
-    if (ui.mode === "ai") {
+    if (ui.mode === "online") {
+      if (!online.matchId) els.status.textContent = "Finding an opponent…";
+      else if (st.turn === online.myColor) els.status.textContent = `Your move (${sideName(st.turn)})${check}`;
+      else els.status.textContent = `Waiting for opponent…${check}`;
+    } else if (ui.mode === "ai") {
       if (st.turn === ui.humanColor) els.status.textContent = `Your move (${sideName(st.turn)})${check}`;
       else els.status.textContent = `AI thinking…${check}`;
     } else {
@@ -713,10 +738,16 @@
     }
   }
 
+  function myTurn() {
+    if (ui.busy || ui.finished) return false;
+    if (ui.mode === "ai") return ui.st.turn === ui.humanColor;
+    if (ui.mode === "online") return Boolean(online.matchId) && ui.st.turn === online.myColor;
+    return true;
+  }
+
   function onSquareClick(s) {
-    if (ui.busy || ui.finished) return;
+    if (!myTurn()) return;
     const st = ui.st;
-    if (ui.mode === "ai" && st.turn !== ui.humanColor) return;
     const p = st.board[s];
     if (p && pcolor(p) === st.turn) {
       ui.selected = s;
@@ -768,12 +799,13 @@
     ui.moveHistory.push(move);
     if (capturedPiece) ui.captured.push(capturedPiece);
 
-    if (wasCastle && pcolor(move.piece) === ui.humanColor) manualUnlocks.add("castled");
-    if (wasPromo && pcolor(move.piece) === ui.humanColor) manualUnlocks.add("promoted");
+    if (wasCastle && pcolor(move.piece) === localColor()) manualUnlocks.add("castled");
+    if (wasPromo && pcolor(move.piece) === localColor()) manualUnlocks.add("promoted");
 
     render();
     finishIfOver();
-    if (!ui.finished && ui.mode === "ai" && st.turn !== ui.humanColor) {
+    if (ui.mode === "online") publishOnline();
+    else if (!ui.finished && ui.mode === "ai" && st.turn !== ui.humanColor) {
       scheduleAI();
     }
   }
@@ -804,6 +836,9 @@
       if (ui.mode === "ai") {
         if (status.winner === ui.humanColor) { result = "win"; title = "Checkmate — you win!"; }
         else { result = "loss"; title = "Checkmate — AI wins"; }
+      } else if (ui.mode === "online") {
+        if (status.winner === online.myColor) { result = "win"; title = "Checkmate — you win!"; }
+        else { result = "loss"; title = "Checkmate — you lose"; }
       } else {
         result = status.winner === WHITE ? "win" : "loss";
         title = `Checkmate — ${sideName(status.winner)} wins`;
@@ -829,6 +864,12 @@
     render();
 
     const unlock = Array.from(manualUnlocks);
+    if (ui.mode === "online") {
+      stopOnlinePolling();
+      if (online.matchId) {
+        Gamebase.reportResult(online.matchId, { result }).catch((err) => console.warn("[chess] reportResult failed", err));
+      }
+    }
     Gamebase.endRun({
       score,
       meta: {
@@ -836,7 +877,7 @@
         mode: ui.mode,
         moves: ui.moveCount,
         reason: status.reason,
-        color: ui.mode === "ai" ? sideName(ui.humanColor).toLowerCase() : "white",
+        color: sideName(localColor()).toLowerCase(),
       },
       unlock,
     }).catch((err) => console.warn("[chess] endRun failed", err));
@@ -864,9 +905,11 @@
     els.promo.hidden = true;
     render();
     if (ui.mode === "ai" && ui.st.turn !== ui.humanColor) scheduleAI();
+    else if (ui.mode === "online") startOnline();
   }
 
   function undo() {
+    if (ui.mode === "online") return;
     if (ui.busy) return;
     if (ui.st.undoStack.length === 0) return;
     // Pop the last ply, then keep popping AI plies so control returns to the
@@ -900,10 +943,140 @@
 
   ui.moveHistory = [];
 
+  // ── Online ────────────────────────────────────────────────────────────────
+
+  function stopOnlinePolling() {
+    if (online.pollTimer) {
+      clearTimeout(online.pollTimer);
+      online.pollTimer = null;
+    }
+  }
+
+  function serializeChess() {
+    const st = ui.st;
+    return {
+      board: Array.from(st.board),
+      side: st.turn,
+      castling: Object.assign({}, st.castling),
+      ep: st.ep,
+      halfmove: st.halfmove,
+      fullmove: st.fullmove,
+      keys: st.keys.slice(),
+      captured: ui.captured.slice(),
+      moveCount: ui.moveCount,
+      turn: online.opponentId,
+    };
+  }
+
+  function applyOnlineState(state) {
+    if (!state || !state.board) return false;
+    const st = createState();
+    st.board = Int16Array.from(state.board);
+    st.turn = typeof state.side === "number" ? state.side : st.turn;
+    st.castling = Object.assign({ wk: true, wq: true, bk: true, bq: true }, state.castling || {});
+    st.ep = typeof state.ep === "number" ? state.ep : -1;
+    st.halfmove = typeof state.halfmove === "number" ? state.halfmove : 0;
+    st.fullmove = typeof state.fullmove === "number" ? state.fullmove : 1;
+    st.undoStack = [];
+    st.keys = Array.isArray(state.keys) && state.keys.length ? state.keys.slice() : [positionKey(st)];
+    ui.st = st;
+    ui.captured = Array.isArray(state.captured) ? state.captured.slice() : [];
+    ui.moveCount = typeof state.moveCount === "number" ? state.moveCount : 0;
+    ui.selected = -1;
+    ui.legalForSelected = [];
+    ui.lastMove = null;
+    ui.moveHistory = [];
+    finishIfOver();
+    return true;
+  }
+
+  async function startOnline() {
+    stopOnlinePolling();
+    online.active = true;
+    online.matchId = null;
+    online.opponentId = null;
+    online.revision = 0;
+    ui.st = createState();
+    ui.st.keys.push(positionKey(ui.st));
+    ui.selected = -1;
+    ui.legalForSelected = [];
+    ui.lastMove = null;
+    ui.busy = false;
+    ui.finished = false;
+    ui.finishedText = "";
+    ui.moveCount = 0;
+    ui.captured = [];
+    ui.moveHistory = [];
+    manualUnlocks.clear();
+    els.overlay.hidden = true;
+    els.promo.hidden = true;
+    render();
+    try {
+      await Gamebase.findMatch();
+      const match = await Gamebase.waitForMatch({ timeout: 120000 });
+      if (ui.mode !== "online") return;
+      if (!match) {
+        els.status.textContent = "No opponent found — try again.";
+        return;
+      }
+      const me = Gamebase.player;
+      online.matchId = match.id;
+      online.myId = me.id;
+      online.opponentId = (match.players.find((p) => p.player_id !== me.id) || {}).player_id || null;
+      online.myColor = match.players[0].player_id === me.id ? WHITE : BLACK;
+      online.revision = match.revision || 0;
+      applyOnlineState(match.game_state);
+      render();
+      pollOnline();
+    } catch (error) {
+      els.status.textContent = "Matchmaking failed: " + error.message;
+    }
+  }
+
+  async function publishOnline() {
+    if (!online.matchId) return;
+    try {
+      const saved = await Gamebase.updateMatch(online.matchId, serializeChess(), online.revision);
+      if (saved && typeof saved.revision === "number") online.revision = saved.revision;
+    } catch (error) {
+      if (error.status === 409) {
+        const match = await Gamebase.match(online.matchId);
+        if (match) {
+          online.revision = match.revision || 0;
+          applyOnlineState(match.game_state);
+          render();
+        }
+      } else {
+        console.warn("[chess] updateMatch failed", error);
+      }
+    }
+  }
+
+  async function pollOnline() {
+    if (ui.mode !== "online" || !online.matchId || ui.finished || !online.active) return;
+    try {
+      const match = await Gamebase.match(online.matchId);
+      if (match && (match.revision || 0) > online.revision) {
+        online.revision = match.revision || 0;
+        applyOnlineState(match.game_state);
+        render();
+      }
+    } catch (error) {
+      /* keep polling */
+    }
+    if (!ui.finished && ui.mode === "online") online.pollTimer = setTimeout(pollOnline, 1500);
+  }
+
   function setMode(next) {
     ui.mode = next;
-    els.modeBtn.textContent = next === "ai" ? "Mode: vs AI" : "Mode: 2-player";
+    els.modeBtn.textContent = MODE_LABELS[next];
     els.sideBtn.hidden = next !== "ai";
+    els.sideBtn.textContent = "Play: " + sideName(ui.humanColor);
+    els.undoBtn.hidden = next === "online";
+    if (next !== "online") {
+      online.active = false;
+      stopOnlinePolling();
+    }
     newGame();
   }
 
@@ -915,7 +1088,10 @@
 
   els.newGame.addEventListener("click", newGame);
   els.overlayBtn.addEventListener("click", newGame);
-  els.modeBtn.addEventListener("click", () => setMode(ui.mode === "ai" ? "human" : "ai"));
+  els.modeBtn.addEventListener("click", () => {
+    const index = MODES.indexOf(ui.mode);
+    setMode(MODES[(index + 1) % MODES.length]);
+  });
   els.sideBtn.addEventListener("click", toggleSide);
   els.undoBtn.addEventListener("click", undo);
 

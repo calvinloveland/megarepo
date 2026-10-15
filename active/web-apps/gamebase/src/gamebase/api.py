@@ -623,6 +623,29 @@ def report_result(player: dict[str, Any], match_id: str):
     return jsonify(match)
 
 
+@api_bp.put("/matches/<match_id>/state")
+@require_player
+def relay_match_state(player: dict[str, Any], match_id: str):
+    """Relay shared game state for an online turn-based match (members only)."""
+    body = _json_body()
+    if "state" not in body:
+        return jsonify({"error": "state is required"}), 400
+    revision = body.get("revision")
+    if revision is not None and not isinstance(revision, int):
+        return jsonify({"error": "revision must be an integer"}), 400
+    try:
+        result = models.set_match_game_state(get_db(), match_id, player["id"], body["state"], revision)
+    except models.NotFound as error:
+        return jsonify({"error": str(error)}), 404
+    except PermissionError as error:
+        return jsonify({"error": str(error)}), 403
+    except models.Conflict as conflict:
+        return jsonify({"error": str(conflict), "current_revision": conflict.current_revision}), 409
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    return jsonify(result)
+
+
 # ── Remix, publish, and rescan ──────────────────────────────────────────────
 
 

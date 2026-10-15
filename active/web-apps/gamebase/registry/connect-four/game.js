@@ -180,6 +180,13 @@
     undoBtn: document.getElementById("undo"),
   };
 
+  const MODES = ["ai", "human", "online"];
+  const MODE_LABELS = {
+    ai: "Mode: vs AI",
+    human: "Mode: 2-player",
+    online: "Mode: Online",
+  };
+
   const ui = {
     board: createBoard(),
     turn: P1,
@@ -192,6 +199,17 @@
     lastIndex: -1,
     moveCount: 0,
     history: [],
+  };
+
+  const online = {
+    matchId: null,
+    myId: null,
+    opponentId: null,
+    myColor: P1,
+    revision: 0,
+    pollTimer: null,
+    active: false,
+    reported: false,
   };
 
   const manualUnlocks = new Set();
@@ -215,7 +233,15 @@
     }
   }
 
+  function localTurn() {
+    if (ui.finished) return false;
+    if (ui.mode === "online") return Boolean(online.matchId) && ui.turn === online.myColor;
+    if (ui.mode === "ai") return ui.turn === ui.human;
+    return true;
+  }
+
   function render() {
+    const interactive = localTurn();
     for (let i = 0; i < ROWS * COLS; i++) {
       const el = cellEls[i];
       const v = ui.board[i];
@@ -223,7 +249,7 @@
         (ui.winCells.includes(i) ? " win" : "") + (i === ui.lastIndex ? " last" : "");
       el.innerHTML = v ? '<span class="disc"></span>' : "";
       const colFull = ui.board[idx(0, i % COLS)] !== EMPTY;
-      el.disabled = ui.finished || colFull || (ui.mode === "ai" && ui.turn !== ui.human);
+      el.disabled = ui.finished || colFull || !interactive;
     }
     const c1 = ui.board.filter((v) => v === P1).length;
     const c2 = ui.board.filter((v) => v === P2).length;
@@ -235,6 +261,10 @@
     if (ui.finished) return;
     if (ui.mode === "ai") {
       els.status.textContent = ui.turn === ui.human ? "Your move (red)" : "AI thinking…";
+    } else if (ui.mode === "online") {
+      if (!online.matchId) els.status.textContent = "Finding an opponent…";
+      else if (ui.turn === online.myColor) els.status.textContent = "Your move";
+      else els.status.textContent = "Waiting for opponent…";
     } else {
       els.status.textContent = `${ui.turn === P1 ? "Red" : "Yellow"} to move`;
     }
@@ -242,7 +272,7 @@
 
   function onColumn(col) {
     if (ui.finished || ui.busy) return;
-    if (ui.mode === "ai" && ui.turn !== ui.human) return;
+    if (!localTurn()) return;
     if (dropRow(ui.board, col) < 0) return;
     drop(col, ui.turn);
   }
@@ -260,15 +290,18 @@
       ui.winCells = win.cells;
       if (win.player === ui.human && lineIsDiagonal(win.cells)) manualUnlocks.add("diagonal");
       finish(win.player === ui.human ? "win" : "loss");
+      if (ui.mode === "online") publishOnline();
       return;
     }
     if (isFull(ui.board)) {
       finish("draw");
+      if (ui.mode === "online") publishOnline();
       return;
     }
     ui.turn = other(player);
     render();
     if (ui.mode === "ai" && ui.turn === ui.ai) scheduleAI();
+    if (ui.mode === "online") publishOnline();
   }
 
   function scheduleAI() {
@@ -283,7 +316,9 @@
   }
 
   function finish(result) {
+    if (ui.finished) return;
     ui.finished = true;
+    stopOnlinePolling();
     manualUnlocks.add("first-game");
     const score = result === "win" ? 3 : result === "draw" ? 1 : 0;
     const title = result === "win" ? "You win!" : result === "draw" ? "Draw" : "You lose";
@@ -298,6 +333,7 @@
     els.overlay.hidden = false;
     render();
 
+    reportOnlineResult(result);
     Gamebase.endRun({
       score,
       meta: { result, mode: ui.mode, moves: ui.moveCount },
@@ -317,10 +353,12 @@
     manualUnlocks.clear();
     els.overlay.hidden = true;
     render();
-    if (ui.mode === "ai" && ui.turn === ui.ai) scheduleAI();
+    if (ui.mode === "online") startOnline();
+    else if (ui.mode === "ai" && ui.turn === ui.ai) scheduleAI();
   }
 
   function undo() {
+    if (ui.mode === "online") return;
     if (ui.busy || ui.history.length === 0) return;
     popOne();
     if (ui.mode === "ai") {
@@ -347,15 +385,144 @@
     ui.lastIndex = -1;
   }
 
+  function playerIdOf(color) {
+    return color === online.myColor ? online.myId : online.opponentId;
+  }
+
+  function serializeState() {
+    return {
+      board: ui.board.slice(),
+      turn: playerIdOf(ui.turn),
+      moveCount: ui.moveCount,
+      lastIndex: ui.lastIndex,
+      winCells: ui.winCells.slice(),
+      finished: ui.finished,
+    };
+  }
+
+  function reportOnlineResult(result) {
+    if (ui.mode !== "online" || !online.matchId || online.reported) return;
+    online.reported = true;
+    Gamebase.reportResult(online.matchId, { result })
+      .catch((err) => console.warn("[connect-four] reportResult failed", err));
+  }
+
+  function stopOnlinePolling() {
+    if (online.pollTimer) {
+      clearTimeout(online.pollTimer);
+      online.pollTimer = null;
+    }
+  }
+
+  function applyRemote(state) {
+    if (!state || !Array.isArray(state.board)) return;
+    ui.board = state.board.slice();
+    ui.lastIndex = typeof state.lastIndex === "number" ? state.lastIndex : -1;
+    ui.moveCount = typeof state.moveCount === "number"
+      ? state.moveCount
+      : ui.board.filter((v) => v !== EMPTY).length;
+    ui.winCells = Array.isArray(state.winCells) ? state.winCells.slice() : [];
+    if (state.turn) ui.turn = state.turn === online.myId ? online.myColor : other(online.myColor);
+    const win = findWin(ui.board);
+    if (win) {
+      ui.winCells = win.cells;
+      finish(win.player === ui.human ? "win" : "loss");
+      return;
+    }
+    if (isFull(ui.board)) finish("draw");
+  }
+
+  async function publishOnline() {
+    if (ui.mode !== "online" || !online.matchId) return;
+    try {
+      const saved = await Gamebase.updateMatch(online.matchId, serializeState(), online.revision);
+      if (saved && typeof saved.revision === "number") online.revision = saved.revision;
+    } catch (error) {
+      if (error.status === 409) {
+        const match = await Gamebase.match(online.matchId);
+        if (match) {
+          online.revision = match.revision || 0;
+          applyRemote(match.game_state);
+          render();
+        }
+      } else {
+        console.warn("[connect-four] updateMatch failed", error);
+      }
+    }
+  }
+
+  async function pollOnline() {
+    if (ui.mode !== "online" || !online.matchId || !online.active || ui.finished) return;
+    try {
+      const match = await Gamebase.match(online.matchId);
+      if (match && (match.revision || 0) > online.revision) {
+        online.revision = match.revision || 0;
+        applyRemote(match.game_state);
+        render();
+      }
+    } catch (error) {
+      /* keep polling */
+    }
+    if (ui.mode === "online" && online.active && !ui.finished) {
+      online.pollTimer = setTimeout(pollOnline, 1500);
+    }
+  }
+
+  async function startOnline() {
+    stopOnlinePolling();
+    online.active = true;
+    online.reported = false;
+    online.matchId = null;
+    ui.board = createBoard();
+    ui.turn = P1;
+    ui.busy = false;
+    ui.finished = false;
+    ui.winCells = [];
+    ui.lastIndex = -1;
+    ui.moveCount = 0;
+    ui.history = [];
+    els.overlay.hidden = true;
+    render();
+    try {
+      await Gamebase.findMatch();
+      const match = await Gamebase.waitForMatch({ timeout: 120000 });
+      if (ui.mode !== "online" || !match) {
+        if (ui.mode === "online") els.status.textContent = "No opponent found — try again.";
+        return;
+      }
+      const me = Gamebase.player;
+      online.matchId = match.id;
+      online.myId = me.id;
+      online.opponentId = (match.players.find((p) => p.player_id !== me.id) || {}).player_id || null;
+      online.myColor = match.players[0].player_id === me.id ? P1 : P2;
+      online.revision = match.revision || 0;
+      ui.human = online.myColor;
+      ui.ai = other(online.myColor);
+      ui.turn = match.players[0].player_id === me.id ? online.myColor : other(online.myColor);
+      applyRemote(match.game_state);
+      render();
+      pollOnline();
+    } catch (error) {
+      els.status.textContent = "Matchmaking failed: " + error.message;
+    }
+  }
+
   function setMode(next) {
     ui.mode = next;
-    els.modeBtn.textContent = next === "ai" ? "Mode: vs AI" : "Mode: 2-player";
+    els.modeBtn.textContent = MODE_LABELS[next];
+    if (next !== "online") {
+      online.active = false;
+      stopOnlinePolling();
+    }
     newGame();
   }
 
   els.newGame.addEventListener("click", newGame);
   els.overlayBtn.addEventListener("click", newGame);
-  els.modeBtn.addEventListener("click", () => setMode(ui.mode === "ai" ? "human" : "ai"));
+  els.modeBtn.addEventListener("click", () => {
+    const index = MODES.indexOf(ui.mode);
+    setMode(MODES[(index + 1) % MODES.length]);
+  });
   els.undoBtn.addEventListener("click", undo);
 
   buildBoard();

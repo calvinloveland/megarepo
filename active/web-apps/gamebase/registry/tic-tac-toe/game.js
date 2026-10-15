@@ -1,9 +1,9 @@
 /*
  * Tic-Tac-Toe — Gamebase
  *
- * Standard 3x3 rules against an unbeatable perfect-play AI (minimax) or a
- * local two-player opponent. A best-of tally (wins / draws / losses and the
- * current win streak) is persisted through the Gamebase state API.
+ * Standard 3x3 rules against an unbeatable perfect-play AI (minimax), a local
+ * two-player opponent, or an online opponent found through Gamebase
+ * matchmaking. Online play relays the board through the match state API.
  *
  * The pure engine is exposed as the global `TicTacToeEngine` so it can be
  * exercised headlessly with `node`.
@@ -39,14 +39,12 @@
     return out;
   }
 
-  // Perfect play. Returns the score of the position from `ai`'s point of view.
   function minimax(board, turn, ai, depth) {
     const win = winnerOf(board);
     if (win) return win.player === ai ? 10 - depth : depth - 10;
     if (isFull(board)) return 0;
-    const moves = available(board);
     let best = turn === ai ? -Infinity : Infinity;
-    for (const move of moves) {
+    for (const move of available(board)) {
       board[move] = turn;
       const score = minimax(board, other(turn), ai, depth + 1);
       board[move] = EMPTY;
@@ -55,7 +53,6 @@
     return best;
   }
 
-  // Unbeatable move for `ai` (any opponent can at best force a draw).
   function bestMove(board, ai) {
     const moves = available(board);
     if (moves.length === 0) return -1;
@@ -92,6 +89,13 @@
     resetTally: document.getElementById("reset-tally"),
   };
 
+  const MODES = ["ai", "local", "online"];
+  const MODE_LABELS = {
+    ai: "Mode: vs Perfect AI",
+    local: "Mode: 2-player",
+    online: "Mode: Online",
+  };
+
   const ui = {
     board: createBoard(),
     turn: X,
@@ -104,6 +108,16 @@
     moveCount: 0,
     tally: { wins: 0, draws: 0, losses: 0, streak: 0 },
     revision: 0,
+  };
+
+  const online = {
+    matchId: null,
+    myId: null,
+    opponentId: null,
+    myMark: X,
+    revision: 0,
+    pollTimer: null,
+    active: false,
   };
 
   const manualUnlocks = new Set();
@@ -125,6 +139,13 @@
     }
   }
 
+  function myTurn() {
+    if (ui.finished || ui.busy) return false;
+    if (ui.mode === "ai") return ui.turn === ui.human;
+    if (ui.mode === "online") return ui.turn === online.myMark;
+    return true;
+  }
+
   function render() {
     for (let i = 0; i < 9; i++) {
       const el = cellEls[i];
@@ -132,7 +153,7 @@
       el.textContent = value === X ? "✕" : value === O ? "○" : "";
       el.className = "cell" + (value ? " taken " + (value === X ? "x" : "o") : "");
       if (ui.winLine && ui.winLine.includes(i)) el.classList.add("win");
-      el.disabled = Boolean(value) || ui.finished || (ui.mode === "ai" && ui.turn !== ui.human);
+      el.disabled = Boolean(value) || !myTurn();
     }
     els.tally.textContent = `W ${ui.tally.wins} · D ${ui.tally.draws} · L ${ui.tally.losses}`;
     renderStatus();
@@ -142,15 +163,17 @@
     if (ui.finished) return;
     if (ui.mode === "ai") {
       els.status.textContent = ui.turn === ui.human ? "Your move (✕)" : "AI thinking…";
+    } else if (ui.mode === "online") {
+      if (!online.matchId) els.status.textContent = "Finding an opponent…";
+      else if (ui.turn === online.myMark) els.status.textContent = "Your move (" + (online.myMark === X ? "✕" : "○") + ")";
+      else els.status.textContent = "Waiting for opponent…";
     } else {
       els.status.textContent = `${ui.turn === X ? "✕" : "○"} to move`;
     }
   }
 
   function onCell(i) {
-    if (ui.finished || ui.busy) return;
-    if (ui.board[i] !== EMPTY) return;
-    if (ui.mode === "ai" && ui.turn !== ui.human) return;
+    if (!myTurn() || ui.board[i] !== EMPTY) return;
     place(i, ui.turn);
   }
 
@@ -171,6 +194,7 @@
     ui.turn = other(player);
     render();
     if (ui.mode === "ai" && ui.turn === ui.ai) scheduleAI();
+    if (ui.mode === "online") publishOnline();
   }
 
   function scheduleAI() {
@@ -197,14 +221,11 @@
       ui.tally.streak = 0;
     }
     manualUnlocks.add("first-game");
+    stopOnlinePolling();
 
     const score = result === "win" ? 3 : result === "draw" ? 1 : 0;
     const title = result === "win" ? "You win!" : result === "draw" ? "Draw" : "You lose";
-    const body = result === "win"
-      ? "Three in a row."
-      : result === "draw"
-        ? "Nobody could find a line."
-        : "The opponent got three in a row.";
+    const body = result === "win" ? "Three in a row." : result === "draw" ? "Nobody could find a line." : "The opponent got three in a row.";
 
     els.overlayTitle.textContent = title;
     els.overlayBody.textContent = body;
@@ -212,6 +233,9 @@
     render();
 
     persistTally();
+    if (ui.mode === "online" && online.matchId) {
+      Gamebase.reportResult(online.matchId, { result }).catch((err) => console.warn("[tic-tac-toe] reportResult failed", err));
+    }
     Gamebase.endRun({
       score,
       meta: { result, mode: ui.mode, moves: ui.moveCount, streak: ui.tally.streak },
@@ -230,11 +254,115 @@
     els.overlay.hidden = true;
     render();
     if (ui.mode === "ai" && ui.turn === ui.ai) scheduleAI();
+    if (ui.mode === "online") startOnline();
   }
+
+  // ── Online ────────────────────────────────────────────────────────────────
+
+  function stopOnlinePolling() {
+    if (online.pollTimer) {
+      clearTimeout(online.pollTimer);
+      online.pollTimer = null;
+    }
+  }
+
+  async function startOnline() {
+    stopOnlinePolling();
+    online.active = true;
+    ui.board = createBoard();
+    ui.turn = O;
+    ui.finished = false;
+    ui.winLine = null;
+    ui.moveCount = 0;
+    els.overlay.hidden = true;
+    render();
+    try {
+      await Gamebase.findMatch();
+      const match = await Gamebase.waitForMatch({ timeout: 120000 });
+      if (ui.mode !== "online" || !match) {
+        if (ui.mode === "online") els.status.textContent = "No opponent found — try again.";
+        return;
+      }
+      const me = Gamebase.player;
+      online.matchId = match.id;
+      online.myId = me.id;
+      online.opponentId = (match.players.find((p) => p.player_id !== me.id) || {}).player_id || null;
+      online.myMark = match.players[0].player_id === me.id ? X : O;
+      online.revision = match.revision || 0;
+      ui.human = online.myMark;
+      ui.turn = online.myMark;
+      applyRemote(match.game_state);
+      render();
+      pollOnline();
+    } catch (error) {
+      els.status.textContent = "Matchmaking failed: " + error.message;
+    }
+  }
+
+  function applyRemote(state) {
+    if (!state || !state.board) return;
+    ui.board = state.board.slice();
+    ui.moveCount = ui.board.filter((v) => v !== EMPTY).length;
+    const win = winnerOf(ui.board);
+    if (win) {
+      ui.winLine = win.line;
+      finish(win.player === online.myMark ? "win" : "loss");
+      return;
+    }
+    if (isFull(ui.board)) {
+      finish("draw");
+      return;
+    }
+    ui.turn = state.turn === online.myId ? online.myMark : other(online.myMark);
+  }
+
+  async function publishOnline() {
+    if (!online.matchId) return;
+    try {
+      const saved = await Gamebase.updateMatch(
+        online.matchId,
+        { board: ui.board.slice(), turn: online.opponentId, moveCount: ui.moveCount },
+        online.revision
+      );
+      if (saved && typeof saved.revision === "number") online.revision = saved.revision;
+    } catch (error) {
+      if (error.status === 409) {
+        const match = await Gamebase.match(online.matchId);
+        if (match) {
+          online.revision = match.revision || 0;
+          applyRemote(match.game_state);
+          render();
+        }
+      } else {
+        console.warn("[tic-tac-toe] updateMatch failed", error);
+      }
+    }
+  }
+
+  async function pollOnline() {
+    if (ui.mode !== "online" || !online.matchId || ui.finished || !online.active) return;
+    try {
+      const match = await Gamebase.match(online.matchId);
+      if (match && (match.revision || 0) > online.revision) {
+        online.revision = match.revision || 0;
+        applyRemote(match.game_state);
+        render();
+      }
+    } catch (error) {
+      /* keep polling */
+    }
+    if (!ui.finished) online.pollTimer = setTimeout(pollOnline, 1500);
+  }
+
+  // ── Mode + controls ──────────────────────────────────────────────────────
 
   function setMode(next) {
     ui.mode = next;
-    els.modeBtn.textContent = next === "ai" ? "Mode: vs Perfect AI" : "Mode: 2-player";
+    els.modeBtn.textContent = MODE_LABELS[next];
+    if (next !== "online") {
+      online.active = false;
+      stopOnlinePolling();
+    }
     newGame();
   }
 
@@ -255,7 +383,10 @@
 
   els.newGame.addEventListener("click", newGame);
   els.overlayBtn.addEventListener("click", newGame);
-  els.modeBtn.addEventListener("click", () => setMode(ui.mode === "ai" ? "human" : "ai"));
+  els.modeBtn.addEventListener("click", () => {
+    const index = MODES.indexOf(ui.mode);
+    setMode(MODES[(index + 1) % MODES.length]);
+  });
   els.resetTally.addEventListener("click", resetTally);
 
   buildBoard();

@@ -174,6 +174,13 @@
     undoBtn: document.getElementById("undo"),
   };
 
+  const MODES = ["ai", "human", "online"];
+  const MODE_LABELS = {
+    ai: "Mode: vs AI",
+    human: "Mode: 2-player",
+    online: "Mode: Online",
+  };
+
   const ui = {
     board: createBoard(),
     turn: BLACK,
@@ -185,6 +192,18 @@
     history: [],
     lastMove: -1,
     moveCount: 0,
+  };
+
+  const online = {
+    matchId: null,
+    myId: null,
+    opponentId: null,
+    myColor: BLACK,
+    revision: 0,
+    pollTimer: null,
+    active: false,
+    reported: false,
+    passNotice: null,
   };
 
   const manualUnlocks = new Set();
@@ -207,9 +226,16 @@
 
   const sideName = (p) => (p === BLACK ? "Black" : "White");
 
+  function localTurn() {
+    if (ui.finished) return false;
+    if (ui.mode === "online") return Boolean(online.matchId) && ui.turn === online.myColor;
+    if (ui.mode === "ai") return ui.turn === ui.human;
+    return true;
+  }
+
   function render() {
     const moves = ui.finished ? [] : legalMoves(ui.board, ui.turn);
-    const humanTurn = ui.mode === "human" || ui.turn === ui.human;
+    const humanTurn = localTurn();
     for (let i = 0; i < 64; i++) {
       const el = squareEls[i];
       el.className = "sq" + (moves.includes(i) && humanTurn ? " play" : "") +
@@ -235,6 +261,11 @@
     if (ui.finished) return;
     if (ui.mode === "ai") {
       els.status.textContent = ui.turn === ui.human ? "Your move (black)" : "AI thinking…";
+    } else if (ui.mode === "online") {
+      if (online.passNotice) els.status.textContent = online.passNotice;
+      else if (!online.matchId) els.status.textContent = "Finding an opponent…";
+      else if (ui.turn === online.myColor) els.status.textContent = "Your move";
+      else els.status.textContent = "Waiting for opponent…";
     } else {
       els.status.textContent = `${sideName(ui.turn)} to move`;
     }
@@ -242,12 +273,13 @@
 
   function onSquare(i) {
     if (ui.busy || ui.finished) return;
-    if (ui.mode === "ai" && ui.turn !== ui.human) return;
+    if (!localTurn()) return;
     if (!flipsFor(ui.board, i, ui.turn).length) return;
     place(i);
   }
 
   function place(i) {
+    online.passNotice = null;
     ui.history.push({ board: ui.board.slice(), turn: ui.turn, lastMove: ui.lastMove, moveCount: ui.moveCount });
     const player = ui.turn;
     ui.board = applyMove(ui.board, i, player);
@@ -257,6 +289,17 @@
     ui.turn = other(player);
     render();
     afterMove();
+    if (ui.mode === "online") publishOnline();
+  }
+
+  function resolvePass() {
+    if (ui.finished || isOver(ui.board)) return false;
+    if (legalMoves(ui.board, ui.turn).length > 0) return false;
+    const passer = ui.turn;
+    ui.turn = other(passer);
+    ui.history.push({ board: ui.board.slice(), turn: passer, lastMove: ui.lastMove, moveCount: ui.moveCount });
+    online.passNotice = `${sideName(passer)} has no move — passing`;
+    return true;
   }
 
   function afterMove() {
@@ -265,12 +308,14 @@
       finishGame();
       return;
     }
-    if (legalMoves(ui.board, ui.turn).length === 0) {
-      const passer = ui.turn;
-      ui.turn = other(passer);
-      ui.history.push({ board: ui.board.slice(), turn: passer, lastMove: ui.lastMove, moveCount: ui.moveCount });
+    const passed = resolvePass();
+    if (ui.mode === "online") {
       render();
-      els.status.textContent = `${sideName(passer)} has no move — passing`;
+      return;
+    }
+    if (passed) {
+      render();
+      els.status.textContent = online.passNotice;
       ui.busy = true;
       setTimeout(() => {
         ui.busy = false;
@@ -300,7 +345,9 @@
   }
 
   function finishGame() {
+    if (ui.finished) return;
     ui.finished = true;
+    stopOnlinePolling();
     const { black, white } = countDiscs(ui.board);
     const margin = Math.abs(black - white);
     let result, title, body;
@@ -309,10 +356,12 @@
       title = "Draw";
       body = `Both sides finish on ${black} discs.`;
     } else {
-      const humanWon = black > white; // human is always black
-      result = humanWon ? "win" : "loss";
-      if (ui.mode === "ai") title = humanWon ? "You win!" : "AI wins";
-      else title = `${sideName(black > white ? BLACK : WHITE)} wins`;
+      const winner = black > white ? BLACK : WHITE;
+      const iWon = winner === ui.human;
+      result = iWon ? "win" : "loss";
+      if (ui.mode === "ai") title = iWon ? "You win!" : "AI wins";
+      else if (ui.mode === "online") title = iWon ? "You win!" : "You lose";
+      else title = `${sideName(winner)} wins`;
       body = `Black ${black} · White ${white}.`;
     }
 
@@ -323,6 +372,7 @@
     els.overlay.hidden = false;
     render();
 
+    reportOnlineResult(result);
     Gamebase.endRun({
       score,
       meta: { result, mode: ui.mode, moves: ui.moveCount, margin },
@@ -341,10 +391,12 @@
     manualUnlocks.clear();
     els.overlay.hidden = true;
     render();
-    if (ui.mode === "ai" && ui.turn === ui.ai) scheduleAI();
+    if (ui.mode === "online") startOnline();
+    else if (ui.mode === "ai" && ui.turn === ui.ai) scheduleAI();
   }
 
   function undo() {
+    if (ui.mode === "online") return;
     if (ui.busy || ui.history.length === 0) return;
     popSnapshot();
     if (ui.mode === "ai") {
@@ -365,15 +417,142 @@
     ui.moveCount = snap.moveCount;
   }
 
+  function playerIdOf(color) {
+    return color === online.myColor ? online.myId : online.opponentId;
+  }
+
+  function serializeState() {
+    return {
+      board: ui.board.slice(),
+      turn: playerIdOf(ui.turn),
+      moveCount: ui.moveCount,
+      lastMove: ui.lastMove,
+      passNotice: online.passNotice,
+      finished: ui.finished,
+    };
+  }
+
+  function reportOnlineResult(result) {
+    if (ui.mode !== "online" || !online.matchId || online.reported) return;
+    online.reported = true;
+    Gamebase.reportResult(online.matchId, { result })
+      .catch((err) => console.warn("[reversi] reportResult failed", err));
+  }
+
+  function stopOnlinePolling() {
+    if (online.pollTimer) {
+      clearTimeout(online.pollTimer);
+      online.pollTimer = null;
+    }
+  }
+
+  function applyRemote(state) {
+    if (!state || !Array.isArray(state.board)) return;
+    ui.board = state.board.slice();
+    ui.lastMove = typeof state.lastMove === "number" ? state.lastMove : -1;
+    ui.moveCount = typeof state.moveCount === "number"
+      ? state.moveCount
+      : ui.board.filter((v) => v !== EMPTY).length;
+    online.passNotice = state.passNotice || null;
+    if (state.turn) ui.turn = state.turn === online.myId ? online.myColor : other(online.myColor);
+    if (isOver(ui.board)) {
+      finishGame();
+      return;
+    }
+    if (legalMoves(ui.board, ui.turn).length === 0) ui.turn = other(ui.turn);
+  }
+
+  async function publishOnline() {
+    if (ui.mode !== "online" || !online.matchId) return;
+    try {
+      const saved = await Gamebase.updateMatch(online.matchId, serializeState(), online.revision);
+      if (saved && typeof saved.revision === "number") online.revision = saved.revision;
+    } catch (error) {
+      if (error.status === 409) {
+        const match = await Gamebase.match(online.matchId);
+        if (match) {
+          online.revision = match.revision || 0;
+          applyRemote(match.game_state);
+          render();
+        }
+      } else {
+        console.warn("[reversi] updateMatch failed", error);
+      }
+    }
+  }
+
+  async function pollOnline() {
+    if (ui.mode !== "online" || !online.matchId || !online.active || ui.finished) return;
+    try {
+      const match = await Gamebase.match(online.matchId);
+      if (match && (match.revision || 0) > online.revision) {
+        online.revision = match.revision || 0;
+        applyRemote(match.game_state);
+        render();
+      }
+    } catch (error) {
+      /* keep polling */
+    }
+    if (ui.mode === "online" && online.active && !ui.finished) {
+      online.pollTimer = setTimeout(pollOnline, 1500);
+    }
+  }
+
+  async function startOnline() {
+    stopOnlinePolling();
+    online.active = true;
+    online.reported = false;
+    online.matchId = null;
+    online.passNotice = null;
+    ui.board = createBoard();
+    ui.turn = BLACK;
+    ui.busy = false;
+    ui.finished = false;
+    ui.history = [];
+    ui.lastMove = -1;
+    ui.moveCount = 0;
+    els.overlay.hidden = true;
+    render();
+    try {
+      await Gamebase.findMatch();
+      const match = await Gamebase.waitForMatch({ timeout: 120000 });
+      if (ui.mode !== "online" || !match) {
+        if (ui.mode === "online") els.status.textContent = "No opponent found — try again.";
+        return;
+      }
+      const me = Gamebase.player;
+      online.matchId = match.id;
+      online.myId = me.id;
+      online.opponentId = (match.players.find((p) => p.player_id !== me.id) || {}).player_id || null;
+      online.myColor = match.players[0].player_id === me.id ? BLACK : WHITE;
+      online.revision = match.revision || 0;
+      ui.human = online.myColor;
+      ui.ai = other(online.myColor);
+      ui.turn = match.players[0].player_id === me.id ? online.myColor : other(online.myColor);
+      applyRemote(match.game_state);
+      render();
+      pollOnline();
+    } catch (error) {
+      els.status.textContent = "Matchmaking failed: " + error.message;
+    }
+  }
+
   function setMode(next) {
     ui.mode = next;
-    els.modeBtn.textContent = next === "ai" ? "Mode: vs AI" : "Mode: 2-player";
+    els.modeBtn.textContent = MODE_LABELS[next];
+    if (next !== "online") {
+      online.active = false;
+      stopOnlinePolling();
+    }
     newGame();
   }
 
   els.newGame.addEventListener("click", newGame);
   els.overlayBtn.addEventListener("click", newGame);
-  els.modeBtn.addEventListener("click", () => setMode(ui.mode === "ai" ? "human" : "ai"));
+  els.modeBtn.addEventListener("click", () => {
+    const index = MODES.indexOf(ui.mode);
+    setMode(MODES[(index + 1) % MODES.length]);
+  });
   els.undoBtn.addEventListener("click", undo);
 
   let focusSq = 27;

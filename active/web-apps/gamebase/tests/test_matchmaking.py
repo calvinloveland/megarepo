@@ -83,3 +83,53 @@ def test_matchmaking_requires_capability(client):
     token, _ = create_player(client, handle="no-match")
     response = _queue(client, token, slug="time-trial")
     assert response.status_code == 400
+
+
+def _matched_pair(client):
+    first, first_player = create_player(client, handle="relay-a")
+    second, second_player = create_player(client, handle="relay-b")
+    _queue(client, first)
+    match = _queue(client, second).get_json()["match"]
+    return first, first_player, second, second_player, match
+
+
+def test_match_state_relay_round_trip(client):
+    first, _, second, _, match = _matched_pair(client)
+
+    published = client.put(
+        f"/api/matches/{match['id']}/state",
+        json={"state": {"board": ["x", None, "o"], "turn": "second"}, "revision": 0},
+        headers=auth(first),
+    )
+    assert published.status_code == 200
+    assert published.get_json()["revision"] == 1
+
+    seen = client.get(f"/api/matches/{match['id']}", headers=auth(second)).get_json()
+    assert seen["game_state"] == {"board": ["x", None, "o"], "turn": "second"}
+    assert seen["revision"] == 1
+
+
+
+def test_match_state_relay_rejects_stale_revision_and_non_members(client):
+    first, _, second, _, match = _matched_pair(client)
+    outsider, _ = create_player(client, handle="relay-c")
+
+    client.put(
+        f"/api/matches/{match['id']}/state",
+        json={"state": {"n": 1}, "revision": 0},
+        headers=auth(first),
+    )
+    stale = client.put(
+        f"/api/matches/{match['id']}/state",
+        json={"state": {"n": 2}, "revision": 0},
+        headers=auth(second),
+    )
+    assert stale.status_code == 409
+    assert stale.get_json()["current_revision"] == 1
+
+    forbidden = client.put(
+        f"/api/matches/{match['id']}/state",
+        json={"state": {"n": 3}},
+        headers=auth(outsider),
+    )
+    assert forbidden.status_code == 403

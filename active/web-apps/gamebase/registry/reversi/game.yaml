@@ -22,6 +22,9 @@ capabilities:
     min: 0
     max: 3
     label: Result Points
+  matchmaking:
+    players: 2
+    mode: turn-based
   achievements:
   - id: first-game
     title: Opening Move
