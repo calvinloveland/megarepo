@@ -1,6 +1,7 @@
-/* Platform-side UI: shared identity, remix actions, and achievement state. */
+/* Platform-side UI: arcade tag gate, remix/rescan actions, achievement state. */
 (() => {
   const TOKEN_KEY = "gamebase.token";
+  let identityPromise = null;
 
   function token() {
     try { return localStorage.getItem(TOKEN_KEY); } catch (error) { return null; }
@@ -10,19 +11,105 @@
     try { localStorage.setItem(TOKEN_KEY, value); } catch (error) { /* ignore */ }
   }
 
-  async function ensureIdentity() {
-    let existing = token();
-    if (existing) return existing;
+  async function createIdentity(handle) {
     const response = await fetch("/api/identity", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(handle ? { handle: handle } : {}),
     });
-    if (!response.ok) throw new Error("could not create identity");
     const data = await response.json();
+    if (!response.ok) {
+      const error = new Error(data.error || "could not create identity");
+      error.status = response.status;
+      throw error;
+    }
     storeToken(data.token);
     return data.token;
   }
+
+  // ── Arcade tag gate ──────────────────────────────────────────────────────
+
+  function promptForTag() {
+    return new Promise((resolve, reject) => {
+      const gate = document.getElementById("tag-gate");
+      if (!gate) { createIdentity().then(resolve, reject); return; }
+
+      const inputs = Array.from(gate.querySelectorAll(".tag-slot"));
+      const hint = gate.querySelector("#tag-hint");
+      const submit = gate.querySelector("#tag-submit");
+      const randomButton = gate.querySelector("#tag-random");
+      const value = () => inputs.map((input) => input.value.toUpperCase()).join("");
+      let busy = false;
+
+      function fillRandom() {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        inputs.forEach((input) => {
+          input.value = chars[Math.floor(Math.random() * chars.length)];
+        });
+        submitTag();
+      }
+
+      async function submitTag() {
+        if (busy) return;
+        const tag = value();
+        if (tag.length !== 3) {
+          hint.textContent = "Enter 3 characters";
+          return;
+        }
+        busy = true;
+        submit.disabled = true;
+        hint.textContent = "Connecting…";
+        try {
+          const created = await createIdentity(tag);
+          gate.hidden = true;
+          resolve(created);
+        } catch (error) {
+          busy = false;
+          submit.disabled = false;
+          hint.textContent = error.status === 409 ? "Tag in use — try another" : (error.message || "Error");
+          gate.classList.add("shake");
+          setTimeout(() => gate.classList.remove("shake"), 400);
+          inputs.forEach((input) => { input.value = ""; });
+          inputs[0].focus();
+        }
+      }
+
+      inputs.forEach((input, index) => {
+        input.addEventListener("input", () => {
+          input.value = input.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 1);
+          if (input.value && index < inputs.length - 1) inputs[index + 1].focus();
+          if (value().length === 3) submitTag();
+        });
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Backspace" && !input.value && index > 0) {
+            inputs[index - 1].focus();
+            inputs[index - 1].value = "";
+          } else if (event.key === "Enter") {
+            submitTag();
+          }
+        });
+      });
+
+      submit.addEventListener("click", submitTag);
+      if (randomButton) randomButton.addEventListener("click", fillRandom);
+      gate.hidden = false;
+      inputs[0].focus();
+    });
+  }
+
+  function ensureIdentity() {
+    if (token()) return Promise.resolve(token());
+    if (!identityPromise) identityPromise = promptForTag();
+    return identityPromise;
+  }
+
+  function startGames() {
+    document.querySelectorAll("iframe[data-src]").forEach((frame) => {
+      if (!frame.getAttribute("src")) frame.setAttribute("src", frame.dataset.src);
+    });
+  }
+
+  // ── Game / catalog actions ───────────────────────────────────────────────
 
   async function remix(slug, newSlug) {
     const authToken = await ensureIdentity();
@@ -35,6 +122,12 @@
     if (!response.ok) throw new Error(data.error || "remix failed");
     return data;
   }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    ensureIdentity()
+      .then(startGames)
+      .catch((error) => console.error("[gamebase] identity unavailable", error));
+  });
 
   document.querySelectorAll("[data-remix-form]").forEach((form) => {
     form.addEventListener("submit", async (event) => {
@@ -89,6 +182,20 @@
         button.disabled = false;
         button.textContent = "Rescan failed";
         console.error("[gamebase] rescan failed", error);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-copy]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const target = document.querySelector(button.dataset.copy);
+      if (!target) return;
+      try {
+        await navigator.clipboard.writeText(target.textContent.trim());
+        button.textContent = "Copied!";
+        setTimeout(() => { button.textContent = "Copy"; }, 1500);
+      } catch (error) {
+        console.error("[gamebase] copy failed", error);
       }
     });
   });

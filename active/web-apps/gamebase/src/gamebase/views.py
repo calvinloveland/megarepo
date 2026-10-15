@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, url_for
+from flask import Blueprint, Response, abort, redirect, render_template, request, send_file, url_for
 
 from . import models, registry
 from .app import get_db
@@ -65,26 +65,35 @@ def player_page(handle: str):
     )
 
 
-@views_bp.route("/create", methods=["GET", "POST"])
+@views_bp.route("/create", methods=["GET"])
 def create_page():
-    if request.method == "POST":
-        form = request.form
-        try:
-            manifest = registry.scaffold_game(
-                _settings().registry_dir,
-                str(form.get("slug") or "").strip(),
-                title=str(form.get("title") or "").strip(),
-                author=str(form.get("author") or "").strip(),
-                description=str(form.get("description") or "").strip(),
-                template_dir=_settings().project_root / "templates_scaffold",
-            )
-        except registry.ManifestError as error:
-            flash(str(error), "error")
-            return render_template("create.html", form=form), 400
-        models.sync_registry(get_db(), _settings().registry_dir)
-        flash(f"Created {manifest.title}. Edit registry/{manifest.slug}/ and publish.", "success")
-        return redirect(url_for("views.game_page", slug=manifest.slug))
-    return render_template("create.html", form={})
+    """Agent-facing instructions: one link an agent can read and follow."""
+    base = request.url_root.rstrip("/")
+    return render_template("create.html", guide=_guide_text(), agent_url=f"{base}/agent.md")
+
+
+@views_bp.get("/agent.md")
+def agent_guide():
+    return Response(_guide_text(), mimetype="text/markdown")
+
+
+@views_bp.get("/llms.txt")
+def llms_txt():
+    base = request.url_root.rstrip("/")
+    body = (
+        "# Gamebase\n\n"
+        f"Build and publish a game: {base}/agent.md\n"
+        f"Catalog API: {base}/api/games\n"
+        f"SDK: {base}/sdk/gamebase.js\n"
+    )
+    return Response(body, mimetype="text/plain")
+
+
+def _guide_text() -> str:
+    path = _settings().project_root / "AGENT_GUIDE.md"
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    return "# Gamebase\n\nSee /agent.md for how to build a game."
 
 
 @views_bp.get("/play/<slug>")

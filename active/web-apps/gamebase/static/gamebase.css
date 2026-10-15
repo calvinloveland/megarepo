@@ -213,3 +213,101 @@ textarea { min-height: 84px; resize: vertical; }
 .lineage a { color: var(--accent); }
 
 .site-footer { border-top: 1px solid var(--border); padding: 24px 0; color: var(--muted); font-size: 12px; }
+
+/* ── Arcade tag gate ────────────────────────────────────── */
+.tag-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 30%, rgba(22, 35, 60, 0.97), rgba(5, 8, 14, 0.98));
+}
+
+.tag-gate[hidden] { display: none; }
+
+.tag-gate-inner { text-align: center; }
+
+.tag-gate-title {
+  font-size: 22px;
+  letter-spacing: 8px;
+  color: var(--accent);
+  margin-bottom: 20px;
+  text-shadow: 0 0 14px rgba(74, 222, 128, 0.5);
+}
+
+.tag-gate-slots { display: flex; gap: 12px; justify-content: center; }
+
+.tag-slot {
+  width: 64px;
+  height: 84px;
+  padding: 0;
+  font-size: 46px;
+  line-height: 84px;
+  text-align: center;
+  text-transform: uppercase;
+  background: #0d1420;
+  border: 2px solid rgba(74, 222, 128, 0.35);
+  border-radius: 10px;
+  color: var(--accent);
+  font-family: var(--mono);
+  caret-color: var(--accent);
+}
+
+.tag-slot:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.2);
+}
+
+.tag-gate-hint {
+  margin-top: 16px;
+  min-height: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.tag-gate-actions { margin-top: 18px; display: flex; gap: 12px; justify-content: center; }
+
+.tag-gate.shake .tag-gate-slots { animation: tag-shake 0.35s; }
+
+@keyframes tag-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+/* ── Agent instructions page ────────────────────────────── */
+.agent-callout {
+  background: var(--accent-dim);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.agent-callout code {
+  display: block;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: #0d1420;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.guide {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #c7d2e0;
+  margin-bottom: 64px;
+}

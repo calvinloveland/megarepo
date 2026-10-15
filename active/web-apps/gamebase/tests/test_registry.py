@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from conftest import auth, create_player, write_game
 
 
@@ -40,21 +42,34 @@ def test_remix_requires_authentication_and_unique_slug(client):
     assert second.status_code == 400
 
 
-def test_scaffold_creates_a_playable_game(client):
-    response = client.post(
-        "/create",
-        data={"slug": "my-game", "title": "My Game", "author": "me", "description": "Fresh"},
+def test_scaffold_creates_a_playable_game(client, registry_dir):
+    from gamebase.config import PROJECT_ROOT
+    from gamebase.registry import scaffold_game
+
+    scaffold_game(
+        registry_dir,
+        "my-game",
+        title="My Game",
+        author="me",
+        description="Fresh",
+        template_dir=PROJECT_ROOT / "templates_scaffold",
     )
-    assert response.status_code == 302
-    detail = client.get("/api/games/my-game")
-    assert detail.status_code == 200
-    assert detail.get_json()["title"] == "My Game"
+    # Auto-rescan picks up the new folder without an explicit rescan call.
+    assert client.get("/api/games/my-game").status_code == 200
     assert client.get("/play/my-game/").status_code == 200
 
 
-def test_scaffold_rejects_invalid_slug(client):
-    response = client.post("/create", data={"slug": "Bad Slug", "title": "Nope"})
-    assert response.status_code == 400
+def test_scaffold_rejects_invalid_slug(tmp_path):
+    from gamebase.config import PROJECT_ROOT
+    from gamebase.registry import ManifestError, scaffold_game
+
+    with pytest.raises(ManifestError):
+        scaffold_game(
+            tmp_path,
+            "Bad Slug",
+            title="Nope",
+            template_dir=PROJECT_ROOT / "templates_scaffold",
+        )
 
 
 def test_scan_skips_invalid_game_directories(client, registry_dir):

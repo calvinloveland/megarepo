@@ -60,6 +60,25 @@ def test_sdk_is_served(client):
     assert "Gamebase" in response.get_data(as_text=True)
 
 
+def test_agent_guide_is_served_as_markdown(client):
+    response = client.get("/agent.md")
+    assert response.status_code == 200
+    assert "text/markdown" in response.headers["Content-Type"]
+    assert "game.yaml" in response.get_data(as_text=True)
+
+
+def test_add_a_game_page_links_the_agent_guide(client):
+    response = client.get("/create")
+    assert response.status_code == 200
+    assert "/agent.md" in response.get_data(as_text=True)
+
+
+def test_llms_txt_points_at_the_guide(client):
+    response = client.get("/llms.txt")
+    assert response.status_code == 200
+    assert "/agent.md" in response.get_data(as_text=True)
+
+
 def test_healthz(client):
     assert client.get("/healthz").get_json() == {"status": "ok"}
 

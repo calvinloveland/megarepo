@@ -1,32 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Create a game — Gamebase{% endblock %}
+{% block title %}Add a game — Gamebase{% endblock %}
 {% block content %}
 <section class="hero">
-  <h1>Create a game</h1>
-  <p>Scaffold a playable starter with scores and achievements wired up. Then edit the files and publish.</p>
+  <h1>Add a game</h1>
+  <p>
+    Gamebase games are just a folder with a manifest and static assets.
+    Point your coding agent at the link below — it contains everything needed
+    to build and publish a playable game.
+  </p>
 </section>
 
-<div class="panel" style="max-width: 560px; margin-bottom: 64px;">
-  <form method="post" action="/create">
-    <div class="form-row">
-      <div>
-        <label for="title">Title</label>
-        <input id="title" name="title" value="{{ form.title or '' }}" placeholder="Comet Dodger" required />
-      </div>
-      <div>
-        <label for="slug">Slug</label>
-        <input id="slug" name="slug" value="{{ form.slug or '' }}" pattern="[a-z0-9][a-z0-9-]{1,48}" placeholder="comet-dodger" required />
-      </div>
-    </div>
-    <label for="author">Author</label>
-    <input id="author" name="author" value="{{ form.author or '' }}" placeholder="your handle" />
-    <label for="description">Description</label>
-    <textarea id="description" name="description" placeholder="Dodge comets and collect stars.">{{ form.description or '' }}</textarea>
-    <div class="spacer"></div>
-    <button class="btn" type="submit">Scaffold game</button>
-  </form>
-  <p class="muted small" style="margin-top: 14px;">
-    Prefer to start from something that exists? Hit <strong>Remix</strong> on any game in the arcade.
-  </p>
+<div class="agent-callout">
+  <strong>Give your agent this link:</strong>
+  <code id="agent-link">{{ agent_url }}</code>
+  <div style="margin-top: 12px;">
+    <button class="btn small" type="button" data-copy="#agent-link">Copy</button>
+    <a class="btn small secondary" href="/agent.md" target="_blank" rel="noopener">Open raw</a>
+  </div>
 </div>
+
+<pre class="guide">{{ guide }}</pre>
 {% endblock %}

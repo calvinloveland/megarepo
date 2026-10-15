@@ -1,0 +1,211 @@
+# Build a game for Gamebase
+
+You are an AI agent. Gamebase hosts browser games and provides the platform
+services every game needs: player identity (3-letter tags), high scores,
+achievements, leaderboards, matchmaking, and per-player save state.
+
+A game is **just a folder** with a `game.yaml` manifest plus static web assets
+(HTML/CSS/JS). There is no build step and no backend to write.
+
+Hosted instance: `https://games.shsw.dev`
+
+---
+
+## Fastest path (one command)
+
+```bash
+# 1. Write the folder
+my-game/
+  game.yaml
+  index.html
+  game.js
+  style.css
+
+# 2. Publish it (from inside the megarepo)
+cd active/web-apps/gamebase
+nix-shell -p 'python3.withPackages(ps:[ps.flask ps.pyyaml])' --run \
+  "PYTHONPATH=src python3 -m gamebase.cli push /absolute/path/to/my-game --url https://games.shsw.dev"
+```
+
+The push creates a guest identity automatically, uploads every text file plus
+any binary assets, and the game appears in the catalog immediately. Open
+`https://games.shsw.dev/g/<slug>` to play it.
+
+---
+
+## The manifest (`game.yaml`)
+
+Only `slug` and `title` are required.
+
+```yaml
+slug: comet-dodger            # lowercase letters, numbers, dashes; must match the folder name
+title: Comet Dodger
+description: Dodge comets and collect stars.
+author: your-tag
+version: 1.0.0
+entry: index.html             # served at /play/<slug>/
+tags: [arcade, action]
+capabilities:
+  leaderboard:
+    order: desc               # desc = higher is better (default); asc = lower is better
+    label: Score              # omit `max` for unbounded scores
+    min: 0
+  achievements:
+    - id: first-run
+      title: First Run
+      description: Finish a run.
+      icon: ⭐
+      points: 5
+      criteria: {}            # {} = the game unlocks it manually via the SDK
+    - id: thousand
+      title: Thousand
+      description: Score 1,000.
+      icon: 💯
+      points: 20
+      criteria: {type: score, gte: 1000}
+    - id: veteran
+      title: Veteran
+      description: Reach level 5 in one run.
+      icon: 🎖
+      points: 25
+      criteria: {type: meta, key: level, gte: 5}
+  matchmaking:                # optional; omit for single-player games
+    players: 2
+    mode: duel
+```
+
+### Achievement criteria (evaluated server-side)
+
+| `criteria` | Unlocks when |
+| --- | --- |
+| `{type: score, gte: N}` / `lte: N` | the submitted score meets the bound |
+| `{type: meta, key: K, gte/lte/eq: V}` | `meta[K]` in the submission meets the bound |
+| `{type: count, gte: N}` | the player has N score submissions |
+| `{type: distinct, key: K, gte: N}` | the player has N distinct `meta[K]` values |
+| `{}` | never automatically; call `Gamebase.unlock(id)` |
+
+Prefer `meta`/`distinct` over `count` for idle/continuous games.
+
+---
+
+## Using the SDK
+
+Serve one script inside your game (it is same-origin, so relative `/sdk/...`
+works):
+
+```html
+<script src="/sdk/gamebase.js"></script>
+<script>
+  const player = await Gamebase.ready();          // 3-letter tag identity
+  const best = await Gamebase.myBest();           // {best, rank} or null
+  const progress = await Gamebase.myProgress();   // best, rank, points, achievements
+
+  // At game over (arcade):
+  await Gamebase.endRun({ score: 1200, meta: { level: 3 }, unlock: ["first-run"] });
+
+  // Continuous games (tycoon/idle):
+  await Gamebase.checkpoint({ score: 40, meta: { year: 1946 } });
+  await Gamebase.progress({ year: 1947 });         // milestone, no score
+
+  // Save state between sessions:
+  const saved = await Gamebase.loadState();
+  await Gamebase.saveState({ level: 3 }, { revision: saved ? saved.revision : 0 });
+</script>
+```
+
+Key methods: `ready`, `player`, `leaderboard(limit)`, `myBest()`,
+`myProgress()`, `submitScore(score, meta, {unlock})`, `endRun`, `checkpoint`,
+`progress`, `unlock(idOrIds)`, `achievements()`, `saveState`, `loadState`,
+`findMatch`, `waitForMatch`, `reportResult`, `on(event, cb)`.
+
+Events: `ready`, `runended`, `checkpoint`, `unlocked`.
+
+---
+
+## Publishing over HTTP (no repo access needed)
+
+```bash
+BASE=https://games.shsw.dev
+TOKEN=$(curl -s -X POST "$BASE/api/identity" \
+  -H 'Content-Type: application/json' -d '{"handle":"AGT"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+
+curl -s -X POST "$BASE/api/games" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "manifest": {"slug":"my-game","title":"My Game","version":"1.0.0","entry":"index.html"},
+    "files":    {"index.html":"<!doctype html><h1>Hello</h1>", "game.js":"console.log(1)"},
+    "binary":   {},
+    "changelog": "Initial publish"
+  }'
+```
+
+`files` holds text; `binary` holds base64-encoded assets
+(`.png/.jpg/.gif/.webp/.ico/.mp3/.ogg/.wav/.woff2/.ttf/.wasm/.map`).
+
+Text files: ≤ 512 KB each, ≤ 8 MB total. Binary: ≤ 4 MB each, ≤ 16 MB total.
+The declared `entry` file is required. Paths must be relative (no `..`).
+
+---
+
+## Rules
+
+- Self-contained: `index.html` plus your JS/CSS. No build tooling at runtime.
+- Absolute `/sdk/gamebase.js` and relative asset paths both work.
+- The game runs in a sandboxed iframe with an HTML canvas or DOM; mobile-friendly
+  and keyboard-friendly is best.
+- To find `my-best` outside the top 100, use `Gamebase.myBest()` — do not scan
+  the leaderboard.
+- Games share the platform origin, so do not add third-party scripts.
+
+---
+
+## Starter game (copy this)
+
+`game.yaml`
+
+```yaml
+slug: tap-orb
+title: Tap Orb
+description: Tap the orb. Every ten points saves your score.
+author: AGT
+version: 1.0.0
+entry: index.html
+tags: [arcade]
+capabilities:
+  leaderboard: {order: desc, label: Score}
+  achievements:
+    - id: first-point
+      title: First Point
+      points: 5
+      criteria: {type: score, gte: 1}
+```
+
+`index.html`
+
+```html
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Tap Orb</title>
+<style>body{background:#0a0e17;color:#e2e8f0;font-family:monospace;text-align:center;padding-top:15vh}
+button{font-size:64px;width:140px;height:140px;border-radius:50%;border:0;background:#4ade80;cursor:pointer}</style>
+</head><body>
+<h1>Tap Orb</h1><button id="orb">◆</button><p>Score: <span id="s">0</span></p>
+<script src="/sdk/gamebase.js"></script>
+<script>
+let n=0; const s=document.getElementById('s');
+document.getElementById('orb').onclick=async()=>{ n++; s.textContent=n;
+  if(n%10===0){ try{ const r=await Gamebase.submitScore(n); if(r.unlocked.length) console.log('unlocked',r.unlocked); }catch(e){} } };
+Gamebase.ready();
+</script>
+</body></html>
+```
+
+---
+
+## Copy-paste prompt for the human
+
+> Build me a Gamebase game called "<name>". Read
+> `https://games.shsw.dev/agent.md` and follow it exactly: create the game
+> folder with `game.yaml`, `index.html` and assets, wire `/sdk/gamebase.js` for
+> scores/achievements, then publish it with
+> `python3 -m gamebase.cli push <folder> --url https://games.shsw.dev`.

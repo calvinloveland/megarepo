@@ -16,7 +16,7 @@
       <a class="brand" href="/">Game<span>base</span></a>
       <nav class="nav">
         <a href="/">Arcade</a>
-        <a href="/create">Create</a>
+        <a href="/create">Add a game</a>
         <a href="/sdk/gamebase.js">SDK</a>
       </nav>
     </div>
@@ -36,6 +36,22 @@
       Gamebase — hosting and platform services for AI-created web games.
     </div>
   </footer>
+
+  <div id="tag-gate" class="tag-gate" hidden>
+    <div class="tag-gate-inner">
+      <div class="tag-gate-title">ENTER YOUR TAG</div>
+      <div class="tag-gate-slots">
+        <input class="tag-slot" maxlength="1" inputmode="text" autocomplete="off" aria-label="Tag character 1" />
+        <input class="tag-slot" maxlength="1" inputmode="text" autocomplete="off" aria-label="Tag character 2" />
+        <input class="tag-slot" maxlength="1" inputmode="text" autocomplete="off" aria-label="Tag character 3" />
+      </div>
+      <div class="tag-gate-hint" id="tag-hint">3 characters · A–Z / 0–9</div>
+      <div class="tag-gate-actions">
+        <button class="btn" id="tag-submit" type="button">Start</button>
+        <button class="btn secondary" id="tag-random" type="button">Random</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/app.js"></script>
   {% block scripts %}{% endblock %}

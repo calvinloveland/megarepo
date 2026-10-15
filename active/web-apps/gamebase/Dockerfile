@@ -22,6 +22,7 @@ COPY templates /app/templates
 COPY static /app/static
 COPY templates_scaffold /app/templates_scaffold
 COPY registry /app/registry
+COPY AGENT_GUIDE.md /app/AGENT_GUIDE.md
 
 ENV PYTHONPATH=/app/src \
     GAMEBASE_REGISTRY_DIR=/app/registry \
