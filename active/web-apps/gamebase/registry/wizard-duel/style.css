@@ -1,0 +1,130 @@
+/* Wizard Duel — theme layered on the shared Gamebase kit. */
+
+:root {
+  --wd-p0: #60a5fa;
+  --wd-p1: #f472b6;
+  --wd-card: #16233c;
+  --wd-card-hover: #1d2f52;
+}
+
+.gb-shell { width: min(900px, 96vw); }
+
+.wd-arena {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.wd-player {
+  background: var(--gb-panel);
+  border: 1px solid var(--gb-border);
+  border-radius: var(--gb-radius);
+  padding: 8px 10px;
+}
+.wd-player.active { border-color: var(--gb-accent); box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.35); }
+.wd-player.targetable { cursor: pointer; border-color: var(--gb-warn); }
+
+.wd-player-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.wd-name { font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+#player-top .wd-name { color: var(--wd-p1); }
+#player-bottom .wd-name { color: var(--wd-p0); }
+.wd-stat { font-size: 12px; color: var(--gb-muted); }
+.wd-stat b { color: var(--gb-text); }
+.wd-stat .shield { color: #7dd3fc; }
+
+.wd-hand { display: flex; gap: 6px; flex-wrap: wrap; min-height: 44px; margin-top: 6px; }
+
+.wd-cardback {
+  width: 34px;
+  height: 46px;
+  border-radius: 6px;
+  background: repeating-linear-gradient(45deg, #1d2f52, #1d2f52 4px, #16233c 4px, #16233c 8px);
+  border: 1px solid var(--gb-border);
+}
+
+.wd-card {
+  width: 72px;
+  min-height: 78px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--gb-border);
+  background: var(--wd-card);
+  color: var(--gb-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color 0.1s, background 0.1s, transform 0.05s;
+}
+.wd-card:hover:not(:disabled) { border-color: var(--gb-accent); background: var(--wd-card-hover); }
+.wd-card:active:not(:disabled) { transform: translateY(1px); }
+.wd-card[disabled] { opacity: 0.45; cursor: default; }
+.wd-card.selected { border-color: var(--gb-warn); box-shadow: 0 0 0 1px var(--gb-warn); }
+.wd-card .emoji { font-size: 16px; line-height: 1; }
+.wd-card .cname { font-size: 9px; line-height: 1.15; letter-spacing: 0.2px; }
+.wd-card .cost {
+  align-self: flex-start;
+  font-size: 10px;
+  font-weight: 700;
+  color: #04150b;
+  background: var(--gb-accent);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+
+.wd-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  background: #0d1420;
+  border: 1px solid var(--gb-border);
+  border-radius: var(--gb-radius);
+  padding: 8px;
+}
+.wd-lane { display: flex; flex-direction: column; gap: 4px; }
+.wd-slot {
+  min-height: 62px;
+  border: 1px dashed rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-size: 10px;
+  color: var(--gb-muted);
+  padding: 4px;
+}
+.wd-slot.targetable { border-color: var(--gb-warn); border-style: solid; cursor: pointer; background: rgba(251, 191, 36, 0.08); }
+.wd-minion {
+  width: 100%;
+  border: 1px solid var(--gb-border);
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--gb-panel-2);
+  font-size: 10px;
+}
+.wd-minion.p0 { border-color: rgba(96, 165, 250, 0.55); }
+.wd-minion.p1 { border-color: rgba(244, 114, 182, 0.55); }
+.wd-minion.targetable { border-color: var(--gb-warn); box-shadow: 0 0 0 1px var(--gb-warn); cursor: pointer; }
+.wd-minion .mname { font-size: 10px; }
+.wd-minion .mstats { color: var(--gb-muted); }
+.wd-minion .mstats b { color: var(--gb-text); }
+.wd-minion.frozen .mname { color: #93c5fd; }
+
+.wd-controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 10px 0; }
+.wd-log {
+  max-height: 110px;
+  overflow-y: auto;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--gb-muted);
+  white-space: pre-wrap;
+}
+.wd-log .turn { color: var(--gb-accent); }
+
+@media (max-width: 560px) {
+  .wd-card { width: 60px; }
+  .gb-shell { padding: 10px; }
+}

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Mancala — Gamebase</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/static/kit/gamekit.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="gb">
+  <div class="gb-shell game">
+    <header class="gb-topbar">
+      <h1 class="gb-title">Mancala</h1>
+      <span class="gb-tag" id="tag">···</span>
+    </header>
+
+    <div class="status-row">
+      <span class="gb-status" id="status" aria-live="polite">Loading…</span>
+      <span class="counts" id="tally">W 0 · D 0 · L 0</span>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board" role="group" aria-label="Mancala board"></div>
+      <div class="gb-overlay" id="overlay" hidden>
+        <div class="gb-card">
+          <h2 id="overlay-title">Game over</h2>
+          <p id="overlay-body"></p>
+          <button id="overlay-btn" class="gb-btn" type="button">New game</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="gb-row controls">
+      <button id="new-game" class="gb-btn" type="button">New game</button>
+      <button id="mode" class="gb-btn secondary" type="button">Mode: vs AI</button>
+      <button id="reset-tally" class="gb-btn secondary" type="button">Reset tally</button>
+    </div>
+    <p class="gb-hint" id="hint">
+      Standard Kalah: sow counter-clockwise, skip your opponent's store. Land in your
+      own store for an extra turn; land in your own empty pit to capture the pit
+      opposite. The game ends when one side is empty — the other side collects the rest.
+    </p>
+  </div>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="/static/kit/gamekit.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

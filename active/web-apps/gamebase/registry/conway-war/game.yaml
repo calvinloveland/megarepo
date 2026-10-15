@@ -1,0 +1,72 @@
+slug: conway-war
+title: Conway War
+description: Conway's Game of Life meets territorial warfare. Seed cells around your
+  immortal base, spend energy to claim ground, then advance the automaton — Life
+  birth/survival resolves, cells touching enemies die in combat, and territory flips
+  to the local majority. Beat a simple AI or a local two-player opponent. Win = 3
+  points, draw = 1.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+- strategy
+- life
+- conway
+- cellular-automata
+- ai
+- territory
+thumbnail: thumbnail.svg
+remix_of: null
+capabilities:
+  leaderboard:
+    order: desc
+    min: 0
+    max: 3
+    label: Result Points
+  achievements:
+  - id: first-game
+    title: First Generation
+    description: Finish a game of Conway War.
+    icon: ⚪
+    points: 5
+    hidden: false
+    criteria: {}
+  - id: champion
+    title: War Winner
+    description: Win a game of Conway War.
+    icon: 🏆
+    points: 25
+    hidden: false
+    criteria:
+      type: score
+      gte: 3
+  - id: life-master
+    title: Life Master
+    description: Reach the 20th generation in a game.
+    icon: 🧬
+    points: 15
+    hidden: false
+    criteria:
+      type: meta
+      key: turn
+      gte: 20
+  - id: colonizer
+    title: Colonizer
+    description: Finish a game controlling 50 or more living cells.
+    icon: 🌍
+    points: 20
+    hidden: false
+    criteria:
+      type: meta
+      key: territory
+      gte: 50
+  - id: streak-three
+    title: On a Roll
+    description: Win three games in a row.
+    icon: 🔥
+    points: 25
+    hidden: false
+    criteria:
+      type: meta
+      key: streak
+      gte: 3

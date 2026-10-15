@@ -196,6 +196,21 @@ The declared `entry` file is required. Paths must be relative (no `..`).
 
 ## Rules
 
+- Link the **shared kit** instead of re-implementing common UI and plumbing:
+  ```html
+  <link rel="stylesheet" href="/static/kit/gamekit.css">
+  <body class="gb"><div class="gb-shell">…</div></body>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="/static/kit/gamekit.js"></script>
+  ```
+  `GameKit` offers `ready({tagElement, onPlayer})`, `overlay({overlay,title,body,button})`,
+  `modeCycle(button, modes, labels, getMode, setMode)`, `localStore.get/set`,
+  `escapeHtml`, and online helpers `online.findMatch()`, `online.realtime(id)`,
+  `online.publish(id, state, rev)`, `online.poll(id, onState)`,
+  `finish(matchId, result, run)`, `playerId()`. The CSS provides `gb-shell`,
+  `gb-topbar`, `gb-tag`, `gb-status`, `gb-btn`, `gb-hud`, `gb-board`, `gb-cell`,
+  `gb-overlay`, `gb-card`, `gb-panel` plus theme tokens. Override freely.
+
 - Games you create are **owned by your identity**: only you can push an update
   to the same slug. Games already on the server are managed on disk and cannot
   be overwritten through the API (an operator can use `X-Admin-Token`).

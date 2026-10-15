@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Conway War — Gamebase</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/static/kit/gamekit.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="gb">
+  <div class="gb-shell game">
+    <header class="gb-topbar">
+      <h1 class="gb-title">Conway War</h1>
+      <span class="gb-tag" id="tag">···</span>
+    </header>
+
+    <div class="gb-status" id="status" aria-live="polite">Loading…</div>
+
+    <div class="gb-hud" id="hud">
+      <span class="side p1">▲ You <b id="e0">0</b>⚡ · <span id="t0">0</span>🏠</span>
+      <span class="side p2">▼ <span id="p2-name">AI</span> <b id="e1">0</b>⚡ · <span id="t1">0</span>🏠</span>
+      <span class="gen">Gen <b id="gen">0</b></span>
+    </div>
+
+    <div class="board-wrap">
+      <canvas id="board" class="war-canvas" aria-label="Conway War board"></canvas>
+      <div class="gb-overlay" id="overlay" hidden>
+        <div class="gb-card">
+          <h2 id="overlay-title">Game over</h2>
+          <p id="overlay-body"></p>
+          <button id="overlay-btn" class="gb-btn" type="button">New game</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="gb-row controls">
+      <button id="end-turn" class="gb-btn" type="button">Advance generation</button>
+      <button id="new-game" class="gb-btn secondary" type="button">New game</button>
+      <button id="mode" class="gb-btn secondary" type="button">Mode: vs AI</button>
+      <button id="reset-tally" class="gb-btn secondary" type="button">Reset tally</button>
+    </div>
+    <p class="gb-hint">
+      Click a glowing cell next to your territory to claim it (or toggle one you own),
+      spending energy. Then advance the generation: Life births and survival resolve,
+      cells adjacent to an enemy die in combat, and each cell flips to the local
+      majority owner. Energy near your base is free; it gets steeper with distance.
+      Toggle a cell off to let its crop grow, then on again to harvest.
+    </p>
+  </div>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="/static/kit/gamekit.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

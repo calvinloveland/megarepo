@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Trading Cards — Gamebase</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🃏</text></svg>" />
+  <link rel="stylesheet" href="/static/kit/gamekit.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="gb">
+  <div class="gb-shell">
+    <header class="gb-topbar">
+      <h1 class="gb-title">Trading Cards</h1>
+      <div class="gb-row">
+        <span class="gb-tag" id="tag">···</span>
+        <span class="gb-tag" id="record">W0 · L0</span>
+      </div>
+    </header>
+
+    <div class="gb-status" id="status" aria-live="polite">Shuffling decks…</div>
+
+    <section class="tc-side" id="side-top">
+      <div class="tc-base">
+        <span class="tc-base-name">Rival base</span>
+        <span class="tc-hpbar"><i id="hp1"></i></span>
+        <span class="tc-hp" id="hp1-text">24</span>
+      </div>
+    </section>
+
+    <div class="tc-boards">
+      <div class="tc-track-label">⚡ Fast track</div>
+      <div class="tc-track" id="track-fast" data-track="fast"></div>
+      <div class="tc-track-label">🐢 Slow track</div>
+      <div class="tc-track" id="track-slow" data-track="slow"></div>
+    </div>
+
+    <section class="tc-side" id="side-bottom">
+      <div class="tc-base">
+        <span class="tc-base-name">Your base</span>
+        <span class="tc-hpbar"><i id="hp0"></i></span>
+        <span class="tc-hp" id="hp0-text">24</span>
+      </div>
+    </section>
+
+    <div class="tc-center">
+      <span class="gb-tag" id="round">Round 1</span>
+      <span class="tc-cp" id="cp">CP 0</span>
+      <span class="tc-plays" id="plays">Plays left 2</span>
+    </div>
+
+    <div class="tc-hand" id="hand" aria-label="Your hand"></div>
+    <div class="tc-playbar" id="playbar" hidden>
+      <span class="tc-selected" id="selected-name"></span>
+      <button class="gb-btn" data-play="fast">⚡ Fast</button>
+      <button class="gb-btn" data-play="slow">🐢 Slow</button>
+      <button class="gb-btn secondary" id="defend" data-play="defend" hidden>🛡 Defender</button>
+      <button class="gb-btn secondary" id="cancel-play">Cancel</button>
+    </div>
+
+    <div class="tc-controls">
+      <button id="resolve" class="gb-btn">Resolve Round</button>
+      <button id="new-game" class="gb-btn secondary">New Game</button>
+      <button id="mode" class="gb-btn secondary">AI: Normal</button>
+    </div>
+
+    <div class="wd-log gb-panel" id="log" aria-live="polite"></div>
+    <p class="gb-hint">Play up to 2 cards, then resolve. Units advance each round and fight on contact. Destroy the rival base — or have more base HP when the round limit hits.</p>
+  </div>
+
+  <div class="gb-overlay" id="overlay" hidden>
+    <div class="gb-card">
+      <h2 id="overlay-title">Battle over</h2>
+      <p id="overlay-body"></p>
+      <button id="overlay-btn" class="gb-btn">New battle</button>
+    </div>
+  </div>
+
+  <script src="/sdk/gamebase.js"></script>
+  <script src="/static/kit/gamekit.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

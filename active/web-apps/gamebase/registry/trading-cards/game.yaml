@@ -1,0 +1,83 @@
+slug: trading-cards
+title: Super Ultimate Trading Cards
+description: A lane-battler collectible card game. Spend card points each round to
+  deploy creatures onto the fast and slow tracks, then watch them advance, engage,
+  and break the enemy base. Defenders, ranged support, flying, charge, healing,
+  and fortify all matter. Beat the AI and score the base HP you have left.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+- card
+- strategy
+- lane
+- turn-based
+- ai
+thumbnail: thumbnail.png
+remix_of: null
+capabilities:
+  leaderboard:
+    order: desc
+    min: 0
+    max: 24
+    label: Base HP Left
+  achievements:
+  - id: first-battle
+    title: First Battle
+    description: Finish a card battle.
+    icon: 🃏
+    points: 5
+    criteria: {}
+  - id: first-victory
+    title: Victor
+    description: Win a card battle.
+    icon: 🏆
+    points: 20
+    criteria:
+      type: score
+      gte: 1
+  - id: flawless
+    title: Flawless
+    description: Win a battle without losing any base HP.
+    icon: 🛡️
+    points: 30
+    criteria:
+      type: score
+      gte: 24
+  - id: quick-work
+    title: Quick Work
+    description: Win a battle within 6 rounds.
+    icon: ⚡
+    points: 25
+    criteria:
+      type: all
+      all:
+        - type: meta
+          key: result
+          eq: win
+        - type: meta
+          key: rounds
+          lte: 6
+  - id: on-a-roll
+    title: On a Roll
+    description: Win three battles in a row.
+    icon: 🔥
+    points: 25
+    criteria:
+      type: meta
+      key: streak
+      gte: 3
+  - id: sky-commander
+    title: Sky Commander
+    description: Win a battle after deploying a flying unit.
+    icon: 🦅
+    points: 25
+    criteria:
+      type: all
+      all:
+        - type: meta
+          key: result
+          eq: win
+        - type: meta
+          key: usedFlying
+          gte: 1

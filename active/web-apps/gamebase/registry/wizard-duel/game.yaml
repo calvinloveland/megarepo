@@ -1,0 +1,83 @@
+slug: wizard-duel
+title: Wizard Duel
+description: A turn-based wizard duel built from the Wizard Fight spell DSL. Ramp
+  mana, summon lane minions, and burn your rival down with bolts, frost, shields,
+  and healing. Play vs AI, a local two-player opponent, or online. Win = 3 points,
+  draw = 1.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+- card
+- strategy
+- turn-based
+- magic
+- ai
+- multiplayer
+thumbnail: thumbnail.png
+remix_of: null
+capabilities:
+  leaderboard:
+    order: desc
+    min: 0
+    max: 3
+    label: Result Points
+  matchmaking:
+    players: 2
+    mode: turn-based
+  achievements:
+  - id: first-duel
+    title: First Duel
+    description: Finish a wizard duel.
+    icon: 🧙
+    points: 5
+    criteria: {}
+  - id: first-win
+    title: Duelist
+    description: Win a wizard duel.
+    icon: 🏆
+    points: 20
+    criteria:
+      type: score
+      gte: 3
+  - id: on-a-roll
+    title: On a Roll
+    description: Win three duels in a row.
+    icon: 🔥
+    points: 25
+    criteria:
+      type: meta
+      key: streak
+      gte: 3
+  - id: untouched
+    title: Untouched
+    description: Win a duel without losing any health.
+    icon: 🛡️
+    points: 30
+    criteria:
+      type: all
+      all:
+        - type: meta
+          key: result
+          eq: win
+        - type: meta
+          key: hpLost
+          lte: 0
+  - id: archmage
+    title: Archmage
+    description: Reach the maximum mana of 10 in a duel.
+    icon: 🔮
+    points: 25
+    criteria:
+      type: meta
+      key: maxMana
+      gte: 10
+  - id: pyromancer
+    title: Pyromancer
+    description: Deal 40 total damage in a single duel.
+    icon: 🔥
+    points: 25
+    criteria:
+      type: meta
+      key: damageDealt
+      gte: 40

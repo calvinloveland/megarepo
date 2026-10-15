@@ -1,0 +1,27 @@
+/* Conway War — layout on top of the shared Gamebase kit. */
+
+.game { display: flex; flex-direction: column; gap: 10px; }
+
+.gb-hud { flex-wrap: wrap; gap: 10px 18px; }
+.gb-hud .side.p1 b { color: #ff6b6b; }
+.gb-hud .side.p2 b { color: #6aa9ff; }
+.gb-hud .gen b { color: var(--gb-accent); }
+
+.board-wrap { position: relative; width: 100%; }
+
+.war-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--gb-border);
+  border-radius: 12px;
+  background: #0b1119;
+  touch-action: manipulation;
+  cursor: crosshair;
+}
+
+.controls { justify-content: center; }
+
+@media (max-width: 540px) {
+  .gb-hud { font-size: 12px; gap: 6px 12px; }
+}

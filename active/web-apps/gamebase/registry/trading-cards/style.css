@@ -1,0 +1,119 @@
+/* Trading Cards — theme layered on the shared Gamebase kit. */
+
+:root {
+  --tc-p0: #60a5fa;
+  --tc-p1: #f472b6;
+  --tc-card: #16233c;
+}
+
+.gb-shell { width: min(940px, 96vw); }
+
+.tc-side { display: flex; justify-content: center; }
+.tc-base { display: flex; align-items: center; gap: 8px; font-size: 12px; width: 100%; }
+#side-top .tc-base { flex-direction: row-reverse; }
+.tc-base-name { color: var(--gb-muted); text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
+#side-top .tc-base-name { color: var(--tc-p1); }
+#side-bottom .tc-base-name { color: var(--tc-p0); }
+.tc-hpbar {
+  flex: 1;
+  height: 10px;
+  background: #0d1420;
+  border: 1px solid var(--gb-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.tc-hpbar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #f87171, #fbbf24); transition: width 0.25s; }
+.tc-hp { font-weight: 700; min-width: 28px; text-align: center; }
+
+.tc-boards {
+  background: #0d1420;
+  border: 1px solid var(--gb-border);
+  border-radius: var(--gb-radius);
+  padding: 8px;
+  margin: 8px 0;
+}
+.tc-track-label { font-size: 10px; color: var(--gb-muted); letter-spacing: 1px; margin: 2px 0; }
+.tc-track {
+  position: relative;
+  height: 56px;
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(90deg, rgba(148,163,184,0.07) 0, rgba(148,163,184,0.07) 1px, transparent 1px, transparent 10%),
+    #101a2b;
+  border: 1px solid var(--gb-border);
+  margin-bottom: 6px;
+}
+.tc-track::before, .tc-track::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 3px;
+  background: var(--gb-border);
+}
+.tc-track::before { left: 0; }
+.tc-track::after { right: 0; }
+
+.tc-unit {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 62px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--gb-panel-2);
+  border: 1px solid var(--gb-border);
+  font-size: 9px;
+  text-align: center;
+  line-height: 1.15;
+  z-index: 2;
+}
+.tc-unit.p0 { border-color: rgba(96, 165, 250, 0.6); }
+.tc-unit.p1 { border-color: rgba(244, 114, 182, 0.6); }
+.tc-unit.engaged { box-shadow: 0 0 0 1px var(--gb-warn); }
+.tc-unit .u-name { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tc-unit .u-stats { color: var(--gb-muted); }
+.tc-unit .u-stats b { color: var(--gb-text); }
+
+.tc-center { display: flex; gap: 12px; justify-content: center; align-items: center; margin: 8px 0; font-size: 12px; }
+.tc-cp { color: var(--gb-accent); }
+.tc-plays { color: var(--gb-muted); }
+
+.tc-hand { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; min-height: 96px; }
+.tc-card {
+  width: 104px;
+  min-height: 92px;
+  padding: 6px;
+  border-radius: 9px;
+  border: 1px solid var(--gb-border);
+  background: var(--tc-card);
+  color: var(--gb-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color 0.1s, background 0.1s, transform 0.05s;
+}
+.tc-card:hover:not(:disabled) { border-color: var(--gb-accent); background: #1d2f52; }
+.tc-card.selected { border-color: var(--gb-warn); box-shadow: 0 0 0 1px var(--gb-warn); }
+.tc-card:disabled { opacity: 0.45; cursor: default; }
+.tc-card .row { display: flex; justify-content: space-between; align-items: center; }
+.tc-card .name { font-size: 10px; line-height: 1.15; }
+.tc-card .cost { font-size: 10px; font-weight: 700; color: #04150b; background: var(--gb-accent); border-radius: 999px; padding: 0 6px; }
+.tc-card .stats { font-size: 13px; font-weight: 700; }
+.tc-card .stats .hp { color: var(--gb-danger); }
+.tc-card .kw { font-size: 9px; color: var(--gb-accent); }
+.tc-card .txt { font-size: 9px; color: var(--gb-muted); }
+
+.tc-playbar { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.tc-selected { font-size: 12px; color: var(--gb-warn); }
+
+.tc-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+.wd-log { max-height: 120px; overflow-y: auto; font-size: 11px; line-height: 1.6; color: var(--gb-muted); white-space: pre-wrap; }
+.wd-log .round { color: var(--gb-accent); }
+
+@media (max-width: 560px) {
+  .tc-card { width: 86px; min-height: 84px; }
+  .tc-unit { width: 52px; }
+}

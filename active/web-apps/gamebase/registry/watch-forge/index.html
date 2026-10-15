@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch Forge — mechanical watch evolution lab</title>
+  <meta name="description" content="Evolve the perfect mechanical watch. Choose a charter — skeleton exposure, minimalist chronometry, slim grand complications — and breed a population toward it.">
+  <link rel="stylesheet" href="/static/kit/gamekit.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23d9a03f'/><circle cx='50' cy='50' r='30' fill='%23101318'/><circle cx='50' cy='50' r='8' fill='%23e23b4e'/></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◉</span>
+      <h1>Watch Forge</h1>
+      <p>a mechanical-watch evolution lab</p>
+    </div>
+    <div class="topbar-right">
+      <span class="gb-tag" id="tag" title="Gamebase player">···</span>
+      <label class="theme-pick" title="Dial finish">finish
+        <select id="themePick">
+          <option value="brass">● Atelier Brass</option>
+          <option value="steel">● Grand Feu Steel</option>
+          <option value="cream">● Grand Feu Cream</option>
+        </select>
+      </label>
+      <div class="gen-readout">
+      <span>generation <b id="gen">0</b></span>
+      <span>best <b id="score">—</b></span>
+      <span>mut <b id="mutRate">8%</b></span>
+      <span>stall <b id="stall">0</b></span>
+      <span title="share of the population with a distinct complication signature">diversity <b id="diversity">—</b></span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ============ Left: charter + evolution control ============ -->
+    <section class="col col-left">
+      <div class="card">
+        <h2>Charter</h2>
+        <p class="hint">Pick the scoring equation the population breeds toward.</p>
+        <div id="challengeCards" class="challenge-list"></div>
+        <div class="hybrid-row">
+          <label for="hybridSel">Hybridize with
+            <select id="hybridSel">
+              <option value="">— single charter —</option>
+            </select>
+          </label>
+          <label id="hybridWeightWrap" class="hybrid-weight" hidden>Blend <b id="hybridWeightVal">40</b>%
+            <input type="range" id="hybridWeight" min="10" max="90" step="5" value="40">
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>The Forge</h2>
+        <div class="control-row">
+          <label for="popSize">Population <b id="popSizeVal">80</b></label>
+          <input type="range" id="popSize" min="20" max="200" step="10" value="80">
+        </div>
+        <div class="control-row">
+          <label>Briefs</label>
+          <div id="briefList" class="brief-row"></div>
+        </div>
+        <div class="control-grid">
+          <label>Budget cap
+            <select id="budgetCap">
+              <option value="0">none</option>
+              <option value="5000">CHF 5k</option>
+              <option value="10000" selected>CHF 10k</option>
+              <option value="20000">CHF 20k</option>
+              <option value="50000">CHF 50k</option>
+            </select>
+          </label>
+          <label>Thickness cap
+            <select id="thicknessCap">
+              <option value="0" selected>none</option>
+              <option value="6">6 mm</option>
+              <option value="8">8 mm</option>
+              <option value="10">10 mm</option>
+              <option value="12">12 mm</option>
+            </select>
+          </label>
+        </div>
+        <div class="control-row">
+          <label>Speed</label>
+          <div id="speedButtons" class="speed-row"></div>
+        </div>
+        <div class="button-row">
+          <button id="stepBtn" class="btn">+25 gen</button>
+          <button id="seedNewBtn" class="btn">New seeds</button>
+          <button id="resetBtn" class="btn btn-danger">Reset</button>
+        </div>
+        <div class="sound-row">
+          <label class="sound-toggle"><input type="checkbox" id="soundTick"> 🔊 movement ticks</label>
+          <label class="sound-toggle" title="The champion must carry a minute repeater"><input type="checkbox" id="soundChime" disabled> 🔔 repeater chime</label>
+        </div>
+        <p class="hint">seed <code id="rngSeed">—</code></p>
+      </div>
+
+      <div class="card">
+        <h2>Hall of Fame</h2>
+        <button id="saveHofBtn" class="btn btn-wide">💾 Save current champion</button>
+        <button id="submitScoreBtn" class="btn btn-accent btn-wide">⚡ Submit champion to Gamebase</button>
+        <p class="hint" id="submitStatus" aria-live="polite"></p>
+        <div id="hofList" class="hof-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ Centre: the watch ============ -->
+    <section class="col col-center">
+      <div class="card dial-card">
+        <h2 class="champ-heading">
+          <span id="champName">—</span>
+          <span id="champChallenge" class="champ-challenge"></span>
+        </h2>
+        <canvas id="dialCanvas" width="560" height="560" aria-label="Champion watch dial"></canvas>
+        <div class="special-row">
+          <canvas id="profileCanvas" width="560" height="120" aria-label="Thickness side profile"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>The Foundry <span class="foundry-hint">— this generation's top five</span></h2>
+        <canvas id="lineupCanvas" width="620" height="168" aria-label="Top five watches of the current generation"></canvas>
+      </div>
+
+      <div class="card">
+        <h2>Evolution curve</h2>
+        <canvas id="chartCanvas" width="560" height="210" aria-label="Fitness over generations"></canvas>
+      </div>
+    </section>
+
+    <!-- ============ Right: champion + watchmaker ============ -->
+    <section class="col col-right">
+      <div class="card">
+        <h2>Champion spec</h2>
+        <div class="champ-tools">
+          <button id="exportBtn" class="btn btn-small">⧉ Copy spec sheet</button>
+          <button id="shareBtn" class="btn btn-small">🔗 Share build</button>
+        </div>
+        <div id="statGrid" class="stat-grid"></div>
+        <h3 class="subhead">Score breakdown</h3>
+        <div id="scoreBreakdown" class="sb-list"></div>
+        <h3 class="subhead">Lineage</h3>
+        <div id="lineageList" class="lineage"></div>
+      </div>
+
+      <div class="card">
+        <h2>Components</h2>
+        <div id="compList" class="comp-list"></div>
+      </div>
+
+      <div class="card">
+        <h2>Watchmaker bench</h2>
+        <p class="hint">Tinker with a build by hand, then seed the population with it.</p>
+        <div id="watchmaker" class="wm">
+          <div class="wm-base">
+            <div id="wmEsc" class="wm-row"></div>
+            <div id="wmBal" class="wm-row"></div>
+            <div id="wmHs" class="wm-row"></div>
+            <div id="wmBeat" class="wm-row"></div>
+            <div id="wmBarrels" class="wm-row"></div>
+            <div id="wmTrain" class="wm-row"></div>
+            <div id="wmSkel" class="wm-row"></div>
+            <div id="wmDia" class="wm-row"></div>
+          </div>
+          <h3 class="subhead">Complications</h3>
+          <div id="wmComps" class="wm-comps"></div>
+          <div class="button-row">
+            <button id="wmLoadBtn" class="btn">Load champion</button>
+            <button id="wmSeedBtn" class="btn btn-accent">Seed population from build</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Every champion renders as a live skeletonized movement — gears mesh, the escapement ticks, the balance swings.</p>
+    <p>Watch Forge · vanilla JS + Canvas 2D, no build step</p>
+  </footer>
+
+  <div id="briefing" class="briefing" hidden>
+    <div class="briefing-card">
+      <h2>⌚ Welcome to Watch Forge</h2>
+      <ol class="briefing-steps">
+        <li><b>Pick a charter.</b> Each charter is a scoring equation — Glass Palace wants every component visible, Less Is More wants few parts and great rate, Thin King wants maximum complications in a slim package.</li>
+        <li><b>Watch it evolve.</b> A population of watch chromosomes breeds toward the charter. Speed it up, add budget/thickness caps, or blend two charters into your own equation.</li>
+        <li><b>Take the champion further.</b> Tune it by hand on the watchmaker bench, save it to the Hall of Fame, or copy a share link for the exact build.</li>
+      </ol>
+      <button id="briefingDismiss" class="btn btn-accent">Start forging 🕰</button>
+    </div>
+  </div>
+
+  <div class="gb-overlay" id="runOverlay" hidden>
+    <div class="gb-card">
+      <h2 id="runOverlayTitle">Champion submitted</h2>
+      <p id="runOverlayBody"></p>
+      <button id="runOverlayBtn" class="gb-btn" type="button">Continue</button>
+    </div>
+  </div>
+
+  <script src="/sdk/gamebase.js"></script>
+  <script src="/static/kit/gamekit.js"></script>
+  <script src="data.js"></script>
+  <script src="watch.js"></script>
+  <script src="evolution.js"></script>
+  <script src="render.js"></script>
+  <script src="sound.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

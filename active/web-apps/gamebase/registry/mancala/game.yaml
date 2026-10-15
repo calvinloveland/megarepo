@@ -1,0 +1,78 @@
+slug: mancala
+title: Mancala
+description: Standard Kalah mancala — sow counter-clockwise, earn an extra turn in
+  your store, and capture across the board. Play a minimax AI (depth 6), a local
+  two-player opponent, or an online turn-based match. Win = 3 points, draw = 1.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+- board
+- strategy
+- mancala
+- kalah
+- ai
+- classic
+thumbnail: thumbnail.svg
+remix_of: null
+capabilities:
+  leaderboard:
+    order: desc
+    min: 0
+    max: 3
+    label: Result Points
+  matchmaking:
+    players: 2
+    mode: turn-based
+  achievements:
+  - id: first-game
+    title: First Sow
+    description: Finish a game of mancala.
+    icon: ⚪
+    points: 5
+    hidden: false
+    criteria: {}
+  - id: champion
+    title: Mancala Champion
+    description: Win a game of mancala.
+    icon: 🏆
+    points: 20
+    hidden: false
+    criteria:
+      type: score
+      gte: 3
+  - id: swift-sweep
+    title: Swift Sweep
+    description: Win in 20 moves or fewer.
+    icon: ⚡
+    points: 20
+    hidden: false
+    criteria:
+      type: all
+      all:
+        - type: meta
+          key: result
+          eq: win
+        - type: meta
+          key: moves
+          lte: 20
+  - id: hoarder
+    title: Stone Hoarder
+    description: Capture 25 stones in a single game.
+    icon: 💎
+    points: 20
+    hidden: false
+    criteria:
+      type: meta
+      key: captured
+      gte: 25
+  - id: streak-three
+    title: On a Roll
+    description: Win three games in a row.
+    icon: 🔥
+    points: 25
+    hidden: false
+    criteria:
+      type: meta
+      key: streak
+      gte: 3

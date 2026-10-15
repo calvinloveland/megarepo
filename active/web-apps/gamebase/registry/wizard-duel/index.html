@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Wizard Duel — Gamebase</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧙</text></svg>" />
+  <link rel="stylesheet" href="/static/kit/gamekit.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="gb">
+  <div class="gb-shell">
+    <header class="gb-topbar">
+      <h1 class="gb-title">Wizard Duel</h1>
+      <div class="gb-row">
+        <span class="gb-tag" id="tag">···</span>
+        <span class="gb-tag" id="record">W0 · D0 · L0</span>
+      </div>
+    </header>
+
+    <div class="gb-status" id="status" aria-live="polite">Summoning wizards…</div>
+
+    <div class="wd-arena">
+      <section class="wd-player" id="player-top" data-wizard="">
+        <div class="wd-player-head">
+          <span class="wd-name" id="name-top">Wizard 1</span>
+          <span class="wd-stat" id="stat-top">—</span>
+        </div>
+        <div class="wd-hand" id="hand-top" aria-label="Opponent hand"></div>
+      </section>
+
+      <div class="wd-board" id="board" role="grid" aria-label="Duel lanes"></div>
+
+      <section class="wd-player" id="player-bottom" data-wizard="">
+        <div class="wd-player-head">
+          <span class="wd-name" id="name-bottom">Wizard 0</span>
+          <span class="wd-stat" id="stat-bottom">—</span>
+        </div>
+        <div class="wd-hand" id="hand-bottom" aria-label="Your hand"></div>
+      </section>
+    </div>
+
+    <div class="wd-controls">
+      <button id="end-turn" class="gb-btn">End Turn</button>
+      <button id="new-game" class="gb-btn secondary">New Game</button>
+      <button id="mode" class="gb-btn secondary">Mode: vs AI</button>
+    </div>
+
+    <div class="wd-log gb-panel" id="log" aria-live="polite"></div>
+    <p class="gb-hint" id="hint">Play spells by tapping a card, then a target. Mana refills and grows each turn.</p>
+  </div>
+
+  <div class="gb-overlay" id="overlay" hidden>
+    <div class="gb-card">
+      <h2 id="overlay-title">Duel over</h2>
+      <p id="overlay-body"></p>
+      <button id="overlay-btn" class="gb-btn">New duel</button>
+    </div>
+  </div>
+
+  <script src="/sdk/gamebase.js"></script>
+  <script src="/static/kit/gamekit.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
