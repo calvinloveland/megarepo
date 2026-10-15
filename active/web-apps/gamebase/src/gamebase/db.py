@@ -121,6 +121,8 @@ CREATE TABLE IF NOT EXISTS matches (
     state TEXT NOT NULL DEFAULT 'active',
     players TEXT NOT NULL DEFAULT '[]',
     result TEXT NOT NULL DEFAULT '{}',
+    game_state TEXT NOT NULL DEFAULT '{}',
+    revision INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -196,6 +198,11 @@ def _migrate(connection: sqlite3.Connection) -> None:
     game_columns = {row[1] for row in connection.execute("PRAGMA table_info(games)")}
     if "owner_id" not in game_columns:
         connection.execute("ALTER TABLE games ADD COLUMN owner_id TEXT")
+    match_columns = {row[1] for row in connection.execute("PRAGMA table_info(matches)")}
+    if "game_state" not in match_columns:
+        connection.execute("ALTER TABLE matches ADD COLUMN game_state TEXT NOT NULL DEFAULT '{}'")
+    if "revision" not in match_columns:
+        connection.execute("ALTER TABLE matches ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
 
 
 def rows_to_dicts(rows: Iterable[sqlite3.Row]) -> list[dict[str, Any]]:
