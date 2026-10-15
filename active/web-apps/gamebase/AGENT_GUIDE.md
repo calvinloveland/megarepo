@@ -159,6 +159,11 @@ comment, and every launch is counted for the “most played” ranking. The SDK
 exposes `rate`/`rating`, `comments`/`comment`, and `play` if you want to surface
 them in-game.
 
+The game page reflects progress **live**: when your game submits a score,
+unlocks an achievement, or records a play, the page's leaderboard, achievements,
+rating, and comment list update without a reload. You do not need to do anything
+for this — the platform pushes the changes.
+
 Events: `ready`, `runended`, `checkpoint`, `unlocked`.
 
 ---

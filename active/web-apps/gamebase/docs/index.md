@@ -206,6 +206,8 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | `POST` | `/api/games/<slug>/scores` | Submit `{score, meta, unlock?}`; returns rank + unlocked. |
 | `POST` | `/api/games/<slug>/progress` | Announce `{meta, unlock?}` with no score (continuous games). |
 | `GET` | `/api/games/<slug>/achievements` | Definitions + unlock state. |
+| `GET` | `/api/games/<slug>/live` | Snapshot for the live game-page panels. |
+| `GET` | `/api/games/<slug>/events` | SSE: push a fresh snapshot whenever the game changes. |
 | `POST` | `/api/games/<slug>/achievements/<id>` | Unlock an achievement. |
 | `POST` | `/api/games/<slug>/achievements` | Batch unlock `{ids: [...]}`. |
 | `GET` | `/api/games/<slug>/rating` | Average, count, and your rating. |
@@ -354,6 +356,11 @@ are revalidation hints and are not part of the ETag.
 
 ## Community: ratings, comments, popularity
 
+- **Live panels** — the game page subscribes to `/api/games/<slug>/events`
+  (Server-Sent Events) and re-renders the leaderboard, achievements, rating,
+  play count, and comments the moment any change happens — including your own
+  score/achievement submitted from inside the game. No reload needed. A 4s poll
+  is used automatically if the event stream is unavailable.
 - **Ratings** — one 1–5 star rating per player per game. The catalog shows the
   average and count, and the game page has an interactive star widget.
 - **Comments** — plain-text comments (≤ 500 chars) from tagged players, rate

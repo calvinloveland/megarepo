@@ -235,7 +235,7 @@
     remove.className = "comment-delete";
     remove.dataset.delete = comment.id;
     remove.textContent = "delete";
-    remove.hidden = comment.handle !== myHandle;
+    remove.hidden = !comment.is_me;
     remove.addEventListener("click", async () => {
       try {
         await api("/api/comments/" + remove.dataset.delete, { method: "DELETE" });
@@ -282,15 +282,10 @@
       if (!body) return;
       status.textContent = "Posting…";
       try {
-        const comment = await api(`/api/games/${form.dataset.slug}/comments`, {
-          method: "POST",
-          body: { body },
-        });
-        const empty = document.getElementById("no-comments");
-        if (empty) empty.remove();
-        list.prepend(commentNode(comment));
+        await api(`/api/games/${form.dataset.slug}/comments`, { method: "POST", body: { body } });
         textarea.value = "";
         status.textContent = "Posted";
+        await refreshLive();
         setTimeout(() => { status.textContent = ""; }, 1500);
       } catch (error) {
         status.textContent = error.status === 429 ? "Slow down a moment" : error.message;
@@ -364,6 +359,125 @@
     });
   }
 
+  // ── Live panels (leaderboard, achievements, rating, plays, comments) ─────
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[character]));
+  }
+
+  function renderLeaderboard(entries) {
+    const body = document.getElementById("leaderboard-body");
+    if (!body) return;
+    body.innerHTML = entries
+      .map((entry) =>
+        `<tr><td class="rank">${entry.rank}</td>` +
+        `<td><a href="/players/${encodeURIComponent(entry.handle)}">${escapeHtml(entry.handle)}</a></td>` +
+        `<td class="value">${escapeHtml(entry.score)}</td></tr>`
+      )
+      .join("");
+    const table = document.getElementById("leaderboard-table");
+    const empty = document.getElementById("leaderboard-empty");
+    if (table) table.hidden = entries.length === 0;
+    if (empty) empty.hidden = entries.length > 0;
+  }
+
+  function renderAchievements(list) {
+    const body = document.getElementById("achievements-body");
+    if (!body) return;
+    body.innerHTML = list
+      .map((achievement) => {
+        const hidden = achievement.hidden && !achievement.unlocked;
+        return (
+          `<div class="achievement${achievement.unlocked ? " unlocked" : ""}" data-achievement="${escapeHtml(achievement.id)}">` +
+          `<span class="icon" aria-hidden="true">${hidden ? "❓" : escapeHtml(achievement.icon)}</span>` +
+          `<span><span class="title">${escapeHtml(hidden ? "Hidden achievement" : achievement.title)}</span>` +
+          `<span class="desc">${escapeHtml(achievement.description)}</span></span>` +
+          `<span class="points">${escapeHtml(achievement.points)}p</span></div>`
+        );
+      })
+      .join("");
+    const empty = document.getElementById("achievements-empty");
+    if (empty) empty.hidden = list.length > 0;
+  }
+
+  function renderComments(comments) {
+    const list = document.getElementById("comments-list");
+    if (!list) return;
+    list.innerHTML = "";
+    if (!comments.length) {
+      const empty = document.createElement("p");
+      empty.className = "empty";
+      empty.id = "no-comments";
+      empty.textContent = "No comments yet — be the first.";
+      list.appendChild(empty);
+      return;
+    }
+    comments.forEach((comment) => list.appendChild(commentNode(comment)));
+  }
+
+  function applyLiveState(payload) {
+    if (!payload || !payload.slug) return;
+    renderLeaderboard(payload.leaderboard || []);
+    renderAchievements(payload.achievements || []);
+    renderComments(payload.comments || []);
+    if (payload.rating) {
+      const average = document.getElementById("rating-average");
+      const count = document.getElementById("rating-count");
+      const yours = document.getElementById("rating-yours");
+      if (average) average.textContent = Number(payload.rating.average).toFixed(1);
+      if (count) count.textContent = payload.rating.count;
+      if (yours && payload.rating.your_rating) yours.textContent = "· you rated " + payload.rating.your_rating;
+      const panel = document.querySelector("[data-rating-widget]");
+      if (panel) paintStars(panel, payload.rating.your_rating || 0);
+    }
+    if (payload.stats) {
+      const play = document.querySelector(".play-stat");
+      if (play) {
+        play.textContent =
+          payload.stats.plays + (payload.stats.plays === 1 ? " play · " : " plays · ") +
+          payload.stats.players + (payload.stats.players === 1 ? " player" : " players");
+      }
+    }
+  }
+
+  let liveSlug = null;
+  let liveSource = null;
+  let liveTimer = null;
+
+  async function refreshLive() {
+    if (!liveSlug) return;
+    try {
+      applyLiveState(await fetchJson(`/api/games/${liveSlug}/live`));
+    } catch (error) {
+      /* keep the last known state */
+    }
+  }
+
+  function initGameLive() {
+    const meta = document.getElementById("game-meta");
+    if (!meta) return;
+    liveSlug = meta.dataset.slug;
+    if (typeof EventSource !== "undefined") {
+      liveSource = new EventSource(`/api/games/${liveSlug}/events`);
+      liveSource.addEventListener("state", (event) => {
+        try {
+          applyLiveState(JSON.parse(event.data));
+        } catch (error) {
+          /* ignore malformed frame */
+        }
+      });
+      liveSource.addEventListener("error", () => {
+        if (liveSource) liveSource.close();
+        liveSource = null;
+        if (!liveTimer) liveTimer = setInterval(refreshLive, 4000);
+      });
+    } else if (!liveTimer) {
+      liveTimer = setInterval(refreshLive, 4000);
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     initGameBroker();
     ensureIdentity()
@@ -372,6 +486,7 @@
         startGames();
         initRating();
         initComments();
+        initGameLive();
       })
       .catch((error) => console.error("[gamebase] identity unavailable", error));
   });
@@ -455,7 +570,6 @@
 
   document.querySelectorAll("[data-achievements]").forEach(async (panel) => {
     try {
-      await ensureIdentity();
       const data = await fetchJson(`/api/games/${panel.dataset.achievements}/achievements`);
       data.achievements
         .filter((achievement) => achievement.unlocked)

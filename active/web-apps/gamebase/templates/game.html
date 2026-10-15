@@ -65,8 +65,8 @@
     {% if board %}
     <section class="panel">
       <h2>High scores · {{ board.label }}</h2>
-      {% if leaderboard %}
-        <table class="score-table">
+      <table class="score-table" id="leaderboard-table"{% if not leaderboard %} hidden{% endif %}>
+        <tbody id="leaderboard-body">
           {% for entry in leaderboard %}
             <tr>
               <td class="rank">{{ entry.rank }}</td>
@@ -74,27 +74,27 @@
               <td class="value">{{ entry.score }}</td>
             </tr>
           {% endfor %}
-        </table>
-      {% else %}
-        <p class="empty">No scores yet — be the first.</p>
-      {% endif %}
+        </tbody>
+      </table>
+      <p class="empty" id="leaderboard-empty"{% if leaderboard %} hidden{% endif %}>No scores yet — be the first.</p>
     </section>
     {% endif %}
 
     <section class="panel" data-achievements="{{ game.slug }}">
       <h2>Achievements</h2>
-      {% for achievement in achievements %}
-        <div class="achievement" data-achievement="{{ achievement.id }}">
-          <span class="icon" aria-hidden="true">{{ achievement.icon if not achievement.hidden else "❓" }}</span>
-          <span>
-            <span class="title">{{ achievement.title if not achievement.hidden else "Hidden achievement" }}</span>
-            <span class="desc">{{ achievement.description }}</span>
-          </span>
-          <span class="points">{{ achievement.points }}p</span>
-        </div>
-      {% else %}
-        <p class="empty">This game has no achievements.</p>
-      {% endfor %}
+      <div id="achievements-body">
+        {% for achievement in achievements %}
+          <div class="achievement" data-achievement="{{ achievement.id }}">
+            <span class="icon" aria-hidden="true">{{ achievement.icon if not achievement.hidden else "❓" }}</span>
+            <span>
+              <span class="title">{{ achievement.title if not achievement.hidden else "Hidden achievement" }}</span>
+              <span class="desc">{{ achievement.description }}</span>
+            </span>
+            <span class="points">{{ achievement.points }}p</span>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="empty" id="achievements-empty"{% if achievements %} hidden{% endif %}>This game has no achievements.</p>
     </section>
 
     <section class="panel">

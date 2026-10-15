@@ -958,6 +958,11 @@ def add_comment(
     return _comment_to_dict(row, player_id)
 
 
+def comment_slug(conn, comment_id: int) -> str | None:
+    row = conn.execute("SELECT slug FROM comments WHERE id = ?", (comment_id,)).fetchone()
+    return row["slug"] if row else None
+
+
 def delete_comment(conn, comment_id: int, player_id: str) -> bool:
     cursor = conn.execute(
         "DELETE FROM comments WHERE id = ? AND player_id = ?", (comment_id, player_id)

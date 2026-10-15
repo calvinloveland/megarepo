@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import re
 import time
 from functools import wraps
@@ -19,6 +20,7 @@ from flask import Blueprint, Response, current_app, jsonify, request, stream_wit
 from . import models, registry
 from .app import get_db
 from .config import Settings
+from .live import LIVE
 
 api_bp = Blueprint("api", __name__)
 
@@ -112,6 +114,29 @@ def _serialize_game(game: dict[str, Any]) -> dict[str, Any]:
 
 def _sse_event(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+def _live_payload(slug: str, viewer_id: str | None) -> dict[str, Any]:
+    """Everything the game page can change without a reload."""
+    connection = get_db()
+    game = models.get_game(connection, slug)
+    if game is None:
+        return {}
+    order = (game["capabilities"].get("leaderboard") or {}).get("order", "desc")
+    unlocked = models.unlocked_achievement_ids(connection, viewer_id, slug) if viewer_id else set()
+    achievements = []
+    for achievement in models.list_achievements(connection, slug):
+        if achievement["hidden"] and achievement["id"] not in unlocked:
+            continue
+        achievements.append({**achievement, "unlocked": achievement["id"] in unlocked})
+    return {
+        "slug": slug,
+        "leaderboard": models.leaderboard(connection, slug, limit=10, order=order, viewer_id=viewer_id),
+        "achievements": achievements,
+        "rating": models.game_rating(connection, slug, viewer_id),
+        "stats": models.game_play_stats(connection, slug),
+        "comments": models.list_comments(connection, slug, limit=50, viewer_id=viewer_id),
+    }
 
 
 # ── Identity ────────────────────────────────────────────────────────────────
@@ -234,6 +259,46 @@ def leaderboard(slug: str):
     )
 
 
+@api_bp.get("/games/<slug>/live")
+def game_live(slug: str):
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    player = current_player()
+    return jsonify(_live_payload(slug, player["id"] if player else None))
+
+
+@api_bp.get("/games/<slug>/events")
+def game_events(slug: str):
+    """Server-sent events: push the game page a fresh snapshot on any change."""
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    player = current_player()
+    viewer_id = player["id"] if player else None
+    once = request.args.get("once") == "1"
+
+    def generate():
+        if once:
+            yield _sse_event("state", _live_payload(slug, viewer_id))
+            return
+        channel = LIVE.subscribe(slug)
+        try:
+            yield _sse_event("state", _live_payload(slug, viewer_id))
+            while True:
+                try:
+                    channel.get(timeout=20)
+                    yield _sse_event("state", _live_payload(slug, viewer_id))
+                except queue.Empty:
+                    yield ": ping\n\n"
+        finally:
+            LIVE.unsubscribe(slug, channel)
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @api_bp.get("/games/<slug>/my-best")
 def my_best(slug: str):
     """The current player's best score and rank, even outside the top 100."""
@@ -320,6 +385,7 @@ def submit_score(player: dict[str, Any], slug: str):
             get_db(), slug, player["id"], [item for item in extra_unlocks if isinstance(item, str)]
         )
         result["unlocked"].extend(batch["unlocked"])
+    LIVE.publish(slug, "score")
     return jsonify(result), 201
 
 
@@ -348,6 +414,7 @@ def unlock_achievement(player: dict[str, Any], slug: str, achievement_id: str):
     if _require_game(slug) is None:
         return jsonify({"error": f"game not found: {slug}"}), 404
     unlocked = models.unlock_achievement(get_db(), slug, player["id"], achievement_id)
+    LIVE.publish(slug, "achievement")
     return jsonify({"unlocked": unlocked, "already_unlocked": unlocked is None}), (201 if unlocked else 200)
 
 
@@ -361,6 +428,7 @@ def unlock_achievements(player: dict[str, Any], slug: str):
     if not isinstance(ids, list) or not ids or not all(isinstance(item, str) for item in ids):
         return jsonify({"error": "ids must be a non-empty list of strings"}), 400
     result = models.unlock_achievements(get_db(), slug, player["id"], ids)
+    LIVE.publish(slug, "achievement")
     return jsonify(result), 201 if result["unlocked"] else 200
 
 
@@ -384,6 +452,7 @@ def rate_game(player: dict[str, Any], slug: str):
         result = models.set_rating(get_db(), slug, player["id"], _json_body().get("rating"))
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
+    LIVE.publish(slug, "rating")
     return jsonify(result)
 
 
@@ -417,13 +486,18 @@ def post_comment(player: dict[str, Any], slug: str):
         )
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
+    LIVE.publish(slug, "comment")
     return jsonify(comment), 201
 
 
 @api_bp.delete("/comments/<int:comment_id>")
 @require_player
 def remove_comment(player: dict[str, Any], comment_id: int):
-    removed = models.delete_comment(get_db(), comment_id, player["id"])
+    connection = get_db()
+    slug = models.comment_slug(connection, comment_id)
+    removed = models.delete_comment(connection, comment_id, player["id"])
+    if removed and slug:
+        LIVE.publish(slug, "comment")
     return jsonify({"deleted": removed}), (200 if removed else 404)
 
 
@@ -432,7 +506,9 @@ def remove_comment(player: dict[str, Any], comment_id: int):
 def record_play(player: dict[str, Any], slug: str):
     if _require_game(slug) is None:
         return jsonify({"error": f"game not found: {slug}"}), 404
-    return jsonify(models.record_play(get_db(), slug, player["id"]))
+    stats = models.record_play(get_db(), slug, player["id"])
+    LIVE.publish(slug, "play")
+    return jsonify(stats)
 
 
 @api_bp.post("/games/<slug>/progress")
@@ -457,6 +533,7 @@ def report_progress(player: dict[str, Any], slug: str):
             connection, slug, player["id"], [item for item in extra if isinstance(item, str)]
         )
         unlocked.extend(batch["unlocked"])
+    LIVE.publish(slug, "progress")
     return jsonify({"unlocked": unlocked})
 
 
