@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS games (
     tags TEXT NOT NULL DEFAULT '[]',
     thumbnail TEXT,
     remix_of TEXT,
+    owner_id TEXT REFERENCES players(id) ON DELETE SET NULL,
     capabilities TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -192,6 +193,9 @@ def _migrate(connection: sqlite3.Connection) -> None:
         connection.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_players_recovery ON players (recovery_secret)"
         )
+    game_columns = {row[1] for row in connection.execute("PRAGMA table_info(games)")}
+    if "owner_id" not in game_columns:
+        connection.execute("ALTER TABLE games ADD COLUMN owner_id TEXT")
 
 
 def rows_to_dicts(rows: Iterable[sqlite3.Row]) -> list[dict[str, Any]]:
