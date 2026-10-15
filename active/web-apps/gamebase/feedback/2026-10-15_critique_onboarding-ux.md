@@ -130,7 +130,7 @@ three), and `/` has **0** links to `/players/` — profiles are only reachable b
 typing the URL or clicking someone else's comment handle. There is no "change
 tag", "log out", "account", "settings" or "recovery" text anywhere. Meanwhile
 `POST /api/identity` returns a recovery code
-(`{"rediscovery_code":"2C72-18D5-22C9","token":...}`, real response in
+(`{"recovery_code":"2C72-18D5-22C9","token":...}`, real response in
 `/tmp/i.json`) that `static/app.js` discards: `createIdentity()` only calls
 `storeToken(data.token)` and returns the token. Nothing in the UI ever shows the
 code, and no route lets a player use one.
