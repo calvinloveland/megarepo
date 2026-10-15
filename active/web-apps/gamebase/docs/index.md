@@ -223,6 +223,7 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | `DELETE` | `/api/games/<slug>/matchmaking` | Cancel a queued ticket. |
 | `GET` | `/api/matches/<id>` | Read a match. |
 | `POST` | `/api/matches/<id>/result` | Report `{result}`; completes when all report. |
+| `PUT` | `/api/matches/<id>/state` | Relay shared turn-based game state (members only). |
 | `POST` | `/api/games/<slug>/remix` | Copy into `{new_slug, title?}`; records lineage. |
 | `POST` | `/api/games` | **Push**: create or update a game from `{manifest, files, changelog}`. |
 | `GET` | `/api/games/<slug>/files` | **Pull**: manifest plus all text files. |

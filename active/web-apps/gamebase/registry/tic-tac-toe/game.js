@@ -290,7 +290,7 @@
       online.myMark = match.players[0].player_id === me.id ? X : O;
       online.revision = match.revision || 0;
       ui.human = online.myMark;
-      ui.turn = online.myMark;
+      ui.turn = X; // the host (players[0], X) moves first
       applyRemote(match.game_state);
       render();
       pollOnline();

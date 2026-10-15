@@ -118,7 +118,19 @@ works):
 Key methods: `ready`, `player`, `leaderboard(limit)`, `myBest()`,
 `myProgress()`, `submitScore(score, meta, {unlock})`, `endRun`, `checkpoint`,
 `progress`, `unlock(idOrIds)`, `achievements()`, `saveState`, `loadState`,
-`findMatch`, `waitForMatch`, `reportResult`, `on(event, cb)`.
+`findMatch`, `waitForMatch`, `match(matchId)`, `updateMatch(matchId, state, revision)`,
+`reportResult`, `on(event, cb)`.
+
+### Online turn-based games
+
+`findMatch()` + `waitForMatch()` pair you with an opponent (`match.players[0]` is
+the first player to move). Relay the shared game state with
+`updateMatch(matchId, state, revision)` and poll `match(matchId)` (every ~1.5s)
+to receive the opponent's move; the `revision` you pass guards against
+simultaneous writes (a stale revision returns 409). Call
+`reportResult(matchId, {result})` when the game ends. A complete example is
+`registry/tic-tac-toe/game.js` (chess, checkers, reversi, connect-four, and
+stratego follow the same pattern).
 
 The platform handles community features for you: players rate games 1–5 stars,
 comment, and every launch is counted for the “most played” ranking. The SDK

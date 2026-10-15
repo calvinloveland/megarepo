@@ -490,10 +490,6 @@
     return viewerSide();
   }
 
-  function opponentSide() {
-    return viewerSide() === HUMAN ? AI : HUMAN;
-  }
-
   function myTurn() {
     if (ui.phase !== "battle" || ui.busy) return false;
     if (ui.mode === "ai") return ui.st.turn === HUMAN;
@@ -1182,7 +1178,9 @@
         pollOnline();
         return;
       }
-      await publishSetupArmy();
+      // Wait for this player to arrange their army and press Ready before
+      // merging it into the relayed setup state.
+      render();
       pollOnline();
     } catch (error) {
       els.status.textContent = "Matchmaking failed: " + error.message;
@@ -1265,6 +1263,29 @@
     const index = MODES.indexOf(ui.mode);
     setMode(MODES[(index + 1) % MODES.length]);
   });
+
+  // Expose a small read-only inspector for Playwright smoke tests (repo
+  // convention for vanilla-JS games).
+  root.StrategoGame = {
+    state() {
+      return {
+        mode: ui.mode,
+        phase: ui.phase,
+        turn: ui.st.turn,
+        over: ui.st.over,
+        winner: ui.st.winner,
+        moveCount: ui.st.moveCount,
+        matchId: online.matchId,
+        mySide: online.mySide,
+      };
+    },
+    pieces() {
+      return ui.st.pieces.map((p) => [p.id, p.owner, p.pos, p.alive ? 1 : 0, p.revealed ? 1 : 0]);
+    },
+    legalMoves() {
+      return myTurn() ? allMoves(ui.st) : [];
+    },
+  };
 
   buildBoard();
   updateControls();
