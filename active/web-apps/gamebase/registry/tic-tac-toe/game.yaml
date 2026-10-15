@@ -1,0 +1,54 @@
+slug: tic-tac-toe
+title: Tic-Tac-Toe
+description: >-
+  Classic 3x3 tic-tac-toe against an unbeatable perfect-play AI or a local
+  two-player opponent, with a running best-of tally saved to your player.
+  Win = 3 points, draw = 1.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - board
+  - strategy
+  - tic-tac-toe
+  - ai
+  - classic
+capabilities:
+  leaderboard:
+    order: desc
+    label: Result Points
+    min: 0
+    max: 3
+  achievements:
+    - id: first-game
+      title: First Grid
+      description: Finish a game of tic-tac-toe.
+      icon: ⚪
+      points: 5
+      criteria: {}
+    - id: champion
+      title: Grid Champion
+      description: Win a game of tic-tac-toe.
+      icon: 🏆
+      points: 20
+      criteria:
+        type: score
+        gte: 3
+    - id: hold-the-line
+      title: Hold the Line
+      description: Draw against the perfect AI.
+      icon: 🤝
+      points: 25
+      criteria:
+        type: meta
+        key: result
+        eq: draw
+    - id: streak-three
+      title: On a Roll
+      description: Win three games in a row.
+      icon: 🔥
+      points: 25
+      criteria:
+        type: meta
+        key: streak
+        gte: 3

@@ -1,0 +1,60 @@
+slug: snake
+title: Snake
+description: >-
+  The classic grid snake. Eat food to grow and score, but speeding up is the
+  price of every bite. Walls and your own tail end the run. Arrow keys, WASD,
+  or swipe to steer.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - arcade
+  - classic
+  - snake
+capabilities:
+  leaderboard:
+    order: desc
+    label: Score
+    min: 0
+  achievements:
+    - id: first-bite
+      title: First Bite
+      description: Eat your first piece of food.
+      icon: 🍎
+      points: 5
+      criteria: {}
+    - id: length-10
+      title: Getting Long
+      description: Grow to a length of 10.
+      icon: 🐍
+      points: 15
+      criteria:
+        type: meta
+        key: length
+        gte: 10
+    - id: length-25
+      title: Anaconda
+      description: Grow to a length of 25.
+      icon: 🐲
+      points: 40
+      criteria:
+        type: meta
+        key: length
+        gte: 25
+    - id: score-500
+      title: High Scorer
+      description: Reach a score of 500.
+      icon: 💯
+      points: 25
+      criteria:
+        type: score
+        gte: 500
+    - id: speedster
+      title: Speedster
+      description: Reach speed level 5.
+      icon: ⚡
+      points: 20
+      criteria:
+        type: meta
+        key: speedLevel
+        gte: 5

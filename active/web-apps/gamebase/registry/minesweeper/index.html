@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Minesweeper — Gamebase</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game">
+    <header class="topbar">
+      <h1>Minesweeper</h1>
+      <span class="tag" id="tag">···</span>
+    </header>
+
+    <div class="hud">
+      <span class="hud-item">💣 <span id="mine-count">0</span></span>
+      <span class="hud-item">⏱ <span id="time">0s</span></span>
+      <span class="hud-item">⬛ <span id="revealed">0</span></span>
+    </div>
+
+    <div class="status-row">
+      <span class="status" id="status" aria-live="polite">Loading…</span>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board" role="grid" aria-label="Minesweeper board"></div>
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title">Game over</h2>
+          <p id="overlay-body"></p>
+          <button id="overlay-btn" class="btn primary">New game</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="new-game" class="btn primary">New game</button>
+      <button id="flag-mode" class="btn" aria-pressed="false">🚩 Flag mode: off</button>
+    </div>
+    <div class="controls">
+      <button class="btn diff" data-diff="beginner">Beginner</button>
+      <button class="btn diff" data-diff="intermediate">Intermediate</button>
+      <button class="btn diff" data-diff="expert">Expert</button>
+    </div>
+    <p class="hint">Click to reveal, right-click (or long-press) to flag. First click is always safe. Click a revealed number to chord when its flags match.</p>
+  </main>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

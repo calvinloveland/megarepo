@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Breakout — Gamebase</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game">
+    <header class="topbar">
+      <h1>Breakout</h1>
+      <span class="tag" id="tag">···</span>
+    </header>
+
+    <div class="hud">
+      <span class="hud-item">Score <b id="score">0</b></span>
+      <span class="hud-item">Lives <b id="lives">3</b></span>
+      <span class="hud-item">Level <b id="level">1</b></span>
+      <span class="hud-item">Best <b id="best">0</b></span>
+    </div>
+
+    <p class="status" id="status" aria-live="polite">Press Space or tap to launch.</p>
+
+    <div class="board-wrap">
+      <canvas id="canvas" width="480" height="560" aria-label="Breakout board"></canvas>
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title">Game over</h2>
+          <p id="overlay-body"></p>
+          <button id="overlay-btn" class="btn primary">New game</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="new-game" class="btn primary">New game</button>
+    </div>
+    <p class="hint">Move with the mouse, touch, or arrow keys. Space launches the ball.</p>
+  </main>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

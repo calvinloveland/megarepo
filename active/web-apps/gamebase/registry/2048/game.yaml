@@ -1,0 +1,60 @@
+slug: "2048"
+title: "2048"
+description: >-
+  Slide and merge numbered tiles to reach 2048. Use the arrow keys or swipe
+  on a touch screen. Every merge adds to your score, and the board fills up
+  fast, so think two moves ahead.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - puzzle
+  - classic
+  - 2048
+capabilities:
+  leaderboard:
+    order: desc
+    label: Score
+    min: 0
+  achievements:
+    - id: first-merge
+      title: First Merge
+      description: Merge two tiles together.
+      icon: 🧩
+      points: 5
+      criteria: {}
+    - id: thousand
+      title: Four Digits
+      description: Reach a score of 1,000.
+      icon: 💯
+      points: 15
+      criteria:
+        type: score
+        gte: 1000
+    - id: tile-512
+      title: Halfway There
+      description: Build a 512 tile.
+      icon: 🟪
+      points: 20
+      criteria:
+        type: meta
+        key: highest
+        gte: 512
+    - id: tile-2048
+      title: 2048!
+      description: Reach the 2048 tile.
+      icon: 🏆
+      points: 50
+      criteria:
+        type: meta
+        key: highest
+        gte: 2048
+    - id: marathon
+      title: Marathon
+      description: Make 500 moves in a single run.
+      icon: ⏱
+      points: 15
+      criteria:
+        type: meta
+        key: moves
+        gte: 500

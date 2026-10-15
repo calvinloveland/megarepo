@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Simon — Gamebase</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game">
+    <header class="topbar">
+      <h1>Simon</h1>
+      <span class="tag" id="tag">···</span>
+    </header>
+
+    <div class="hud">
+      <span class="hud-item">Score <b id="score">0</b></span>
+      <span class="hud-item">Round <b id="round">0</b></span>
+      <span class="hud-item">Best <b id="best">0</b></span>
+    </div>
+
+    <p class="status" id="status" aria-live="polite">Watch the sequence…</p>
+
+    <div class="board-wrap">
+      <div class="pads" id="pads" role="group" aria-label="Simon pads">
+        <button class="pad pad0" data-pad="0" aria-label="Green pad"></button>
+        <button class="pad pad1" data-pad="1" aria-label="Red pad"></button>
+        <button class="pad pad2" data-pad="2" aria-label="Yellow pad"></button>
+        <button class="pad pad3" data-pad="3" aria-label="Blue pad"></button>
+      </div>
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title">Game over</h2>
+          <p id="overlay-body"></p>
+          <button id="overlay-btn" class="btn primary">New game</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="new-game" class="btn primary">New game</button>
+    </div>
+    <p class="hint">Watch the pads, then repeat the sequence by tapping or clicking them.</p>
+  </main>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

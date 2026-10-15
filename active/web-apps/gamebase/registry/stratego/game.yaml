@@ -1,0 +1,63 @@
+slug: stratego
+title: Stratego
+description: >-
+  Faithful full 10x10 Stratego against a heuristic AI with hidden information:
+  you never see the AI's ranks until a battle reveals them. Standard 40-piece
+  armies (Marshal 10 down to Scout 2, Spy 1, 6 Bombs, 1 Flag), two 2x2 lakes,
+  orthogonal movement, Scouts as long-range rooks, Miners defusing Bombs, the
+  Spy killing the Marshal, and flag capture or immobilisation as win
+  conditions. Simplifications: pieces stay face-up once a battle reveals them
+  (a memory aid rather than physical play), and the competitive two-square and
+  no-chase anti-stalling rules are omitted (a 300-ply no-battle draw ends dead
+  games).
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - board
+  - strategy
+  - stratego
+  - hidden-information
+  - ai
+capabilities:
+  leaderboard:
+    order: desc
+    label: Result Points
+    min: 0
+    max: 3
+  achievements:
+    - id: first-battle
+      title: First Contact
+      description: Finish a battle.
+      icon: ⚔
+      points: 5
+      criteria: {}
+    - id: conqueror
+      title: Conqueror
+      description: Win a game of Stratego.
+      icon: 🏅
+      points: 25
+      criteria:
+        type: score
+        gte: 3
+    - id: spy-master
+      title: Spy Master
+      description: Kill the enemy Marshal with your Spy.
+      icon: 🕵
+      points: 30
+      criteria: {}
+    - id: flag-bearer
+      title: Capture the Flag
+      description: Capture the enemy Flag.
+      icon: 🚩
+      points: 35
+      criteria: {}
+    - id: sapper
+      title: Sapper
+      description: Defuse a Bomb with a Miner.
+      icon: 💣
+      points: 15
+      criteria:
+        type: meta
+        key: bombsDefused
+        gte: 1

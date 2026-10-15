@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Memory Match — Gamebase</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game">
+    <header class="topbar">
+      <h1>Memory</h1>
+      <span class="tag" id="tag">···</span>
+    </header>
+
+    <div class="hud">
+      <span class="hud-item">Score <b id="score">0</b></span>
+      <span class="hud-item">Moves <b id="moves">0</b></span>
+      <span class="hud-item">Time <b id="time">0s</b></span>
+      <span class="hud-item">Best <b id="best">0</b></span>
+    </div>
+
+    <p class="status" id="status" aria-live="polite">Find all 8 pairs.</p>
+
+    <div class="board-wrap">
+      <div class="board" id="board" role="grid" aria-label="Memory board"></div>
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title">Cleared!</h2>
+          <p id="overlay-body"></p>
+          <button id="overlay-btn" class="btn primary">New game</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="new-game" class="btn primary">New game</button>
+    </div>
+    <p class="hint">Tap two cards to flip them. Matched pairs stay face up. Fewer moves and less time score higher.</p>
+  </main>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+slug: reversi
+title: Reversi
+description: >-
+  Classic Othello/Reversi on an 8x8 board. All eight flip directions are
+  checked, players pass automatically when they have no move, and the game
+  ends when neither side can move. Play a positional minimax AI or a local
+  two-player opponent. Win = 3 points, draw = 1.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - board
+  - strategy
+  - reversi
+  - othello
+  - ai
+  - classic
+capabilities:
+  leaderboard:
+    order: desc
+    label: Result Points
+    min: 0
+    max: 3
+  achievements:
+    - id: first-game
+      title: Opening Move
+      description: Finish a game of Reversi.
+      icon: ⚪
+      points: 5
+      criteria: {}
+    - id: champion
+      title: Board Champion
+      description: Win a game of Reversi.
+      icon: 🏆
+      points: 20
+      criteria:
+        type: score
+        gte: 3
+    - id: dominant
+      title: Dominant
+      description: Win by a margin of 16 discs or more.
+      icon: 💪
+      points: 25
+      criteria:
+        type: meta
+        key: margin
+        gte: 16
+    - id: corner-grab
+      title: Corner Stone
+      description: Capture a corner square.
+      icon: 📐
+      points: 15
+      criteria: {}

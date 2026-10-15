@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Checkers — Gamebase</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game">
+    <header class="topbar">
+      <h1>Checkers</h1>
+      <span class="tag" id="tag">···</span>
+    </header>
+
+    <div class="status-row">
+      <span class="status" id="status" aria-live="polite">Loading…</span>
+      <span class="counts" id="counts"></span>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board" role="grid" aria-label="Checkers board"></div>
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title">Game over</h2>
+          <p id="overlay-body"></p>
+          <button id="overlay-btn" class="btn primary">New game</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="new-game" class="btn primary">New game</button>
+      <button id="mode" class="btn">Mode: vs AI</button>
+      <button id="undo" class="btn">Undo</button>
+    </div>
+    <p class="hint">American checkers: captures are forced and jump chains must be completed. Click a piece, then a highlighted square.</p>
+  </main>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

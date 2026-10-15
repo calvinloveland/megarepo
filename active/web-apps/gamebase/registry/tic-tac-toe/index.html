@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Tic-Tac-Toe — Gamebase</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game">
+    <header class="topbar">
+      <h1>Tic-Tac-Toe</h1>
+      <span class="tag" id="tag">···</span>
+    </header>
+
+    <div class="status-row">
+      <span class="status" id="status" aria-live="polite">Loading…</span>
+      <span class="counts" id="tally">W 0 · D 0 · L 0</span>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board" role="grid" aria-label="Tic-tac-toe board"></div>
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title">Game over</h2>
+          <p id="overlay-body"></p>
+          <button id="overlay-btn" class="btn primary">New game</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="new-game" class="btn primary">New game</button>
+      <button id="mode" class="btn">Mode: vs Perfect AI</button>
+      <button id="reset-tally" class="btn">Reset tally</button>
+    </div>
+    <p class="hint">You are ✕ and move first. The perfect AI plays ○ and never loses — win in 2-player mode. The best-of tally is saved to your player.</p>
+  </main>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

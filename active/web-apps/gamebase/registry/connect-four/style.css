@@ -1,0 +1,93 @@
+:root {
+  color-scheme: dark;
+  --bg: #0a0e17;
+  --accent: #4ade80;
+  --accent-dim: #1f7a45;
+  --text: #e2e8f0;
+  --muted: #7b8aa3;
+  --line: #1f2a3d;
+  --panel: #101a2b;
+  --p1: #ef4444;
+  --p2: #facc15;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 0%, #16233c 0%, var(--bg) 55%);
+  color: var(--text);
+  font-family: "SF Mono", "Consolas", ui-monospace, monospace;
+  padding: 14px 10px 30px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.game { width: min(96vw, 620px); display: flex; flex-direction: column; gap: 12px; }
+
+.topbar { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+h1 { margin: 0; font-size: 22px; letter-spacing: 3px; text-transform: uppercase; }
+.tag {
+  font-size: 11px; color: var(--accent); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 9px; background: rgba(74, 222, 128, 0.08);
+}
+
+.status-row { display: flex; align-items: center; gap: 8px; min-height: 22px; font-size: 13px; }
+.status { color: var(--accent); flex: 1 1 auto; }
+.counts { color: var(--muted); font-size: 12px; }
+
+.board-wrap { position: relative; width: 100%; aspect-ratio: 7 / 6; user-select: none; }
+.board {
+  position: absolute; inset: 0; display: grid;
+  grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(6, 1fr);
+  gap: 4px; padding: 6px; border-radius: 12px;
+  background: #1b2942;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 0 2px #0e1626 inset;
+}
+
+.cell {
+  position: relative; display: grid; place-items: center;
+  background: #0d1522; border: 0; border-radius: 50%;
+  cursor: pointer; padding: 0;
+}
+.cell:hover { background: #142034; }
+.cell .disc {
+  width: 82%; height: 82%; border-radius: 50%;
+  box-shadow: inset 0 4px 8px rgba(255, 255, 255, 0.22), 0 3px 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.cell.p1 .disc { background: radial-gradient(circle at 35% 30%, #fca5a5, var(--p1)); }
+.cell.p2 .disc { background: radial-gradient(circle at 35% 30%, #fde68a, var(--p2)); }
+.cell.win { box-shadow: inset 0 0 0 3px var(--accent); }
+.cell.last .disc { outline: 3px solid rgba(74, 222, 128, 0.75); outline-offset: 2px; }
+.cell:disabled { cursor: default; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.btn {
+  font: inherit; font-size: 13px; color: var(--text); background: #131c2c;
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 14px; cursor: pointer;
+  transition: border-color 0.1s, background 0.1s, transform 0.05s;
+}
+.btn:hover { border-color: var(--accent-dim); }
+.btn:active { transform: scale(0.97); }
+.btn.primary { color: #04150b; background: linear-gradient(180deg, #86efac, var(--accent)); border-color: transparent; font-weight: 700; }
+.hint { color: var(--muted); font-size: 11px; text-align: center; margin: 0; line-height: 1.5; }
+
+.overlay {
+  position: absolute; inset: 0; background: rgba(4, 8, 15, 0.78);
+  display: grid; place-items: center; z-index: 6; border-radius: 12px;
+}
+.overlay-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 20px 22px; text-align: center; max-width: 84%;
+}
+.overlay-card h2 { margin: 0 0 6px; color: var(--accent); letter-spacing: 1px; }
+.overlay-card p { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+
+@media (max-width: 420px) { h1 { font-size: 18px; } }
+
+/* Respect the hidden attribute even when a component sets its own display. */
+[hidden] { display: none !important; }

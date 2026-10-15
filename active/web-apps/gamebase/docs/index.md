@@ -30,7 +30,7 @@ and exposes it through a REST API.
 | **Game** | A directory under `registry/<slug>/` with a `game.yaml` manifest and web assets. |
 | **Manifest** | Declares the game's identity, entry point, tags, and capabilities (leaderboard, achievements, matchmaking). |
 | **Registry** | The folder scanned to build the catalog. Configurable via `GAMEBASE_REGISTRY_DIR`. |
-| **Player** | A platform identity. First contact creates an anonymous guest with a readable handle and a bearer token. |
+| **Player** | A platform identity: a classic 3-character arcade tag (A–Z/0–9) plus a bearer token. First visit asks for a tag. |
 | **Capability** | A platform service a game opts into (`leaderboard`, `achievements`, `matchmaking`). |
 | **Remix** | A copy of a published game into a new `<slug>` that records `remix_of` for lineage. |
 | **Score** | A numeric result with optional metadata; leaderboards keep each player's best. |
@@ -129,7 +129,7 @@ Games include one file:
 ```html
 <script src="/sdk/gamebase.js"></script>
 <script>
-  const player = await Gamebase.ready();          // guest identity (persisted)
+  const player = await Gamebase.ready();          // 3-letter tag identity (persisted)
   await Gamebase.submitScore(1200, { level: 3 }); // server-validated, ranked
   await Gamebase.unlock("first-blood");           // idempotent
   const board = await Gamebase.leaderboard(10);
@@ -155,7 +155,7 @@ game on the platform.
 
 | Method | Purpose |
 | --- | --- |
-| `ready(handle?)` | Resolve/create the player identity. |
+| `ready(handle?)` | Resolve/create the player identity (the tag gate creates it on first visit). |
 | `player` | The cached player object. |
 | `leaderboard(limit?)` | Best scores, ranked (rows include `is_me`). |
 | `myBest()` | The current player's best score and rank, even below the top 100. |
@@ -186,7 +186,7 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/api/identity` | Create a player + token. Optional `{handle}`. |
+| `POST` | `/api/identity` | Create a player + token. Optional `{handle}` (a 3-letter tag, uppercased). |
 | `GET` | `/api/me` | Current player, achievements, points. |
 | `GET` | `/api/me/recovery` | The player's recovery code. |
 | `POST` | `/api/identity/recover` | Adopt a player by `{code}` (new device). |
@@ -356,14 +356,14 @@ python scripts/check_all.py gamebase
 
 ## Included games
 
-- **Orb Tap** — a clicker demonstrating high scores and score/count achievements.
-- **Reflex Duel** — a 1v1 matchmaking reaction duel demonstrating the queue,
-  match object, SSE match waiting, result reporting, and achievement unlocks.
-- **Marble Survivors** — the ported `active/games/marble-survivors` roguelite,
-  showing `endRun()`, `meta` achievement criteria, and `myProgress()`.
-- **Washing Machine Tycoon** — the ported `active/games/washing-machine-tycoon`
-  tycoon simulation, showing `checkpoint()` for a game with no game-over and
-  unbounded scores.
+Classic arcade and board games, all built on the same SDK:
+
+- **Board / strategy** — Chess (full rules + AI), Checkers, Stratego, Reversi,
+  Connect Four, Tic-Tac-Toe (perfect-play AI).
+- **Arcade** — 2048, Snake, Breakout, Simon, Memory, Orb Tap, Reflex Duel
+  (1v1 matchmaking).
+- **Ports of existing megarepo games** — Marble Survivors (roguelite) and
+  Washing Machine Tycoon (continuous simulation with save state).
 
 ## Not yet built
 

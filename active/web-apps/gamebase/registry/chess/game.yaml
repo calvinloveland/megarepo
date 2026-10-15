@@ -1,0 +1,57 @@
+slug: chess
+title: Chess
+description: >-
+  Full standard chess against a heuristic AI (alpha-beta search, depth 3) or a
+  local two-player opponent. Supports castling, en passant, promotion with a
+  chooser, check, checkmate, stalemate, the fifty-move rule, threefold
+  repetition and insufficient-material draws. Win = 3 points, draw = 1.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - board
+  - strategy
+  - chess
+  - ai
+capabilities:
+  leaderboard:
+    order: desc
+    label: Result Points
+    min: 0
+    max: 3
+  achievements:
+    - id: first-move
+      title: Opening Move
+      description: Finish a chess game.
+      icon: ♟
+      points: 5
+      criteria: {}
+    - id: checkmate
+      title: Checkmate
+      description: Win a game by checkmate.
+      icon: 👑
+      points: 25
+      criteria:
+        type: score
+        gte: 3
+    - id: draw
+      title: Hold the Draw
+      description: Draw a game against the AI or a friend.
+      icon: 🤝
+      points: 15
+      criteria:
+        type: meta
+        key: result
+        eq: draw
+    - id: castled
+      title: Secure the King
+      description: Castle during a game.
+      icon: 🏰
+      points: 10
+      criteria: {}
+    - id: promoted
+      title: New Blood
+      description: Promote a pawn.
+      icon: ♕
+      points: 10
+      criteria: {}

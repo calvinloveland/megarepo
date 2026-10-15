@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>2048 — Gamebase</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game">
+    <header class="topbar">
+      <h1>2048</h1>
+      <span class="tag" id="tag">···</span>
+    </header>
+
+    <div class="hud">
+      <span class="hud-item">Score <b id="score">0</b></span>
+      <span class="hud-item">Best <b id="best">0</b></span>
+      <span class="hud-item">Moves <b id="moves">0</b></span>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board" role="grid" aria-label="2048 board"></div>
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title">Game over</h2>
+          <p id="overlay-body"></p>
+          <div class="overlay-actions">
+            <button id="overlay-btn" class="btn primary">New game</button>
+            <button id="keep-btn" class="btn" hidden>Keep going</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="new-game" class="btn primary">New game</button>
+      <button id="undo" class="btn" disabled>Undo</button>
+    </div>
+    <p class="hint">Arrow keys or WASD to slide. On touch, swipe the board. Merge equal tiles once per move.</p>
+  </main>
+  <script src="/sdk/gamebase.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+slug: breakout
+title: Breakout
+description: >-
+  Smash every brick with the paddle and ball. Clear the wall to advance a
+  level, and keep three lives alive as the ball speeds up. Mouse, touch, or
+  arrow keys move the paddle.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - arcade
+  - classic
+  - breakout
+capabilities:
+  leaderboard:
+    order: desc
+    label: Score
+    min: 0
+  achievements:
+    - id: first-brick
+      title: First Brick
+      description: Break your first brick.
+      icon: 🧱
+      points: 5
+      criteria: {}
+    - id: score-500
+      title: Wall Breaker
+      description: Reach a score of 500.
+      icon: 💯
+      points: 15
+      criteria:
+        type: score
+        gte: 500
+    - id: score-2000
+      title: Demolisher
+      description: Reach a score of 2,000.
+      icon: 💥
+      points: 35
+      criteria:
+        type: score
+        gte: 2000
+    - id: level-2
+      title: Next Level
+      description: Clear level 1.
+      icon: 🚀
+      points: 20
+      criteria:
+        type: meta
+        key: level
+        gte: 2
+    - id: level-3
+      title: Deep Run
+      description: Reach level 3.
+      icon: 🏆
+      points: 40
+      criteria:
+        type: meta
+        key: level
+        gte: 3

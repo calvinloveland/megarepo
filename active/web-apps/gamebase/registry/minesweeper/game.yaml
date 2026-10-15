@@ -1,0 +1,56 @@
+slug: minesweeper
+title: Minesweeper
+description: >-
+  The classic grid. The first click is always safe, flags mark suspected
+  mines, and zero cells flood-reveal. Three difficulties, scored by cells
+  revealed plus a time bonus.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+  - puzzle
+  - logic
+  - minesweeper
+  - classic
+capabilities:
+  leaderboard:
+    order: desc
+    label: Score
+    min: 0
+  achievements:
+    - id: first-clear
+      title: First Clear
+      description: Win your first board.
+      icon: 🏁
+      points: 10
+      criteria: {}
+    - id: speed-demon
+      title: Speed Demon
+      description: Clear any board in 15 seconds or less.
+      icon: ⚡
+      points: 30
+      criteria:
+        type: meta
+        key: seconds
+        lte: 15
+    - id: expert-clear
+      title: Expert Clear
+      description: Win an Expert board.
+      icon: 🏆
+      points: 50
+      criteria: {}
+    - id: no-flag-clear
+      title: By Hand
+      description: Win a board without placing a single flag.
+      icon: 🙌
+      points: 25
+      criteria: {}
+    - id: flag-master
+      title: Flag Master
+      description: Win a board with 40 or more flags placed.
+      icon: 🚩
+      points: 20
+      criteria:
+        type: meta
+        key: flags
+        gte: 40
