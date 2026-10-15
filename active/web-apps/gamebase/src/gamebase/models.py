@@ -1052,8 +1052,21 @@ def open_ticket(conn, slug: str, player_id: str) -> dict[str, Any] | None:
     return _ticket_to_dict(conn, row) if row else None
 
 
-def queue_for_match(conn, slug: str, player_id: str, players_needed: int = 2) -> dict[str, Any]:
-    """Join the matchmaking queue, forming a match when enough players wait."""
+def queue_for_match(
+    conn,
+    slug: str,
+    player_id: str,
+    capacity: int = 2,
+    min_players: int | None = None,
+    auto_start: bool = True,
+) -> dict[str, Any]:
+    """Join the matchmaking queue.
+
+    ``capacity`` is the table size. When ``auto_start`` is set the table forms as
+    soon as it is full; otherwise the host starts it explicitly via
+    :func:`start_match` (used by games that gather a full lobby).
+    """
+    min_players = min_players or capacity
     existing = open_ticket(conn, slug, player_id)
     if existing:
         return existing
@@ -1064,20 +1077,38 @@ def queue_for_match(conn, slug: str, player_id: str, players_needed: int = 2) ->
         (ticket_id, slug, player_id, utcnow()),
     )
     conn.commit()
-    _try_form_match(conn, slug, players_needed)
+
+    waiting = conn.execute(
+        "SELECT COUNT(*) AS n FROM tickets WHERE slug = ? AND status = 'queued'", (slug,)
+    ).fetchone()["n"]
+    if auto_start and waiting >= capacity:
+        _form_match(conn, slug, capacity, min_players)
+
     row = conn.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
     return _ticket_to_dict(conn, row)
 
 
-def _try_form_match(conn, slug: str, players_needed: int) -> dict[str, Any] | None:
+def start_match(conn, slug: str, player_id: str, capacity: int, min_players: int | None = None) -> dict[str, Any] | None:
+    """Host action: seat everyone currently waiting (up to ``capacity``)."""
+    min_players = min_players or 2
+    ticket = open_ticket(conn, slug, player_id)
+    if ticket is None or ticket["status"] != "queued":
+        raise NotFound("you are not waiting in this queue")
+    match = _form_match(conn, slug, capacity, min_players)
+    if match is None:
+        raise ValueError(f"need at least {min_players} players to start")
+    return match
+
+
+def _form_match(conn, slug: str, capacity: int, min_players: int) -> dict[str, Any] | None:
     waiting = conn.execute(
         "SELECT * FROM tickets WHERE slug = ? AND status = 'queued' ORDER BY created_at ASC",
         (slug,),
     ).fetchall()
-    if len(waiting) < players_needed:
+    if len(waiting) < min_players:
         return None
 
-    chosen = waiting[:players_needed]
+    chosen = waiting[:capacity]
     match_id = _new_id()
     timestamp = utcnow()
     players = []
