@@ -208,6 +208,10 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | `GET` | `/api/games/<slug>/achievements` | Definitions + unlock state. |
 | `GET` | `/api/games/<slug>/live` | Snapshot for the live game-page panels. |
 | `GET` | `/api/games/<slug>/events` | SSE: push a fresh snapshot whenever the game changes. |
+| `GET` | `/api/catalog/stats` | Rating + play aggregates for every game. |
+| `GET` | `/api/catalog/events` | SSE: catalog aggregates, pushed on any rating/play/game change. |
+| `GET` | `/api/players/<handle>/live` | A player's achievements, ratings, and comments. |
+| `GET` | `/api/players/<handle>/events` | SSE: that player's profile snapshot. |
 | `POST` | `/api/games/<slug>/achievements/<id>` | Unlock an achievement. |
 | `POST` | `/api/games/<slug>/achievements` | Batch unlock `{ids: [...]}`. |
 | `GET` | `/api/games/<slug>/rating` | Average, count, and your rating. |
@@ -356,11 +360,14 @@ are revalidation hints and are not part of the ETag.
 
 ## Community: ratings, comments, popularity
 
-- **Live panels** — the game page subscribes to `/api/games/<slug>/events`
-  (Server-Sent Events) and re-renders the leaderboard, achievements, rating,
-  play count, and comments the moment any change happens — including your own
-  score/achievement submitted from inside the game. No reload needed. A 4s poll
-  is used automatically if the event stream is unavailable.
+- **Live panels** — the catalog, game pages, and player profiles all subscribe to
+  Server-Sent Events and re-render without a reload. The catalog updates card
+  ratings and play counts (and reorders “Most played”); a game page updates its
+  leaderboard, achievements, rating, plays, and comments; a profile updates its
+  achievements, points, ratings, and comments. Events are pushed on the relevant
+  write (score, achievement, play, rating, comment, new/removed game), and a 5s
+  poll is the fallback if the stream is unavailable — so the server is pushed to,
+  not polled.
 - **Ratings** — one 1–5 star rating per player per game. The catalog shows the
   average and count, and the game page has an interactive star widget.
 - **Comments** — plain-text comments (≤ 500 chars) from tagged players, rate

@@ -988,6 +988,31 @@ def game_play_stats(conn, slug: str) -> dict[str, int]:
     return {"plays": row["plays"], "players": row["players"]}
 
 
+def ratings_by_game(conn) -> dict[str, dict[str, Any]]:
+    """Every game's rating aggregate in one query (for the live catalog)."""
+    rows = conn.execute(
+        "SELECT slug, COUNT(*) AS count, AVG(rating) AS average FROM ratings GROUP BY slug"
+    ).fetchall()
+    return {
+        row["slug"]: {
+            "count": row["count"],
+            "average": round(row["average"], 2) if row["average"] is not None else 0.0,
+        }
+        for row in rows
+    }
+
+
+def play_stats_by_game(conn) -> dict[str, dict[str, int]]:
+    """Every game's play aggregate in one query (for the live catalog)."""
+    rows = conn.execute(
+        "SELECT slug, COUNT(*) AS plays, COUNT(DISTINCT player_id) AS players FROM plays GROUP BY slug"
+    ).fetchall()
+    return {
+        row["slug"]: {"plays": row["plays"], "players": row["players"]}
+        for row in rows
+    }
+
+
 def player_ratings(conn, player_id: str) -> list[dict[str, Any]]:
     rows = conn.execute(
         "SELECT r.slug, r.rating, r.updated_at, g.title FROM ratings r "

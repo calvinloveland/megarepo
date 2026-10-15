@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% block title %}{{ player.handle }} — Gamebase{% endblock %}
 {% block content %}
+<span id="player-meta" data-handle="{{ player.handle }}" hidden></span>
 <section class="hero">
   <h1>{{ player.handle }}</h1>
-  <p>
-    {{ achievements|length }} achievement{{ '' if achievements|length == 1 else 's' }} ·
-    <span class="stat">{{ points }}</span> points ·
-    {{ ratings|length }} rating{{ '' if ratings|length == 1 else 's' }} ·
-    {{ comments|length }} comment{{ '' if comments|length == 1 else 's' }}
+  <p id="player-summary">
+    <span id="player-achievement-count">{{ achievements|length }}</span> achievement{{ '' if achievements|length == 1 else 's' }} ·
+    <span class="stat" id="player-points">{{ points }}</span> points ·
+    <span id="player-rating-count">{{ ratings|length }}</span> rating{{ '' if ratings|length == 1 else 's' }} ·
+    <span id="player-comment-count">{{ comments|length }}</span> comment{{ '' if comments|length == 1 else 's' }}
     {% if player.is_guest %}· <span class="muted">guest player</span>{% endif %}
   </p>
 </section>
 
-{% if achievements %}
-<section class="grid">
+<section class="grid" id="player-achievements" aria-label="Achievements">
   {% for achievement in achievements %}
     <article class="card">
       <div class="achievement unlocked">
@@ -27,12 +27,9 @@
     </article>
   {% endfor %}
 </section>
-{% else %}
-  <p class="empty">No achievements yet. Go <a href="/">play something</a>.</p>
-{% endif %}
+<p class="empty" id="player-achievements-empty"{% if achievements %} hidden{% endif %}>No achievements yet. Go <a href="/">play something</a>.</p>
 
-{% if ratings %}
-<section class="panel" style="margin-bottom: 16px;">
+<section class="panel" id="player-ratings" style="margin-bottom: 16px;"{% if not ratings %} hidden{% endif %}>
   <h2>Ratings</h2>
   {% for rating in ratings %}
     <p class="small" style="margin: 6px 0;">
@@ -41,10 +38,8 @@
     </p>
   {% endfor %}
 </section>
-{% endif %}
 
-{% if comments %}
-<section class="panel" style="margin-bottom: 64px;">
+<section class="panel" id="player-comments" style="margin-bottom: 64px;"{% if not comments %} hidden{% endif %}>
   <h2>Comments</h2>
   {% for comment in comments %}
     <div class="comment">
@@ -56,5 +51,4 @@
     </div>
   {% endfor %}
 </section>
-{% endif %}
 {% endblock %}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% macro stars(avg) %}{% set filled = (avg + 0.5) | int %}<span class="stars-mini" role="img" aria-label="{{ '%.1f'|format(avg) }} out of 5">{% for i in range(1, 6) %}<span class="star{% if i <= filled %} on{% endif %}" aria-hidden="true">★</span>{% endfor %}</span>{% endmacro %}
 {% macro card(c) %}
-<article class="card">
+<article class="card" data-slug="{{ c.slug }}" data-plays="{{ c.stats.plays }}" data-title="{{ c.title|lower }}">
   {% if c.thumbnail %}
     <a class="card-thumb" href="/g/{{ c.slug }}" aria-hidden="true" tabindex="-1">
       <img src="/play/{{ c.slug }}/{{ c.thumbnail }}" alt="" loading="lazy" />
@@ -13,8 +13,8 @@
   <h2 class="card-title"><a href="/g/{{ c.slug }}">{{ c.title }}</a></h2>
   <p>{{ c.description or "No description yet." }}</p>
   <div class="meta">
-    <span>{{ stars(c.rating.average) }} <span class="muted">{{ '%.1f'|format(c.rating.average) }} ({{ c.rating.count }})</span></span>
-    <span>{{ c.stats.plays }} ▶</span>
+    <span class="card-rating">{{ stars(c.rating.average) }} <span class="muted card-rating-text">{{ '%.1f'|format(c.rating.average) }} ({{ c.rating.count }})</span></span>
+    <span class="card-plays">{{ c.stats.plays }} ▶</span>
   </div>
   <div class="tag-row" style="justify-content: space-between; align-items: center;">
     <span class="tag-row">
@@ -70,7 +70,7 @@
 </section>
 {% endif %}
 
-<section class="grid" aria-label="All games">
+<section class="grid" data-sort="{{ sort }}" aria-label="All games">
   {% for c in cards %}{{ card(c) }}{% else %}
     <p class="empty">No games match. <a href="/">Clear filters.</a></p>
   {% endfor %}

@@ -442,9 +442,133 @@
     }
   }
 
+  /** Subscribe to a live stream, falling back to polling if SSE is unavailable. */
+  function subscribeLive(eventPath, pollPath, onState) {
+    const poll = () => {
+      setInterval(async () => {
+        try {
+          onState(await fetchJson(pollPath));
+        } catch (error) {
+          /* keep the last known state */
+        }
+      }, 5000);
+    };
+    if (typeof EventSource !== "undefined") {
+      const source = new EventSource(eventPath);
+      source.addEventListener("state", (event) => {
+        try {
+          onState(JSON.parse(event.data));
+        } catch (error) {
+          /* ignore malformed frame */
+        }
+      });
+      source.addEventListener("error", () => {
+        source.close();
+        poll();
+      });
+      return source;
+    }
+    poll();
+    return null;
+  }
+
+  // ── Catalog live (ratings + play counts) ─────────────────────────────────
+
+  function paintCard(card, rating, stats) {
+    const filled = Math.round(rating.average);
+    card.querySelectorAll(".card-rating .star").forEach((star, index) => {
+      star.classList.toggle("on", index < filled);
+    });
+    const text = card.querySelector(".card-rating-text");
+    if (text) text.textContent = Number(rating.average).toFixed(1) + " (" + rating.count + ")";
+    const plays = card.querySelector(".card-plays");
+    if (plays) plays.textContent = stats.plays + " ▶";
+    card.dataset.plays = String(stats.plays);
+  }
+
+  function applyCatalogState(payload) {
+    if (!payload || !payload.games) return;
+    Object.entries(payload.games).forEach(([slug, info]) => {
+      document.querySelectorAll(`.card[data-slug="${slug}"]`).forEach((card) => paintCard(card, info.rating, info.stats));
+    });
+    const byPlays = (a, b) => Number(b.dataset.plays) - Number(a.dataset.plays);
+    const grid = document.querySelector('.grid[data-sort="popular"]');
+    if (grid) Array.from(grid.querySelectorAll(".card")).sort(byPlays).forEach((card) => grid.appendChild(card));
+    const rail = document.querySelector(".rail-row");
+    if (rail) Array.from(rail.querySelectorAll(".card")).sort(byPlays).forEach((card) => rail.appendChild(card));
+  }
+
+  function initCatalogLive() {
+    if (!document.querySelector('.card[data-slug]')) return;
+    subscribeLive("/api/catalog/events", "/api/catalog/stats", applyCatalogState);
+  }
+
+  // ── Player profile live ──────────────────────────────────────────────────
+
+  function renderPlayerAchievements(list) {
+    const grid = document.getElementById("player-achievements");
+    if (!grid) return;
+    grid.innerHTML = list
+      .map((achievement) =>
+        '<article class="card"><div class="achievement unlocked">' +
+        `<span class="icon" aria-hidden="true">${escapeHtml(achievement.icon || "🏆")}</span>` +
+        `<span><span class="title">${escapeHtml(achievement.title || achievement.achievement_id)}</span>` +
+        `<span class="desc">${escapeHtml(achievement.description || "")}</span></span></div>` +
+        `<p class="small"><a href="/g/${encodeURIComponent(achievement.slug)}">${escapeHtml(achievement.game_title || achievement.slug)}</a></p></article>`
+      )
+      .join("");
+    const empty = document.getElementById("player-achievements-empty");
+    if (empty) empty.hidden = list.length > 0;
+  }
+
+  function renderPlayerRatings(list) {
+    const panel = document.getElementById("player-ratings");
+    if (!panel) return;
+    const rows = list
+      .map((rating) => {
+        const filled = Math.round(rating.rating);
+        const stars = Array.from({ length: 5 }, (_, index) => `<span class="star${index < filled ? " on" : ""}" aria-hidden="true">★</span>`).join("");
+        return `<p class="small" style="margin: 6px 0;"><a href="/g/${encodeURIComponent(rating.slug)}">${escapeHtml(rating.title || rating.slug)}</a> — <span class="stars-mini" role="img" aria-label="${rating.rating} out of 5">${stars}</span></p>`;
+      })
+      .join("");
+    panel.innerHTML = "<h2>Ratings</h2>" + rows;
+    panel.hidden = list.length === 0;
+  }
+
+  function renderPlayerComments(list) {
+    const panel = document.getElementById("player-comments");
+    if (!panel) return;
+    const rows = list
+      .map((comment) =>
+        `<div class="comment"><div class="comment-head"><a href="/g/${encodeURIComponent(comment.slug)}">${escapeHtml(comment.title || comment.slug)}</a>` +
+        `<span class="muted small">${escapeHtml(comment.created_at_human || comment.created_at)}</span></div>` +
+        `<div class="comment-body">${escapeHtml(comment.body)}</div></div>`
+      )
+      .join("");
+    panel.innerHTML = "<h2>Comments</h2>" + rows;
+    panel.hidden = list.length === 0;
+  }
+
+  function applyPlayerState(payload) {
+    if (!payload || !payload.handle) return;
+    renderPlayerAchievements(payload.achievements || []);
+    renderPlayerRatings(payload.ratings || []);
+    renderPlayerComments(payload.comments || []);
+    const setText = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
+    setText("player-achievement-count", (payload.achievements || []).length);
+    setText("player-points", payload.points);
+    setText("player-rating-count", (payload.ratings || []).length);
+    setText("player-comment-count", (payload.comments || []).length);
+  }
+
+  function initPlayerLive() {
+    const meta = document.getElementById("player-meta");
+    if (!meta) return;
+    const handle = encodeURIComponent(meta.dataset.handle);
+    subscribeLive(`/api/players/${handle}/events`, `/api/players/${handle}/live`, applyPlayerState);
+  }
+
   let liveSlug = null;
-  let liveSource = null;
-  let liveTimer = null;
 
   async function refreshLive() {
     if (!liveSlug) return;
@@ -459,23 +583,7 @@
     const meta = document.getElementById("game-meta");
     if (!meta) return;
     liveSlug = meta.dataset.slug;
-    if (typeof EventSource !== "undefined") {
-      liveSource = new EventSource(`/api/games/${liveSlug}/events`);
-      liveSource.addEventListener("state", (event) => {
-        try {
-          applyLiveState(JSON.parse(event.data));
-        } catch (error) {
-          /* ignore malformed frame */
-        }
-      });
-      liveSource.addEventListener("error", () => {
-        if (liveSource) liveSource.close();
-        liveSource = null;
-        if (!liveTimer) liveTimer = setInterval(refreshLive, 4000);
-      });
-    } else if (!liveTimer) {
-      liveTimer = setInterval(refreshLive, 4000);
-    }
+    subscribeLive(`/api/games/${liveSlug}/events`, `/api/games/${liveSlug}/live`, applyLiveState);
   }
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -487,6 +595,8 @@
         initRating();
         initComments();
         initGameLive();
+        initCatalogLive();
+        initPlayerLive();
       })
       .catch((error) => console.error("[gamebase] identity unavailable", error));
   });

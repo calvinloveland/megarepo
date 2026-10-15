@@ -24,13 +24,13 @@ def test_events_once_mode_returns_a_snapshot(client):
 
 
 def test_writes_notify_live_subscribers(client):
-    channel = LIVE.subscribe("test-game")
+    channel = LIVE.subscribe("game:test-game")
     try:
         token, _ = create_player(client, handle="SUB")
         client.post("/api/games/test-game/scores", json={"score": 1}, headers=auth(token))
         assert not channel.empty()
     finally:
-        LIVE.unsubscribe("test-game", channel)
+        LIVE.unsubscribe("game:test-game", channel)
 
 
 def test_hub_publish_and_unsubscribe():
@@ -40,3 +40,36 @@ def test_hub_publish_and_unsubscribe():
     LIVE.unsubscribe("topic", channel)
     LIVE.publish("topic")
     assert channel.empty()
+
+
+def test_catalog_stats_and_stream(client):
+    payload = client.get("/api/catalog/stats").get_json()
+    assert "test-game" in payload["games"]
+    assert "rating" in payload["games"]["test-game"]
+
+    events = client.get("/api/catalog/events?once=1")
+    assert events.mimetype == "text/event-stream"
+    assert "games" in events.get_data(as_text=True)
+
+
+def test_rating_notifies_the_catalog_topic(client):
+    channel = LIVE.subscribe("catalog")
+    try:
+        token, _ = create_player(client, handle="CAT")
+        client.post("/api/games/test-game/rating", json={"rating": 5}, headers=auth(token))
+        assert not channel.empty()
+    finally:
+        LIVE.unsubscribe("catalog", channel)
+
+
+def test_player_live_payload_and_stream(client):
+    token, player = create_player(client, handle="PLV")
+    client.post("/api/games/test-game/scores", json={"score": 10}, headers=auth(token))
+
+    payload = client.get(f"/api/players/{player['handle']}/live").get_json()
+    assert payload["handle"] == "PLV"
+    assert any(a["achievement_id"] == "reach-10" for a in payload["achievements"])
+
+    events = client.get(f"/api/players/{player['handle']}/events?once=1")
+    assert events.mimetype == "text/event-stream"
+    assert "achievements" in events.get_data(as_text=True)

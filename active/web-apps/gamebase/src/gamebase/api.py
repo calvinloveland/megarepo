@@ -139,6 +139,41 @@ def _live_payload(slug: str, viewer_id: str | None) -> dict[str, Any]:
     }
 
 
+def _publish_change(slug: str, player_id: str | None = None, *, catalog: bool = False, kind: str = "update") -> None:
+    """Notify the game page, the player's profile, and/or the catalog."""
+    LIVE.publish(f"game:{slug}", kind)
+    if player_id:
+        LIVE.publish(f"player:{player_id}", kind)
+    if catalog:
+        LIVE.publish("catalog", kind)
+
+
+def _catalog_payload() -> dict[str, Any]:
+    """Per-game rating and play aggregates in two queries (no N+1)."""
+    connection = get_db()
+    ratings = models.ratings_by_game(connection)
+    plays = models.play_stats_by_game(connection)
+    games: dict[str, Any] = {}
+    for game in models.list_games(connection):
+        slug = game["slug"]
+        games[slug] = {
+            "rating": ratings.get(slug, {"average": 0.0, "count": 0}),
+            "stats": plays.get(slug, {"plays": 0, "players": 0}),
+        }
+    return {"games": games}
+
+
+def _player_live_payload(player: dict[str, Any]) -> dict[str, Any]:
+    connection = get_db()
+    return {
+        "handle": player["handle"],
+        "points": models.achievement_points(connection, player["id"]),
+        "achievements": models.player_achievements(connection, player["id"]),
+        "ratings": models.player_ratings(connection, player["id"]),
+        "comments": models.player_comments(connection, player["id"]),
+    }
+
+
 # ── Identity ────────────────────────────────────────────────────────────────
 
 
@@ -280,7 +315,7 @@ def game_events(slug: str):
         if once:
             yield _sse_event("state", _live_payload(slug, viewer_id))
             return
-        channel = LIVE.subscribe(slug)
+        channel = LIVE.subscribe(f"game:{slug}")
         try:
             yield _sse_event("state", _live_payload(slug, viewer_id))
             while True:
@@ -290,7 +325,7 @@ def game_events(slug: str):
                 except queue.Empty:
                     yield ": ping\n\n"
         finally:
-            LIVE.unsubscribe(slug, channel)
+            LIVE.unsubscribe(f"game:{slug}", channel)
 
     return Response(
         stream_with_context(generate()),
@@ -385,7 +420,7 @@ def submit_score(player: dict[str, Any], slug: str):
             get_db(), slug, player["id"], [item for item in extra_unlocks if isinstance(item, str)]
         )
         result["unlocked"].extend(batch["unlocked"])
-    LIVE.publish(slug, "score")
+    _publish_change(slug, player["id"], kind="score")
     return jsonify(result), 201
 
 
@@ -414,7 +449,7 @@ def unlock_achievement(player: dict[str, Any], slug: str, achievement_id: str):
     if _require_game(slug) is None:
         return jsonify({"error": f"game not found: {slug}"}), 404
     unlocked = models.unlock_achievement(get_db(), slug, player["id"], achievement_id)
-    LIVE.publish(slug, "achievement")
+    _publish_change(slug, player["id"], kind="achievement")
     return jsonify({"unlocked": unlocked, "already_unlocked": unlocked is None}), (201 if unlocked else 200)
 
 
@@ -428,7 +463,7 @@ def unlock_achievements(player: dict[str, Any], slug: str):
     if not isinstance(ids, list) or not ids or not all(isinstance(item, str) for item in ids):
         return jsonify({"error": "ids must be a non-empty list of strings"}), 400
     result = models.unlock_achievements(get_db(), slug, player["id"], ids)
-    LIVE.publish(slug, "achievement")
+    _publish_change(slug, player["id"], kind="achievement")
     return jsonify(result), 201 if result["unlocked"] else 200
 
 
@@ -452,7 +487,7 @@ def rate_game(player: dict[str, Any], slug: str):
         result = models.set_rating(get_db(), slug, player["id"], _json_body().get("rating"))
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
-    LIVE.publish(slug, "rating")
+    _publish_change(slug, player["id"], catalog=True, kind="rating")
     return jsonify(result)
 
 
@@ -486,7 +521,7 @@ def post_comment(player: dict[str, Any], slug: str):
         )
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
-    LIVE.publish(slug, "comment")
+    _publish_change(slug, player["id"], kind="comment")
     return jsonify(comment), 201
 
 
@@ -497,7 +532,7 @@ def remove_comment(player: dict[str, Any], comment_id: int):
     slug = models.comment_slug(connection, comment_id)
     removed = models.delete_comment(connection, comment_id, player["id"])
     if removed and slug:
-        LIVE.publish(slug, "comment")
+        _publish_change(slug, player["id"], kind="comment")
     return jsonify({"deleted": removed}), (200 if removed else 404)
 
 
@@ -507,7 +542,7 @@ def record_play(player: dict[str, Any], slug: str):
     if _require_game(slug) is None:
         return jsonify({"error": f"game not found: {slug}"}), 404
     stats = models.record_play(get_db(), slug, player["id"])
-    LIVE.publish(slug, "play")
+    _publish_change(slug, player["id"], catalog=True, kind="play")
     return jsonify(stats)
 
 
@@ -533,7 +568,7 @@ def report_progress(player: dict[str, Any], slug: str):
             connection, slug, player["id"], [item for item in extra if isinstance(item, str)]
         )
         unlocked.extend(batch["unlocked"])
-    LIVE.publish(slug, "progress")
+    _publish_change(slug, player["id"], kind="progress")
     return jsonify({"unlocked": unlocked})
 
 
@@ -762,6 +797,7 @@ def remix(player: dict[str, Any], slug: str):
     models.sync_registry(get_db(), registry_dir)
     models.set_game_owner(get_db(), manifest.slug, player["id"])
     models.record_remix(get_db(), slug, manifest.slug, player["id"])
+    LIVE.publish("catalog", "games")
     return jsonify(manifest.to_dict()), 201
 
 
@@ -785,11 +821,84 @@ def publish(player: dict[str, Any], slug: str):
     return jsonify(manifest.to_dict())
 
 
+@api_bp.get("/catalog/stats")
+def catalog_stats():
+    return jsonify(_catalog_payload())
+
+
+@api_bp.get("/catalog/events")
+def catalog_events():
+    """SSE stream of catalog rating/play aggregates for the home page."""
+    once = request.args.get("once") == "1"
+
+    def generate():
+        if once:
+            yield _sse_event("state", _catalog_payload())
+            return
+        channel = LIVE.subscribe("catalog")
+        try:
+            yield _sse_event("state", _catalog_payload())
+            while True:
+                try:
+                    channel.get(timeout=20)
+                    yield _sse_event("state", _catalog_payload())
+                except queue.Empty:
+                    yield ": ping\n\n"
+        finally:
+            LIVE.unsubscribe("catalog", channel)
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@api_bp.get("/players/<handle>/live")
+def player_live(handle: str):
+    player = models.get_player_by_handle(get_db(), handle)
+    if player is None:
+        return jsonify({"error": f"player not found: {handle}"}), 404
+    return jsonify(_player_live_payload(player))
+
+
+@api_bp.get("/players/<handle>/events")
+def player_events(handle: str):
+    player = models.get_player_by_handle(get_db(), handle)
+    if player is None:
+        return jsonify({"error": f"player not found: {handle}"}), 404
+    topic = f"player:{player['id']}"
+    once = request.args.get("once") == "1"
+
+    def generate():
+        if once:
+            yield _sse_event("state", _player_live_payload(player))
+            return
+        channel = LIVE.subscribe(topic)
+        try:
+            yield _sse_event("state", _player_live_payload(player))
+            while True:
+                try:
+                    channel.get(timeout=20)
+                    yield _sse_event("state", _player_live_payload(player))
+                except queue.Empty:
+                    yield ": ping\n\n"
+        finally:
+            LIVE.unsubscribe(topic, channel)
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @api_bp.post("/rescan")
 @require_player
 def rescan(player: dict[str, Any]):
     registry_dir = _settings().registry_dir
     manifests = models.sync_registry(get_db(), registry_dir)
+    LIVE.publish("catalog", "games")
     return jsonify({"games": sorted(manifests.keys())})
 
 
@@ -827,6 +936,8 @@ def publish_game(player: dict[str, Any]):
         models.set_game_owner(get_db(), saved.slug, player["id"])
     changelog = str(body.get("changelog") or ("Update" if existing else "Initial publish"))
     models.record_version(get_db(), saved, changelog)
+    if existing is None:
+        LIVE.publish("catalog", "games")
     return jsonify(saved.to_dict()), (200 if existing else 201)
 
 
