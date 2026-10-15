@@ -50,6 +50,13 @@ def utcnow() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _path_mtime_iso(path) -> str:
+    try:
+        return datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).replace(microsecond=0).isoformat()
+    except (OSError, AttributeError):
+        return utcnow()
+
+
 def _parse_timestamp(value: str) -> datetime:
     parsed = datetime.fromisoformat(value)
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
@@ -211,6 +218,7 @@ def sync_registry(conn, registry_dir: Path) -> dict[str, Manifest]:
     manifests = registry.scan_games(registry_dir)
     timestamp = utcnow()
     for manifest in manifests.values():
+        added_at = _path_mtime_iso(manifest.path) if manifest.path else timestamp
         conn.execute(
             """
             INSERT INTO games (slug, title, description, author, current_version, entry,
@@ -239,7 +247,7 @@ def sync_registry(conn, registry_dir: Path) -> dict[str, Manifest]:
                 manifest.thumbnail,
                 manifest.remix_of,
                 _dumps(manifest.capabilities),
-                timestamp,
+                added_at,
                 timestamp,
             ),
         )
