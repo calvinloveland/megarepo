@@ -17,8 +17,17 @@ def _settings() -> Settings:
     return current_app.config["GAMEBASE"]
 
 
+SORT_OPTIONS = {
+    "az": "A → Z",
+    "popular": "Most played",
+    "rated": "Top rated",
+    "new": "Newest",
+}
+
+
 @views_bp.get("/")
-def index():
+@views_bp.get("/sort/<sort_key>")
+def index(sort_key: str | None = None):
     connection = get_db()
     games = models.list_games(connection)
     cards = []
@@ -29,9 +38,29 @@ def index():
                 **game,
                 "top_score": (models.leaderboard(connection, game["slug"], limit=1, order=order) or [None])[0],
                 "achievement_count": len(game["capabilities"].get("achievements") or []),
+                "rating": models.game_rating(connection, game["slug"]),
+                "stats": models.game_play_stats(connection, game["slug"]),
             }
         )
-    return render_template("index.html", cards=cards, game_count=len(cards))
+
+    sort = sort_key or request.args.get("sort", "az")
+    if sort == "popular":
+        cards.sort(key=lambda c: (-c["stats"]["plays"], -c["rating"]["average"], c["title"].lower()))
+    elif sort == "rated":
+        cards.sort(key=lambda c: (-c["rating"]["average"], -c["rating"]["count"], c["title"].lower()))
+    elif sort == "new":
+        cards.sort(key=lambda c: (c.get("created_at") or "", c["title"].lower()), reverse=True)
+    else:
+        sort = "az"
+        cards.sort(key=lambda c: c["title"].lower())
+
+    return render_template(
+        "index.html",
+        cards=cards,
+        game_count=len(cards),
+        sort=sort,
+        sort_options=SORT_OPTIONS,
+    )
 
 
 @views_bp.get("/g/<slug>")
@@ -48,6 +77,9 @@ def game_page(slug: str):
         achievements=models.list_achievements(connection, slug),
         versions=models.list_versions(connection, slug),
         lineage=models.remix_lineage(connection, slug),
+        rating=models.game_rating(connection, slug),
+        comments=models.list_comments(connection, slug, limit=50),
+        stats=models.game_play_stats(connection, slug),
     )
 
 

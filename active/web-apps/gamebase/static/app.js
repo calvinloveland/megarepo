@@ -1,7 +1,8 @@
-/* Platform-side UI: arcade tag gate, remix/rescan actions, achievement state. */
+/* Platform-side UI: tag gate, ratings, comments, plays, remix/rescan. */
 (() => {
   const TOKEN_KEY = "gamebase.token";
   let identityPromise = null;
+  let myHandle = null;
 
   function token() {
     try { return localStorage.getItem(TOKEN_KEY); } catch (error) { return null; }
@@ -41,21 +42,10 @@
       const value = () => inputs.map((input) => input.value.toUpperCase()).join("");
       let busy = false;
 
-      function fillRandom() {
-        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        inputs.forEach((input) => {
-          input.value = chars[Math.floor(Math.random() * chars.length)];
-        });
-        submitTag();
-      }
-
       async function submitTag() {
         if (busy) return;
         const tag = value();
-        if (tag.length !== 3) {
-          hint.textContent = "Enter 3 characters";
-          return;
-        }
+        if (tag.length !== 3) { hint.textContent = "Enter 3 characters"; return; }
         busy = true;
         submit.disabled = true;
         hint.textContent = "Connecting…";
@@ -91,7 +81,13 @@
       });
 
       submit.addEventListener("click", submitTag);
-      if (randomButton) randomButton.addEventListener("click", fillRandom);
+      if (randomButton) {
+        randomButton.addEventListener("click", () => {
+          const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+          inputs.forEach((input) => { input.value = chars[Math.floor(Math.random() * chars.length)]; });
+          submitTag();
+        });
+      }
       gate.hidden = false;
       inputs[0].focus();
     });
@@ -103,29 +99,188 @@
     return identityPromise;
   }
 
+  async function api(path, options) {
+    const authToken = await ensureIdentity();
+    const opts = options || {};
+    const response = await fetch(path, {
+      method: opts.method || "GET",
+      headers: Object.assign(
+        { "Content-Type": "application/json", Authorization: "Bearer " + authToken },
+        opts.headers || {}
+      ),
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.error || "request failed");
+      error.status = response.status;
+      throw error;
+    }
+    return data;
+  }
+
+  // ── Game loading + play count ────────────────────────────────────────────
+
   function startGames() {
     document.querySelectorAll("iframe[data-src]").forEach((frame) => {
       if (!frame.getAttribute("src")) frame.setAttribute("src", frame.dataset.src);
     });
   }
 
-  // ── Game / catalog actions ───────────────────────────────────────────────
+  async function recordPlay() {
+    const meta = document.getElementById("game-meta");
+    if (!meta) return;
+    try {
+      const stats = await api(`/api/games/${meta.dataset.slug}/play`, { method: "POST" });
+      const panel = document.querySelector("[data-rating-widget] .play-stat");
+      if (panel && stats) panel.textContent = `${stats.plays} play${stats.plays === 1 ? "" : "s"} · ${stats.players} player${stats.players === 1 ? "" : "s"}`;
+    } catch (error) {
+      /* play counting is best-effort */
+    }
+  }
+
+  // ── Ratings ──────────────────────────────────────────────────────────────
+
+  function paintStars(panel, value) {
+    panel.querySelectorAll(".star-btn").forEach((button, index) => {
+      button.classList.toggle("on", index < value);
+    });
+  }
+
+  function initRating() {
+    const panel = document.querySelector("[data-rating-widget]");
+    if (!panel) return;
+    const slug = panel.dataset.slug;
+    panel.querySelectorAll(".star-btn").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          const result = await api(`/api/games/${slug}/rating`, {
+            method: "POST",
+            body: { rating: Number(button.dataset.value) },
+          });
+          paintStars(panel, result.your_rating || 0);
+          panel.querySelector("#rating-average").textContent = result.average.toFixed(1);
+          panel.querySelector("#rating-count").textContent = result.count;
+          panel.querySelector("#rating-yours").textContent = "· you rated " + result.your_rating;
+        } catch (error) {
+          console.error("[gamebase] rating failed", error);
+        }
+      });
+    });
+    api(`/api/games/${slug}/rating`)
+      .then((rating) => {
+        paintStars(panel, rating.your_rating || 0);
+        panel.querySelector("#rating-average").textContent = rating.average.toFixed(1);
+        panel.querySelector("#rating-count").textContent = rating.count;
+        if (rating.your_rating) panel.querySelector("#rating-yours").textContent = "· you rated " + rating.your_rating;
+      })
+      .catch(() => {});
+  }
+
+  // ── Comments ─────────────────────────────────────────────────────────────
+
+  function commentNode(comment) {
+    const node = document.createElement("div");
+    node.className = "comment";
+    node.dataset.commentId = comment.id;
+    node.dataset.handle = comment.handle;
+
+    const head = document.createElement("div");
+    head.className = "comment-head";
+    const who = document.createElement("a");
+    who.href = "/players/" + comment.handle;
+    who.textContent = comment.handle;
+    const when = document.createElement("span");
+    when.className = "muted small";
+    when.textContent = comment.created_at;
+    const remove = document.createElement("button");
+    remove.className = "comment-delete";
+    remove.dataset.delete = comment.id;
+    remove.textContent = "delete";
+    remove.hidden = comment.handle !== myHandle;
+    remove.addEventListener("click", async () => {
+      try {
+        await api("/api/comments/" + remove.dataset.delete, { method: "DELETE" });
+        node.remove();
+      } catch (error) {
+        console.error("[gamebase] delete comment failed", error);
+      }
+    });
+    head.append(who, when, remove);
+
+    const body = document.createElement("div");
+    body.className = "comment-body";
+    body.textContent = comment.body;
+    node.append(head, body);
+    return node;
+  }
+
+  function wireDeleteButtons(list) {
+    list.querySelectorAll(".comment").forEach((node) => {
+      const remove = node.querySelector(".comment-delete");
+      if (!remove) return;
+      remove.hidden = node.dataset.handle !== myHandle;
+      remove.addEventListener("click", async () => {
+        try {
+          await api("/api/comments/" + remove.dataset.delete, { method: "DELETE" });
+          node.remove();
+        } catch (error) {
+          console.error("[gamebase] delete comment failed", error);
+        }
+      });
+    });
+  }
+
+  function initComments() {
+    const form = document.querySelector("[data-comment-form]");
+    const list = document.getElementById("comments-list");
+    if (!form || !list) return;
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const textarea = form.querySelector("textarea");
+      const status = document.getElementById("comment-status");
+      const body = textarea.value.trim();
+      if (!body) return;
+      status.textContent = "Posting…";
+      try {
+        const comment = await api(`/api/games/${form.dataset.slug}/comments`, {
+          method: "POST",
+          body: { body },
+        });
+        const empty = document.getElementById("no-comments");
+        if (empty) empty.remove();
+        list.prepend(commentNode(comment));
+        textarea.value = "";
+        status.textContent = "Posted";
+        setTimeout(() => { status.textContent = ""; }, 1500);
+      } catch (error) {
+        status.textContent = error.status === 429 ? "Slow down a moment" : error.message;
+      }
+    });
+
+    api("/api/me")
+      .then((me) => {
+        myHandle = me.player && me.player.handle;
+        wireDeleteButtons(list);
+      })
+      .catch(() => {});
+  }
+
+  // ── Remix / rescan / copy ────────────────────────────────────────────────
 
   async function remix(slug, newSlug) {
-    const authToken = await ensureIdentity();
-    const response = await fetch(`/api/games/${slug}/remix`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + authToken },
-      body: JSON.stringify({ new_slug: newSlug }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "remix failed");
-    return data;
+    return api(`/api/games/${slug}/remix`, { method: "POST", body: { new_slug: newSlug } });
   }
 
   document.addEventListener("DOMContentLoaded", () => {
     ensureIdentity()
-      .then(startGames)
+      .then(() => {
+        startGames();
+        initRating();
+        initComments();
+        recordPlay();
+      })
       .catch((error) => console.error("[gamebase] identity unavailable", error));
   });
 
@@ -170,13 +325,7 @@
       button.disabled = true;
       button.textContent = "Scanning…";
       try {
-        const authToken = await ensureIdentity();
-        const response = await fetch("/api/rescan", {
-          method: "POST",
-          headers: { Authorization: "Bearer " + authToken },
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "rescan failed");
+        await api("/api/rescan", { method: "POST" });
         window.location.reload();
       } catch (error) {
         button.disabled = false;

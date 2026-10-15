@@ -31,6 +31,7 @@ class Settings:
     theme: str = "default"
     auto_rescan: bool = True
     state_max_bytes: int = 8 * 1024 * 1024
+    comment_rate_limit_seconds: float = 15.0
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -44,4 +45,5 @@ class Settings:
             theme=os.environ.get("GAMEBASE_THEME", "default"),
             auto_rescan=os.environ.get("GAMEBASE_AUTO_RESCAN", "1").lower() not in ("0", "false", "no", "off"),
             state_max_bytes=int(os.environ.get("GAMEBASE_STATE_MAX_BYTES", str(8 * 1024 * 1024))),
+            comment_rate_limit_seconds=float(os.environ.get("GAMEBASE_COMMENT_RATE_LIMIT", "15")),
         )

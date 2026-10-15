@@ -240,6 +240,33 @@
       const slug = requireSlug();
       return request("/games/" + slug + "/me");
     },
+    /** Rate the game 1–5 stars; resolves to the new average/count. */
+    async rate(stars) {
+      await ready();
+      const slug = requireSlug();
+      return request("/games/" + slug + "/rating", { method: "POST", body: { rating: stars } });
+    },
+    async rating() {
+      const slug = requireSlug();
+      return request("/games/" + slug + "/rating");
+    },
+    async comments(limit) {
+      const slug = requireSlug();
+      const query = limit ? "?limit=" + encodeURIComponent(limit) : "";
+      const payload = await request("/games/" + slug + "/comments" + query);
+      return payload.comments;
+    },
+    async comment(body) {
+      await ready();
+      const slug = requireSlug();
+      return request("/games/" + slug + "/comments", { method: "POST", body: { body: body } });
+    },
+    /** Record a play for the popularity ranking (the host page calls this too). */
+    async play() {
+      await ready();
+      const slug = requireSlug();
+      return request("/games/" + slug + "/play", { method: "POST" });
+    },
     async submitScore(score, meta, options) {
       await ready();
       const slug = requireSlug();

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% macro stars(avg) %}<span class="stars-mini" aria-label="{{ '%.1f'|format(avg) }} out of 5">{% for i in range(1, 6) %}<span class="star{% if i <= avg|round(0, 'floor')|int %} on{% endif %}">★</span>{% endfor %}</span>{% endmacro %}
 {% block title %}Gamebase — Arcade{% endblock %}
 {% block content %}
 <section class="hero">
@@ -10,6 +11,12 @@
   <div class="tag-row" style="margin-top: 16px;">
     <button class="btn small secondary" data-rescan>Rescan registry</button>
   </div>
+  <nav class="sort-bar" aria-label="Sort games">
+    <span class="muted small">Sort:</span>
+    {% for key, label in sort_options.items() %}
+      <a class="sort-link{% if sort == key %} active{% endif %}" href="/?sort={{ key }}">{{ label }}</a>
+    {% endfor %}
+  </nav>
 </section>
 
 <section class="grid">
@@ -26,18 +33,15 @@
       <h3><a href="/g/{{ card.slug }}">{{ card.title }}</a></h3>
       <p>{{ card.description or "No description yet." }}</p>
       <div class="meta">
-        <span>
-          {% if card.top_score %}
-            Top: <strong>{{ card.top_score.score }}</strong> {{ card.top_score.handle }}
-          {% else %}
-            No scores yet
-          {% endif %}
-        </span>
-        <span>{{ card.achievement_count }} 🏆</span>
+        <span>{{ stars(card.rating.average) }} <span class="muted">{{ '%.1f'|format(card.rating.average) }} ({{ card.rating.count }})</span></span>
+        <span>{{ card.stats.plays }} ▶</span>
       </div>
-      <div class="tag-row">
-        <a class="btn small" href="/g/{{ card.slug }}">Play</a>
-        <button class="btn small secondary" data-remix="{{ card.slug }}">Remix</button>
+      <div class="tag-row" style="justify-content: space-between; align-items: center;">
+        <span class="tag-row">
+          <a class="btn small" href="/g/{{ card.slug }}">Play</a>
+          <button class="btn small secondary" data-remix="{{ card.slug }}">Remix</button>
+        </span>
+        <span class="muted small">{{ card.achievement_count }} 🏆</span>
       </div>
     </article>
   {% else %}

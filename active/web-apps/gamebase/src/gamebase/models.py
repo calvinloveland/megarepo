@@ -789,6 +789,125 @@ def delete_state(conn, player_id: str, slug: str) -> bool:
     return cursor.rowcount > 0
 
 
+# ── Ratings, comments, and plays ────────────────────────────────────────────
+
+COMMENT_MAX_LENGTH = 500
+
+
+def set_rating(conn, slug: str, player_id: str, rating: Any) -> dict[str, Any]:
+    """Upsert a player's 1–5 star rating and return the game's aggregate."""
+    if isinstance(rating, bool) or not isinstance(rating, int) or not 1 <= rating <= 5:
+        raise ValueError("rating must be an integer from 1 to 5")
+    timestamp = utcnow()
+    conn.execute(
+        """
+        INSERT INTO ratings (player_id, slug, rating, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(player_id, slug) DO UPDATE SET
+            rating = excluded.rating,
+            updated_at = excluded.updated_at
+        """,
+        (player_id, slug, rating, timestamp, timestamp),
+    )
+    conn.commit()
+    return game_rating(conn, slug, player_id)
+
+
+def game_rating(conn, slug: str, viewer_id: str | None = None) -> dict[str, Any]:
+    row = conn.execute(
+        "SELECT COUNT(*) AS count, AVG(rating) AS average FROM ratings WHERE slug = ?", (slug,)
+    ).fetchone()
+    average = round(row["average"], 2) if row["average"] is not None else 0.0
+    your_rating = None
+    if viewer_id:
+        mine = conn.execute(
+            "SELECT rating FROM ratings WHERE slug = ? AND player_id = ?", (slug, viewer_id)
+        ).fetchone()
+        your_rating = mine["rating"] if mine else None
+    return {"average": average, "count": row["count"], "your_rating": your_rating}
+
+
+def _comment_to_dict(row, viewer_id: str | None = None) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "handle": row["handle"],
+        "body": row["body"],
+        "created_at": row["created_at"],
+        "is_me": viewer_id is not None and row["player_id"] == viewer_id,
+    }
+
+
+def list_comments(
+    conn, slug: str, limit: int = 50, *, viewer_id: str | None = None
+) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT c.id, c.player_id, c.body, c.created_at, p.handle "
+        "FROM comments c JOIN players p ON p.id = c.player_id "
+        "WHERE c.slug = ? ORDER BY c.id DESC LIMIT ?",
+        (slug, limit),
+    ).fetchall()
+    return [_comment_to_dict(row, viewer_id) for row in rows]
+
+
+def add_comment(
+    conn, slug: str, player_id: str, body: Any, *, rate_limit_seconds: float = 15.0
+) -> dict[str, Any]:
+    """Add a comment, rejecting empty/oversized text and rapid repeat posts."""
+    text = str(body or "").strip()
+    if not text:
+        raise ValueError("comment cannot be empty")
+    if len(text) > COMMENT_MAX_LENGTH:
+        raise ValueError(f"comment must be at most {COMMENT_MAX_LENGTH} characters")
+    if rate_limit_seconds > 0:
+        recent = conn.execute(
+            "SELECT created_at FROM comments WHERE slug = ? AND player_id = ? "
+            "ORDER BY id DESC LIMIT 1",
+            (slug, player_id),
+        ).fetchone()
+        if recent:
+            elapsed = (datetime.now(timezone.utc) - _parse_timestamp(recent["created_at"])).total_seconds()
+            if elapsed < rate_limit_seconds:
+                raise RateLimited(
+                    "you are commenting too quickly", retry_after=rate_limit_seconds - elapsed
+                )
+    cursor = conn.execute(
+        "INSERT INTO comments (slug, player_id, body, created_at) VALUES (?, ?, ?, ?)",
+        (slug, player_id, text, utcnow()),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT c.id, c.player_id, c.body, c.created_at, p.handle "
+        "FROM comments c JOIN players p ON p.id = c.player_id WHERE c.id = ?",
+        (cursor.lastrowid,),
+    ).fetchone()
+    return _comment_to_dict(row, player_id)
+
+
+def delete_comment(conn, comment_id: int, player_id: str) -> bool:
+    cursor = conn.execute(
+        "DELETE FROM comments WHERE id = ? AND player_id = ?", (comment_id, player_id)
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def record_play(conn, slug: str, player_id: str) -> dict[str, int]:
+    conn.execute(
+        "INSERT INTO plays (slug, player_id, created_at) VALUES (?, ?, ?)",
+        (slug, player_id, utcnow()),
+    )
+    conn.commit()
+    return game_play_stats(conn, slug)
+
+
+def game_play_stats(conn, slug: str) -> dict[str, int]:
+    row = conn.execute(
+        "SELECT COUNT(*) AS plays, COUNT(DISTINCT player_id) AS players FROM plays WHERE slug = ?",
+        (slug,),
+    ).fetchone()
+    return {"plays": row["plays"], "players": row["players"]}
+
+
 # ── Matchmaking ─────────────────────────────────────────────────────────────
 
 

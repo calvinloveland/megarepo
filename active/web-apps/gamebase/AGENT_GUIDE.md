@@ -119,6 +119,11 @@ Key methods: `ready`, `player`, `leaderboard(limit)`, `myBest()`,
 `progress`, `unlock(idOrIds)`, `achievements()`, `saveState`, `loadState`,
 `findMatch`, `waitForMatch`, `reportResult`, `on(event, cb)`.
 
+The platform handles community features for you: players rate games 1–5 stars,
+comment, and every launch is counted for the “most played” ranking. The SDK
+exposes `rate`/`rating`, `comments`/`comment`, and `play` if you want to surface
+them in-game.
+
 Events: `ready`, `runended`, `checkpoint`, `unlocked`.
 
 ---

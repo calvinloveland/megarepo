@@ -72,7 +72,12 @@ def _serialize_game(game: dict[str, Any]) -> dict[str, Any]:
         limit=3,
         order=(game["capabilities"].get("leaderboard") or {}).get("order", "desc"),
     )
-    return {**game, "top_scores": top}
+    return {
+        **game,
+        "top_scores": top,
+        "rating": models.game_rating(connection, game["slug"]),
+        "stats": models.game_play_stats(connection, game["slug"]),
+    }
 
 
 def _sse_event(event: str, data: dict[str, Any]) -> str:
@@ -301,6 +306,77 @@ def unlock_achievements(player: dict[str, Any], slug: str):
         return jsonify({"error": "ids must be a non-empty list of strings"}), 400
     result = models.unlock_achievements(get_db(), slug, player["id"], ids)
     return jsonify(result), 201 if result["unlocked"] else 200
+
+
+# ── Community: ratings, comments, plays ─────────────────────────────────────
+
+
+@api_bp.get("/games/<slug>/rating")
+def get_rating(slug: str):
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    player = current_player()
+    return jsonify(models.game_rating(get_db(), slug, player["id"] if player else None))
+
+
+@api_bp.post("/games/<slug>/rating")
+@require_player
+def rate_game(player: dict[str, Any], slug: str):
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    try:
+        result = models.set_rating(get_db(), slug, player["id"], _json_body().get("rating"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    return jsonify(result)
+
+
+@api_bp.get("/games/<slug>/comments")
+def get_comments(slug: str):
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    try:
+        limit = max(1, min(int(request.args.get("limit", 50)), 200))
+    except ValueError:
+        limit = 50
+    player = current_player()
+    comments = models.list_comments(
+        get_db(), slug, limit, viewer_id=player["id"] if player else None
+    )
+    return jsonify({"comments": comments})
+
+
+@api_bp.post("/games/<slug>/comments")
+@require_player
+def post_comment(player: dict[str, Any], slug: str):
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    try:
+        comment = models.add_comment(
+            get_db(),
+            slug,
+            player["id"],
+            _json_body().get("body"),
+            rate_limit_seconds=_settings().comment_rate_limit_seconds,
+        )
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    return jsonify(comment), 201
+
+
+@api_bp.delete("/comments/<int:comment_id>")
+@require_player
+def remove_comment(player: dict[str, Any], comment_id: int):
+    removed = models.delete_comment(get_db(), comment_id, player["id"])
+    return jsonify({"deleted": removed}), (200 if removed else 404)
+
+
+@api_bp.post("/games/<slug>/play")
+@require_player
+def record_play(player: dict[str, Any], slug: str):
+    if _require_game(slug) is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    return jsonify(models.record_play(get_db(), slug, player["id"]))
 
 
 @api_bp.post("/games/<slug>/progress")

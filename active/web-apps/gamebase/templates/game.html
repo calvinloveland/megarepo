@@ -2,6 +2,7 @@
 {% block title %}{{ game.title }} — Gamebase{% endblock %}
 {% block content %}
 {% set board = game.capabilities.leaderboard %}
+<span id="game-meta" data-slug="{{ game.slug }}" data-plays="{{ stats.plays }}" hidden></span>
 <div class="game-layout">
   <div>
     <h1 style="margin: 8px 0 4px;">{{ game.title }}</h1>
@@ -24,9 +25,52 @@
       allow="fullscreen"
     ></iframe>
     <p class="muted small">{{ game.description }}</p>
+
+    <section class="panel community-comments">
+      <h2>Comments</h2>
+      <form data-comment-form data-slug="{{ game.slug }}">
+        <textarea name="body" maxlength="500" placeholder="Share a tip, a high score, or a bug…" required></textarea>
+        <div class="tag-row" style="margin-top: 8px; align-items: center;">
+          <button class="btn small" type="submit">Post comment</button>
+          <span class="small muted" id="comment-status"></span>
+        </div>
+      </form>
+      <div id="comments-list">
+        {% for comment in comments %}
+          <div class="comment" data-comment-id="{{ comment.id }}" data-handle="{{ comment.handle }}">
+            <div class="comment-head">
+              <a href="/players/{{ comment.handle }}">{{ comment.handle }}</a>
+              <span class="muted small">{{ comment.created_at }}</span>
+              <button class="comment-delete" data-delete="{{ comment.id }}" hidden>delete</button>
+            </div>
+            <div class="comment-body">{{ comment.body }}</div>
+          </div>
+        {% else %}
+          <p class="empty" id="no-comments">No comments yet — be the first.</p>
+        {% endfor %}
+      </div>
+    </section>
   </div>
 
   <aside class="sidebar">
+    <section class="panel" data-rating-widget data-slug="{{ game.slug }}">
+      <h2>Rate this game</h2>
+      <div class="rating-stars">
+        {% for i in range(1, 6) %}
+          <button class="star-btn{% if rating.your_rating and i <= rating.your_rating %} on{% endif %}"
+                  data-value="{{ i }}" aria-label="{{ i }} star{{ 's' if i > 1 }}">★</button>
+        {% endfor %}
+      </div>
+      <p class="small" style="margin: 8px 0 0;">
+        <span id="rating-average">{{ '%.1f'|format(rating.average) }}</span> / 5 ·
+        <span id="rating-count">{{ rating.count }}</span> rating{{ '' if rating.count == 1 else 's' }}
+        <span class="muted" id="rating-yours">{% if rating.your_rating %}· you rated {{ rating.your_rating }}{% endif %}</span>
+      </p>
+      <p class="muted small play-stat" style="margin: 6px 0 0;">
+        {{ stats.plays }} play{{ '' if stats.plays == 1 else 's' }} · {{ stats.players }} player{{ '' if stats.players == 1 else 's' }}
+      </p>
+    </section>
+
     {% if board %}
     <section class="panel">
       <h2>High scores · {{ board.label }}</h2>

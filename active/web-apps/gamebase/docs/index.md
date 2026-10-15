@@ -172,6 +172,9 @@ game on the platform.
 | `mountHud(options?)` | Inject a minimal best/rank/unlock chip; returns `{element, update, remove}`. |
 | `achievements()` | List achievements with unlock state. |
 | `unlock(idOrIds)` | Unlock one or many achievements; resolves to newly unlocked definitions. |
+| `rate(stars)` / `rating()` | Rate a game 1–5 stars and read its average. |
+| `comments(limit?)` / `comment(body)` | Read and post comments. |
+| `play()` | Record a play for the popularity ranking. |
 | `findMatch()` | Join the queue; returns a ticket (may be already matched). |
 | `matchStatus()` | Current ticket. |
 | `waitForMatch({interval, timeout})` | Wait for an opponent via SSE push, polling only as fallback. |
@@ -201,6 +204,12 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | `GET` | `/api/games/<slug>/achievements` | Definitions + unlock state. |
 | `POST` | `/api/games/<slug>/achievements/<id>` | Unlock an achievement. |
 | `POST` | `/api/games/<slug>/achievements` | Batch unlock `{ids: [...]}`. |
+| `GET` | `/api/games/<slug>/rating` | Average, count, and your rating. |
+| `POST` | `/api/games/<slug>/rating` | Rate `{rating: 1-5}` (one per player). |
+| `GET` | `/api/games/<slug>/comments` | Comments, newest first (`is_me` per row). |
+| `POST` | `/api/games/<slug>/comments` | Post `{body}` (auth, rate-limited). |
+| `DELETE` | `/api/comments/<id>` | Delete your own comment. |
+| `POST` | `/api/games/<slug>/play` | Record a play; returns `{plays, players}`. |
 | `GET` | `/api/games/<slug>/state` | Load the player's save blob + quota. |
 | `PUT` | `/api/games/<slug>/state` | Save `{state, revision?, schema_version?}`; 409 on stale revision. |
 | `DELETE` | `/api/games/<slug>/state` | Delete the save blob. |
@@ -325,6 +334,16 @@ game (e.g. call `Gamebase.checkpoint(...)` at a milestone) over expecting
 `Cache-Control: no-cache` and an ETag; cache-busting query strings like `?v=10`
 are revalidation hints and are not part of the ETag.
 
+## Community: ratings, comments, popularity
+
+- **Ratings** — one 1–5 star rating per player per game. The catalog shows the
+  average and count, and the game page has an interactive star widget.
+- **Comments** — plain-text comments (≤ 500 chars) from tagged players, rate
+  limited by `GAMEBASE_COMMENT_RATE_LIMIT`. Authors can delete their own.
+- **Plays** — every game launch is counted (unique players and total plays). The
+  catalog shows `plays ▶` and supports sorting: `?sort=popular`, `?sort=rated`,
+  `?sort=new`, or the default A→Z.
+
 ## Configuration
 
 | Env var | Default | Purpose |
@@ -335,6 +354,7 @@ are revalidation hints and are not part of the ETag.
 | `GAMEBASE_THEME` | `default` | Set to `playful` for the brighter arcade theme in `static/themes/`. |
 | `GAMEBASE_AUTO_RESCAN` | `1` | Resync the catalog when the registry folder changes. |
 | `GAMEBASE_STATE_MAX_BYTES` | `8388608` | Max size of one player save blob (gzipped at rest). |
+| `GAMEBASE_COMMENT_RATE_LIMIT` | `15` | Minimum seconds between a player's comments on one game. |
 | `PORT` | `5120` | Server port (`5121` in the launcher registry). |
 
 ## Running and testing
