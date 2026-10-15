@@ -1,61 +1,67 @@
 slug: checkers
 title: Checkers
-description: >-
-  Standard American checkers (English draughts) against a heuristic AI or a
-  local two-player opponent. Forced captures, multi-jump chains, crowning
-  kings, the forty-move rule, threefold repetition, and no-piece/blocked
-  losses are all enforced. Win = 3 points, draw = 1.
+description: Standard American checkers (English draughts) against a heuristic AI
+  or a local two-player opponent. Forced captures, multi-jump chains, crowning kings,
+  the forty-move rule, threefold repetition, and no-piece/blocked losses are all enforced.
+  Win = 3 points, draw = 1.
 author: gamebase
 version: 1.0.0
 entry: index.html
 tags:
-  - board
-  - strategy
-  - checkers
-  - draughts
-  - ai
+- board
+- strategy
+- checkers
+- draughts
+- ai
+thumbnail: thumbnail.png
+remix_of: null
 capabilities:
   leaderboard:
     order: desc
-    label: Result Points
     min: 0
     max: 3
+    label: Result Points
   achievements:
-    - id: first-game
-      title: Opening Board
-      description: Finish a checkers game.
-      icon: ⚪
-      points: 5
-      criteria: {}
-    - id: champion
-      title: Board Champion
-      description: Win a game of checkers.
-      icon: 🏆
-      points: 25
-      criteria:
-        type: score
-        gte: 3
-    - id: crowned
-      title: Crowned
-      description: Promote a piece to king.
-      icon: 👑
-      points: 10
-      criteria: {}
-    - id: chain
-      title: Chain Reaction
-      description: Complete a jump chain of three or more captures.
-      icon: ⛓
-      points: 20
-      criteria:
-        type: meta
-        key: bestChain
-        gte: 3
-    - id: stalemate-artist
-      title: Even Match
-      description: Draw a game of checkers.
-      icon: 🤝
-      points: 15
-      criteria:
-        type: meta
-        key: result
-        eq: draw
+  - id: first-game
+    title: Opening Board
+    description: Finish a checkers game.
+    icon: ⚪
+    points: 5
+    hidden: false
+    criteria: {}
+  - id: champion
+    title: Board Champion
+    description: Win a game of checkers.
+    icon: 🏆
+    points: 25
+    hidden: false
+    criteria:
+      type: score
+      gte: 3
+  - id: crowned
+    title: Crowned
+    description: Promote a piece to king.
+    icon: 👑
+    points: 10
+    hidden: false
+    criteria: {}
+  - id: chain
+    title: Chain Reaction
+    description: Complete a jump chain of three or more captures.
+    icon: ⛓
+    points: 20
+    hidden: false
+    criteria:
+      type: meta
+      key: bestChain
+      gte: 3
+  - id: stalemate-artist
+    title: Even Match
+    description: Draw a game of checkers.
+    icon: 🤝
+    points: 15
+    hidden: false
+    criteria:
+      type: meta
+      key: result
+      eq: draw

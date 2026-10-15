@@ -64,6 +64,7 @@ author: gamebase
 version: 1.0.0
 entry: index.html          # served at /play/<slug>/
 tags: [multiplayer, reflex]
+thumbnail: thumbnail.png   # preview image shown on the catalog card
 capabilities:
   leaderboard:
     order: asc             # asc = lower is better

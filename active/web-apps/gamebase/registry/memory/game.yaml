@@ -1,57 +1,64 @@
 slug: memory
 title: Memory Match
-description: >-
-  Flip cards to find matching pairs. Fewer moves and a faster finish mean a
-  higher score, so remember what you have already seen. Clear the board to
-  post your best run.
+description: Flip cards to find matching pairs. Fewer moves and a faster finish mean
+  a higher score, so remember what you have already seen. Clear the board to post
+  your best run.
 author: gamebase
 version: 1.0.0
 entry: index.html
 tags:
-  - memory
-  - puzzle
-  - classic
+- memory
+- puzzle
+- classic
+thumbnail: thumbnail.png
+remix_of: null
 capabilities:
   leaderboard:
     order: desc
-    label: Score
     min: 0
+    max: null
+    label: Score
   achievements:
-    - id: first-clear
-      title: First Clear
-      description: Match every pair and clear the board.
-      icon: 🏁
-      points: 10
-      criteria: {}
-    - id: efficient
-      title: Sharp Eye
-      description: Clear the board in 12 moves or fewer.
-      icon: 👁
-      points: 25
-      criteria:
-        type: meta
-        key: moves
-        lte: 12
-    - id: swift
-      title: Swift
-      description: Clear the board in 30 seconds or less.
-      icon: ⚡
-      points: 25
-      criteria:
-        type: meta
-        key: seconds
-        lte: 30
-    - id: score-700
-      title: Master Mind
-      description: Score 700 points or more.
-      icon: 💯
-      points: 20
-      criteria:
-        type: score
-        gte: 700
-    - id: flawless
-      title: Flawless
-      description: Clear the board with no mismatched pairs.
-      icon: 🌟
-      points: 50
-      criteria: {}
+  - id: first-clear
+    title: First Clear
+    description: Match every pair and clear the board.
+    icon: 🏁
+    points: 10
+    hidden: false
+    criteria: {}
+  - id: efficient
+    title: Sharp Eye
+    description: Clear the board in 12 moves or fewer.
+    icon: 👁
+    points: 25
+    hidden: false
+    criteria:
+      type: meta
+      key: moves
+      lte: 12
+  - id: swift
+    title: Swift
+    description: Clear the board in 30 seconds or less.
+    icon: ⚡
+    points: 25
+    hidden: false
+    criteria:
+      type: meta
+      key: seconds
+      lte: 30
+  - id: score-700
+    title: Master Mind
+    description: Score 700 points or more.
+    icon: 💯
+    points: 20
+    hidden: false
+    criteria:
+      type: score
+      gte: 700
+  - id: flawless
+    title: Flawless
+    description: Clear the board with no mismatched pairs.
+    icon: 🌟
+    points: 50
+    hidden: false
+    criteria: {}

@@ -1,57 +1,64 @@
 slug: simon
 title: Simon
-description: >-
-  Watch the four pads light up, then repeat the sequence. Each round adds one
-  more step, so the pattern grows until your memory gives out. Score is the
-  round you reach.
+description: Watch the four pads light up, then repeat the sequence. Each round adds
+  one more step, so the pattern grows until your memory gives out. Score is the round
+  you reach.
 author: gamebase
 version: 1.0.0
 entry: index.html
 tags:
-  - memory
-  - classic
-  - simon
+- memory
+- classic
+- simon
+thumbnail: thumbnail.png
+remix_of: null
 capabilities:
   leaderboard:
     order: desc
-    label: Score
     min: 0
+    max: null
+    label: Score
   achievements:
-    - id: first-round
-      title: Warming Up
-      description: Complete your first round.
-      icon: 🎵
-      points: 5
-      criteria: {}
-    - id: round-5
-      title: Five Steps
-      description: Reach round 5.
-      icon: 5️⃣
-      points: 20
-      criteria:
-        type: meta
-        key: round
-        gte: 5
-    - id: round-10
-      title: Perfect Memory
-      description: Reach round 10.
-      icon: 🧠
-      points: 40
-      criteria:
-        type: meta
-        key: round
-        gte: 10
-    - id: score-1000
-      title: Grand Master
-      description: Score 1,000 points.
-      icon: 👑
-      points: 30
-      criteria:
-        type: score
-        gte: 1000
-    - id: endurance
-      title: Endurance
-      description: Reach round 15 in a single run.
-      icon: 🏆
-      points: 60
-      criteria: {}
+  - id: first-round
+    title: Warming Up
+    description: Complete your first round.
+    icon: 🎵
+    points: 5
+    hidden: false
+    criteria: {}
+  - id: round-5
+    title: Five Steps
+    description: Reach round 5.
+    icon: 5️⃣
+    points: 20
+    hidden: false
+    criteria:
+      type: meta
+      key: round
+      gte: 5
+  - id: round-10
+    title: Perfect Memory
+    description: Reach round 10.
+    icon: 🧠
+    points: 40
+    hidden: false
+    criteria:
+      type: meta
+      key: round
+      gte: 10
+  - id: score-1000
+    title: Grand Master
+    description: Score 1,000 points.
+    icon: 👑
+    points: 30
+    hidden: false
+    criteria:
+      type: score
+      gte: 1000
+  - id: endurance
+    title: Endurance
+    description: Reach round 15 in a single run.
+    icon: 🏆
+    points: 60
+    hidden: false
+    criteria: {}

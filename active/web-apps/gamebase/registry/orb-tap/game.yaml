@@ -5,34 +5,41 @@ author: gamebase
 version: 1.0.0
 entry: index.html
 tags:
-  - arcade
-  - clicker
+- arcade
+- clicker
+thumbnail: thumbnail.png
+remix_of: null
 capabilities:
   leaderboard:
     order: desc
+    min: null
+    max: null
     label: Score
   achievements:
-    - id: first-point
-      title: First Point
-      description: Score your first point.
-      icon: ⭐
-      points: 5
-      criteria:
-        type: score
-        gte: 1
-    - id: century
-      title: Century
-      description: Reach a score of 100.
-      icon: 💯
-      points: 20
-      criteria:
-        type: score
-        gte: 100
-    - id: persistent
-      title: Persistent
-      description: Submit 25 scores.
-      icon: 🔁
-      points: 15
-      criteria:
-        type: count
-        gte: 25
+  - id: first-point
+    title: First Point
+    description: Score your first point.
+    icon: ⭐
+    points: 5
+    hidden: false
+    criteria:
+      type: score
+      gte: 1
+  - id: century
+    title: Century
+    description: Reach a score of 100.
+    icon: 💯
+    points: 20
+    hidden: false
+    criteria:
+      type: score
+      gte: 100
+  - id: persistent
+    title: Persistent
+    description: Submit 25 scores.
+    icon: 🔁
+    points: 15
+    hidden: false
+    criteria:
+      type: count
+      gte: 25

@@ -45,6 +45,7 @@ author: your-tag
 version: 1.0.0
 entry: index.html             # served at /play/<slug>/
 tags: [arcade, action]
+thumbnail: thumbnail.png      # shown on the catalog card (any image in the folder)
 capabilities:
   leaderboard:
     order: desc               # desc = higher is better (default); asc = lower is better
@@ -152,6 +153,8 @@ The declared `entry` file is required. Paths must be relative (no `..`).
 
 - Self-contained: `index.html` plus your JS/CSS. No build tooling at runtime.
 - Absolute `/sdk/gamebase.js` and relative asset paths both work.
+- Add a square-ish preview image (`thumbnail.png`, ~16:10) next to the game and
+  set `thumbnail: thumbnail.png` in the manifest so the catalog shows it.
 - The game runs in a sandboxed iframe with an HTML canvas or DOM; mobile-friendly
   and keyboard-friendly is best.
 - To find `my-best` outside the top 100, use `Gamebase.myBest()` — do not scan

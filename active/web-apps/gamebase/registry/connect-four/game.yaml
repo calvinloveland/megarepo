@@ -1,51 +1,55 @@
 slug: connect-four
 title: Connect Four
-description: >-
-  Drop discs and line up four in a row on the classic 7x6 grid. Play a
-  minimax AI (depth 5) or a local two-player opponent. Win = 3 points,
-  draw = 1.
+description: Drop discs and line up four in a row on the classic 7x6 grid. Play a
+  minimax AI (depth 5) or a local two-player opponent. Win = 3 points, draw = 1.
 author: gamebase
 version: 1.0.0
 entry: index.html
 tags:
-  - board
-  - strategy
-  - connect-four
-  - ai
-  - classic
+- board
+- strategy
+- connect-four
+- ai
+- classic
+thumbnail: thumbnail.png
+remix_of: null
 capabilities:
   leaderboard:
     order: desc
-    label: Result Points
     min: 0
     max: 3
+    label: Result Points
   achievements:
-    - id: first-game
-      title: First Drop
-      description: Finish a game of Connect Four.
-      icon: ⚪
-      points: 5
-      criteria: {}
-    - id: champion
-      title: Four in a Row
-      description: Win a game of Connect Four.
-      icon: 🏆
-      points: 20
-      criteria:
-        type: score
-        gte: 3
-    - id: blitz
-      title: Blitz
-      description: Win in 14 moves or fewer.
-      icon: ⚡
-      points: 20
-      criteria:
-        type: meta
-        key: moves
-        lte: 14
-    - id: diagonal
-      title: Diagonal Dandy
-      description: Win with a diagonal line of four.
-      icon: 📐
-      points: 20
-      criteria: {}
+  - id: first-game
+    title: First Drop
+    description: Finish a game of Connect Four.
+    icon: ⚪
+    points: 5
+    hidden: false
+    criteria: {}
+  - id: champion
+    title: Four in a Row
+    description: Win a game of Connect Four.
+    icon: 🏆
+    points: 20
+    hidden: false
+    criteria:
+      type: score
+      gte: 3
+  - id: blitz
+    title: Blitz
+    description: Win in 14 moves or fewer.
+    icon: ⚡
+    points: 20
+    hidden: false
+    criteria:
+      type: meta
+      key: moves
+      lte: 14
+  - id: diagonal
+    title: Diagonal Dandy
+    description: Win with a diagonal line of four.
+    icon: 📐
+    points: 20
+    hidden: false
+    criteria: {}
