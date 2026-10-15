@@ -1,113 +1,14 @@
-/* Platform-side UI: tag gate, ratings, comments, plays, remix/rescan. */
+/* Platform-side UI: tag gate, identity chip, ratings, comments, plays, remix. */
 (() => {
-  const TOKEN_KEY = "gamebase.token";
-  let identityPromise = null;
+  let sessionPromise = null;
   let myHandle = null;
 
-  function token() {
-    try { return localStorage.getItem(TOKEN_KEY); } catch (error) { return null; }
-  }
-
-  function storeToken(value) {
-    try { localStorage.setItem(TOKEN_KEY, value); } catch (error) { /* ignore */ }
-  }
-
-  async function createIdentity(handle) {
-    const response = await fetch("/api/identity", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(handle ? { handle: handle } : {}),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      const error = new Error(data.error || "could not create identity");
-      error.status = response.status;
-      throw error;
-    }
-    storeToken(data.token);
-    return data.token;
-  }
-
-  // ── Arcade tag gate ──────────────────────────────────────────────────────
-
-  function promptForTag() {
-    return new Promise((resolve, reject) => {
-      const gate = document.getElementById("tag-gate");
-      if (!gate) { createIdentity().then(resolve, reject); return; }
-
-      const inputs = Array.from(gate.querySelectorAll(".tag-slot"));
-      const hint = gate.querySelector("#tag-hint");
-      const submit = gate.querySelector("#tag-submit");
-      const randomButton = gate.querySelector("#tag-random");
-      const value = () => inputs.map((input) => input.value.toUpperCase()).join("");
-      let busy = false;
-
-      async function submitTag() {
-        if (busy) return;
-        const tag = value();
-        if (tag.length !== 3) { hint.textContent = "Enter 3 characters"; return; }
-        busy = true;
-        submit.disabled = true;
-        hint.textContent = "Connecting…";
-        try {
-          const created = await createIdentity(tag);
-          gate.hidden = true;
-          resolve(created);
-        } catch (error) {
-          busy = false;
-          submit.disabled = false;
-          hint.textContent = error.status === 409 ? "Tag in use — try another" : (error.message || "Error");
-          gate.classList.add("shake");
-          setTimeout(() => gate.classList.remove("shake"), 400);
-          inputs.forEach((input) => { input.value = ""; });
-          inputs[0].focus();
-        }
-      }
-
-      inputs.forEach((input, index) => {
-        input.addEventListener("input", () => {
-          input.value = input.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 1);
-          if (input.value && index < inputs.length - 1) inputs[index + 1].focus();
-          if (value().length === 3) submitTag();
-        });
-        input.addEventListener("keydown", (event) => {
-          if (event.key === "Backspace" && !input.value && index > 0) {
-            inputs[index - 1].focus();
-            inputs[index - 1].value = "";
-          } else if (event.key === "Enter") {
-            submitTag();
-          }
-        });
-      });
-
-      submit.addEventListener("click", submitTag);
-      if (randomButton) {
-        randomButton.addEventListener("click", () => {
-          const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-          inputs.forEach((input) => { input.value = chars[Math.floor(Math.random() * chars.length)]; });
-          submitTag();
-        });
-      }
-      gate.hidden = false;
-      inputs[0].focus();
-    });
-  }
-
-  function ensureIdentity() {
-    if (token()) return Promise.resolve(token());
-    if (!identityPromise) identityPromise = promptForTag();
-    return identityPromise;
-  }
-
-  async function api(path, options) {
-    const authToken = await ensureIdentity();
+  async function fetchJson(path, options) {
     const opts = options || {};
     const response = await fetch(path, {
       method: opts.method || "GET",
-      headers: Object.assign(
-        { "Content-Type": "application/json", Authorization: "Bearer " + authToken },
-        opts.headers || {}
-      ),
+      headers: Object.assign({ "Content-Type": "application/json" }, opts.headers || {}),
+      credentials: "same-origin",
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
     const data = await response.json().catch(() => ({}));
@@ -119,7 +20,154 @@
     return data;
   }
 
-  // ── Game loading + play count ────────────────────────────────────────────
+  async function api(path, options) {
+    await ensureIdentity();
+    return fetchJson(path, options);
+  }
+
+  // ── Identity (httpOnly cookie) ───────────────────────────────────────────
+
+  async function createIdentity(handle) {
+    return fetchJson("/api/identity", {
+      method: "POST",
+      body: handle ? { handle: handle } : {},
+    });
+  }
+
+  function setBackgroundInert(value) {
+    ["header.site-header", "main", "footer.site-footer"].forEach((selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return;
+      if (value) element.setAttribute("inert", "");
+      else element.removeAttribute("inert");
+    });
+  }
+
+  function promptForTag() {
+    return new Promise((resolve, reject) => {
+      const gate = document.getElementById("tag-gate");
+      if (!gate) { createIdentity().then((data) => resolve(data.player), reject); return; }
+
+      const inputs = Array.from(gate.querySelectorAll(".tag-slot"));
+      const hint = gate.querySelector("#tag-hint");
+      const submit = gate.querySelector("#tag-submit");
+      const randomButton = gate.querySelector("#tag-random");
+      const guestButton = gate.querySelector("#tag-guest");
+      const value = () => inputs.map((input) => input.value.toUpperCase()).join("");
+      let busy = false;
+
+      function close() {
+        gate.hidden = true;
+        gate.removeEventListener("keydown", onKey);
+        setBackgroundInert(false);
+      }
+
+      async function makeIdentity(handle) {
+        if (busy) return;
+        if (handle === undefined && value().length !== 3) {
+          hint.textContent = "Enter 3 characters";
+          return;
+        }
+        busy = true;
+        submit.disabled = true;
+        hint.textContent = "Connecting…";
+        try {
+          const data = await createIdentity(handle);
+          close();
+          resolve(data.player);
+        } catch (error) {
+          busy = false;
+          submit.disabled = false;
+          hint.textContent = error.status === 409 ? "Tag in use — try another" : (error.message || "Error");
+          gate.classList.add("shake");
+          setTimeout(() => gate.classList.remove("shake"), 400);
+          inputs.forEach((input) => { input.value = ""; });
+          inputs[0].focus();
+        }
+      }
+
+      function onKey(event) {
+        if (event.key === "Escape") { event.preventDefault(); makeIdentity(null); return; }
+        if (event.key !== "Tab") return;
+        const focusable = Array.from(gate.querySelectorAll("input, button")).filter((el) => !el.disabled);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+
+      inputs.forEach((input, index) => {
+        input.addEventListener("input", () => {
+          input.value = input.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 1);
+          if (input.value && index < inputs.length - 1) inputs[index + 1].focus();
+          if (value().length === 3) makeIdentity();
+        });
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Backspace" && !input.value && index > 0) {
+            inputs[index - 1].focus();
+            inputs[index - 1].value = "";
+          } else if (event.key === "Enter") {
+            makeIdentity();
+          }
+        });
+      });
+
+      submit.addEventListener("click", () => makeIdentity());
+      guestButton.addEventListener("click", () => makeIdentity(null));
+      randomButton.addEventListener("click", () => {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        inputs.forEach((input) => { input.value = chars[Math.floor(Math.random() * chars.length)]; });
+        makeIdentity();
+      });
+
+      gate.hidden = false;
+      setBackgroundInert(true);
+      gate.addEventListener("keydown", onKey);
+      inputs[0].focus();
+    });
+  }
+
+  function ensureIdentity() {
+    if (!sessionPromise) {
+      sessionPromise = fetchJson("/api/session")
+        .then((data) => (data.authenticated ? data.player : promptForTag()))
+        .catch(() => promptForTag());
+    }
+    return sessionPromise;
+  }
+
+  function renderIdentityChip(player) {
+    const chip = document.getElementById("identity-chip");
+    const panel = document.getElementById("identity-panel");
+    if (!chip || !player) return;
+    myHandle = player.handle;
+    chip.hidden = false;
+    chip.textContent = player.handle;
+
+    chip.addEventListener("click", async () => {
+      const opening = panel.hidden;
+      panel.hidden = !opening;
+      chip.setAttribute("aria-expanded", String(opening));
+      if (!opening) return;
+      try {
+        const { code } = await fetchJson("/api/me/recovery");
+        document.getElementById("identity-recovery").textContent = code;
+      } catch (error) {
+        document.getElementById("identity-recovery").textContent = "unavailable";
+      }
+    });
+
+    const logout = document.getElementById("identity-logout");
+    if (logout) {
+      logout.addEventListener("click", async () => {
+        try { await fetchJson("/api/logout", { method: "POST" }); } catch (error) { /* ignore */ }
+        window.location.reload();
+      });
+    }
+  }
+
+  // ── Game loading ─────────────────────────────────────────────────────────
 
   function startGames() {
     document.querySelectorAll("iframe[data-src]").forEach((frame) => {
@@ -127,23 +175,13 @@
     });
   }
 
-  async function recordPlay() {
-    const meta = document.getElementById("game-meta");
-    if (!meta) return;
-    try {
-      const stats = await api(`/api/games/${meta.dataset.slug}/play`, { method: "POST" });
-      const panel = document.querySelector("[data-rating-widget] .play-stat");
-      if (panel && stats) panel.textContent = `${stats.plays} play${stats.plays === 1 ? "" : "s"} · ${stats.players} player${stats.players === 1 ? "" : "s"}`;
-    } catch (error) {
-      /* play counting is best-effort */
-    }
-  }
-
   // ── Ratings ──────────────────────────────────────────────────────────────
 
   function paintStars(panel, value) {
     panel.querySelectorAll(".star-btn").forEach((button, index) => {
-      button.classList.toggle("on", index < value);
+      const selected = index < value;
+      button.classList.toggle("on", selected);
+      button.setAttribute("aria-checked", String(selected));
     });
   }
 
@@ -192,7 +230,7 @@
     who.textContent = comment.handle;
     const when = document.createElement("span");
     when.className = "muted small";
-    when.textContent = comment.created_at;
+    when.textContent = comment.created_at_human || comment.created_at;
     const remove = document.createElement("button");
     remove.className = "comment-delete";
     remove.dataset.delete = comment.id;
@@ -259,15 +297,10 @@
       }
     });
 
-    api("/api/me")
-      .then((me) => {
-        myHandle = me.player && me.player.handle;
-        wireDeleteButtons(list);
-      })
-      .catch(() => {});
+    wireDeleteButtons(list);
   }
 
-  // ── Remix / rescan / copy ────────────────────────────────────────────────
+  // ── Remix / rescan / copy / search ───────────────────────────────────────
 
   async function remix(slug, newSlug) {
     return api(`/api/games/${slug}/remix`, { method: "POST", body: { new_slug: newSlug } });
@@ -275,11 +308,11 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     ensureIdentity()
-      .then(() => {
+      .then((player) => {
+        renderIdentityChip(player);
         startGames();
         initRating();
         initComments();
-        recordPlay();
       })
       .catch((error) => console.error("[gamebase] identity unavailable", error));
   });
@@ -341,22 +374,30 @@
       if (!target) return;
       try {
         await navigator.clipboard.writeText(target.textContent.trim());
+        const original = button.textContent;
         button.textContent = "Copied!";
-        setTimeout(() => { button.textContent = "Copy"; }, 1500);
+        setTimeout(() => { button.textContent = original; }, 1500);
       } catch (error) {
         console.error("[gamebase] copy failed", error);
       }
     });
   });
 
+  const search = document.getElementById("catalog-search");
+  if (search) {
+    search.addEventListener("input", () => {
+      const query = search.value.trim().toLowerCase();
+      document.querySelectorAll(".grid .card").forEach((card) => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = !query || text.includes(query) ? "" : "none";
+      });
+    });
+  }
+
   document.querySelectorAll("[data-achievements]").forEach(async (panel) => {
     try {
-      const authToken = await ensureIdentity();
-      const response = await fetch(`/api/games/${panel.dataset.achievements}/achievements`, {
-        headers: { Authorization: "Bearer " + authToken },
-      });
-      if (!response.ok) return;
-      const data = await response.json();
+      await ensureIdentity();
+      const data = await fetchJson(`/api/games/${panel.dataset.achievements}/achievements`);
       data.achievements
         .filter((achievement) => achievement.unlocked)
         .forEach((achievement) => {

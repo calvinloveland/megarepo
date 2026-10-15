@@ -146,7 +146,10 @@ def player_for_recovery(conn, code: str) -> dict[str, Any] | None:
     secret = normalize_recovery_code(code)
     if not secret:
         return None
-    row = conn.execute("SELECT * FROM players WHERE recovery_secret = ?", (secret,)).fetchone()
+    row = conn.execute(
+        "SELECT id, handle, is_guest, created_at, last_seen FROM players WHERE recovery_secret = ?",
+        (secret,),
+    ).fetchone()
     return dict(row) if row else None
 
 
@@ -161,11 +164,17 @@ def create_session(conn, player_id: str) -> str:
     return token
 
 
+def delete_session(conn, token: str) -> None:
+    conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+    conn.commit()
+
+
 def player_for_token(conn, token: str | None) -> dict[str, Any] | None:
     if not token:
         return None
     row = conn.execute(
-        "SELECT p.* FROM sessions s JOIN players p ON p.id = s.player_id WHERE s.token = ?",
+        "SELECT p.id, p.handle, p.is_guest, p.created_at, p.last_seen "
+        "FROM sessions s JOIN players p ON p.id = s.player_id WHERE s.token = ?",
         (token,),
     ).fetchone()
     if row is None:
@@ -177,12 +186,16 @@ def player_for_token(conn, token: str | None) -> dict[str, Any] | None:
 
 
 def get_player(conn, player_id: str) -> dict[str, Any] | None:
-    row = conn.execute("SELECT * FROM players WHERE id = ?", (player_id,)).fetchone()
+    row = conn.execute(
+        "SELECT id, handle, is_guest, created_at, last_seen FROM players WHERE id = ?", (player_id,)
+    ).fetchone()
     return dict(row) if row else None
 
 
 def get_player_by_handle(conn, handle: str) -> dict[str, Any] | None:
-    row = conn.execute("SELECT * FROM players WHERE handle = ?", (handle,)).fetchone()
+    row = conn.execute(
+        "SELECT id, handle, is_guest, created_at, last_seen FROM players WHERE handle = ?", (handle,)
+    ).fetchone()
     return dict(row) if row else None
 
 
@@ -238,8 +251,30 @@ def sync_registry(conn, registry_dir: Path) -> dict[str, Manifest]:
             (manifest.slug, manifest.version, "Initial publish", _dumps(manifest.to_dict()), timestamp),
         )
         _sync_achievements(conn, manifest)
+
+    # Drop games whose folder is gone so the catalog cannot show phantom entries.
+    if registry_dir.exists():
+        stale = {
+            row["slug"] for row in conn.execute("SELECT slug FROM games")
+        } - set(manifests)
+        for slug in stale:
+            for table in ("scores", "achievements", "player_achievements", "ratings", "comments", "plays", "tickets", "matches"):
+                conn.execute(f"DELETE FROM {table} WHERE slug = ?", (slug,))
+            conn.execute("DELETE FROM games WHERE slug = ?", (slug,))
     conn.commit()
     return manifests
+
+
+def game_owner(conn, slug: str) -> str | None:
+    row = conn.execute("SELECT owner_id FROM games WHERE slug = ?", (slug,)).fetchone()
+    return row["owner_id"] if row else None
+
+
+def set_game_owner(conn, slug: str, player_id: str) -> None:
+    conn.execute(
+        "UPDATE games SET owner_id = ? WHERE slug = ? AND owner_id IS NULL", (player_id, slug)
+    )
+    conn.commit()
 
 
 def _sync_achievements(conn, manifest: Manifest) -> None:
@@ -554,6 +589,15 @@ def _criteria_satisfied(
       submissions — not farmable by resubmitting the same progress.
     """
     kind = criteria.get("type")
+    if kind == "all":
+        conditions = criteria.get("all")
+        if not isinstance(conditions, list) or not conditions:
+            return False
+        return all(
+            isinstance(condition, dict)
+            and _criteria_satisfied(condition, score, submission_count, meta, distinct_counts)
+            for condition in conditions
+        )
     if kind == "score":
         if "gte" in criteria:
             return score >= float(criteria["gte"])
@@ -672,16 +716,21 @@ def evaluate_progress_achievements(
 def unlock_achievements(
     conn, slug: str, player_id: str, achievement_ids: list[str]
 ) -> dict[str, list]:
-    """Unlock several achievements at once, returning newly and already unlocked."""
+    """Unlock several achievements at once, ignoring ids that do not exist."""
     newly: list[dict[str, Any]] = []
     already: list[str] = []
+    unknown: list[str] = []
     for achievement_id in achievement_ids:
-        unlocked = unlock_achievement(conn, slug, player_id, achievement_id)
+        try:
+            unlocked = unlock_achievement(conn, slug, player_id, achievement_id)
+        except NotFound:
+            unknown.append(achievement_id)
+            continue
         if unlocked:
             newly.append(unlocked)
         else:
             already.append(achievement_id)
-    return {"unlocked": newly, "already_unlocked": already}
+    return {"unlocked": newly, "already_unlocked": already, "unknown": unknown}
 
 
 def player_achievements(conn, player_id: str) -> list[dict[str, Any]]:
@@ -827,12 +876,30 @@ def game_rating(conn, slug: str, viewer_id: str | None = None) -> dict[str, Any]
     return {"average": average, "count": row["count"], "your_rating": your_rating}
 
 
+def _humanize(iso_timestamp: str) -> str:
+    try:
+        then = _parse_timestamp(iso_timestamp)
+    except ValueError:
+        return iso_timestamp
+    seconds = (datetime.now(timezone.utc) - then).total_seconds()
+    if seconds < 60:
+        return "just now"
+    if seconds < 3600:
+        return f"{int(seconds // 60)}m ago"
+    if seconds < 86400:
+        return f"{int(seconds // 3600)}h ago"
+    if seconds < 7 * 86400:
+        return f"{int(seconds // 86400)}d ago"
+    return then.strftime("%Y-%m-%d")
+
+
 def _comment_to_dict(row, viewer_id: str | None = None) -> dict[str, Any]:
     return {
         "id": row["id"],
         "handle": row["handle"],
         "body": row["body"],
         "created_at": row["created_at"],
+        "created_at_human": _humanize(row["created_at"]),
         "is_me": viewer_id is not None and row["player_id"] == viewer_id,
     }
 
@@ -906,6 +973,26 @@ def game_play_stats(conn, slug: str) -> dict[str, int]:
         (slug,),
     ).fetchone()
     return {"plays": row["plays"], "players": row["players"]}
+
+
+def player_ratings(conn, player_id: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT r.slug, r.rating, r.updated_at, g.title FROM ratings r "
+        "LEFT JOIN games g ON g.slug = r.slug WHERE r.player_id = ? "
+        "ORDER BY r.updated_at DESC",
+        (player_id,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def player_comments(conn, player_id: str) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT c.slug, c.body, c.created_at, g.title FROM comments c "
+        "LEFT JOIN games g ON g.slug = c.slug WHERE c.player_id = ? "
+        "ORDER BY c.id DESC LIMIT 50",
+        (player_id,),
+    ).fetchall()
+    return [{**dict(row), "created_at_human": _humanize(row["created_at"])} for row in rows]
 
 
 # ── Matchmaking ─────────────────────────────────────────────────────────────

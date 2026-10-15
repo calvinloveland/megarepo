@@ -94,6 +94,8 @@ def player_page(handle: str):
         player=player,
         achievements=models.player_achievements(connection, player["id"]),
         points=models.achievement_points(connection, player["id"]),
+        ratings=models.player_ratings(connection, player["id"]),
+        comments=models.player_comments(connection, player["id"]),
     )
 
 

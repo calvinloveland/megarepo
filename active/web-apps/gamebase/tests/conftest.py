@@ -66,6 +66,18 @@ capabilities:
         type: distinct
         key: year
         gte: 3
+    - id: combo
+      title: Combo
+      points: 6
+      criteria:
+        type: all
+        all:
+          - type: meta
+            key: result
+            eq: win
+          - type: meta
+            key: level
+            gte: 5
     - id: secret
       title: Secret
       hidden: true

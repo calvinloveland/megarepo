@@ -8,6 +8,8 @@ talking to them directly.
 from __future__ import annotations
 
 import json
+import os
+import re
 import time
 from functools import wraps
 from typing import Any, Callable
@@ -19,6 +21,9 @@ from .app import get_db
 from .config import Settings
 
 api_bp = Blueprint("api", __name__)
+
+HANDLE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,24}$")
+SESSION_COOKIE = "gamebase_token"
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -40,7 +45,33 @@ def _token_from_request() -> str | None:
     explicit = request.headers.get("X-Gamebase-Token")
     if explicit:
         return explicit.strip()
+    cookie = request.cookies.get(SESSION_COOKIE)
+    if cookie:
+        return cookie
     return _json_body().get("token")
+
+
+def _is_https() -> bool:
+    forwarded = request.headers.get("X-Forwarded-Proto", "")
+    return request.is_secure or forwarded.split(",")[0].strip() == "https"
+
+
+def _set_session_cookie(response, token: str):
+    """Store the session token in an httpOnly cookie so game JS can't read it."""
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=365 * 24 * 3600,
+        httponly=True,
+        samesite="Lax",
+        secure=_is_https(),
+    )
+    return response
+
+
+def _is_admin() -> bool:
+    token = os.environ.get("GAMEBASE_ADMIN_TOKEN")
+    return bool(token) and request.headers.get("X-Admin-Token") == token
 
 
 def current_player() -> dict[str, Any] | None:
@@ -72,12 +103,11 @@ def _serialize_game(game: dict[str, Any]) -> dict[str, Any]:
         limit=3,
         order=(game["capabilities"].get("leaderboard") or {}).get("order", "desc"),
     )
-    return {
-        **game,
-        "top_scores": top,
-        "rating": models.game_rating(connection, game["slug"]),
-        "stats": models.game_play_stats(connection, game["slug"]),
-    }
+    payload = {key: value for key, value in game.items() if key != "owner_id"}
+    payload["top_scores"] = top
+    payload["rating"] = models.game_rating(connection, game["slug"])
+    payload["stats"] = models.game_play_stats(connection, game["slug"])
+    return payload
 
 
 def _sse_event(event: str, data: dict[str, Any]) -> str:
@@ -97,13 +127,34 @@ def create_identity():
         result = models.create_player(get_db(), handle.strip() if handle else None)
     except ValueError as error:
         return jsonify({"error": str(error)}), 409
-    return jsonify(
+    response = jsonify(
         {
             "token": result["token"],
             "player": result["player"],
             "recovery_code": result["recovery_code"],
         }
-    ), 201
+    )
+    _set_session_cookie(response, result["token"])
+    return response, 201
+
+
+@api_bp.get("/session")
+def session_info():
+    """Lightweight auth check for the front end (no 401 noise)."""
+    player = current_player()
+    if player is None:
+        return jsonify({"authenticated": False})
+    return jsonify({"authenticated": True, "player": player})
+
+
+@api_bp.post("/logout")
+def logout():
+    token = _token_from_request()
+    if token:
+        models.delete_session(get_db(), token)
+    response = jsonify({"ok": True})
+    response.delete_cookie(SESSION_COOKIE)
+    return response
 
 
 @api_bp.get("/me/recovery")
@@ -124,7 +175,9 @@ def recover_identity():
     if player is None:
         return jsonify({"error": "invalid recovery code"}), 404
     token = models.create_session(connection, player["id"])
-    return jsonify({"token": token, "player": player})
+    response = jsonify({"token": token, "player": player})
+    _set_session_cookie(response, token)
+    return response
 
 
 @api_bp.get("/me")
@@ -247,13 +300,16 @@ def submit_score(player: dict[str, Any], slug: str):
     if not game["capabilities"].get("leaderboard"):
         return jsonify({"error": "this game does not declare a leaderboard"}), 400
     body = _json_body()
+    meta = body.get("meta") or {}
+    if not isinstance(meta, dict):
+        return jsonify({"error": "meta must be a mapping"}), 400
     try:
         result = models.submit_score(
             get_db(),
             game,
             player["id"],
             body.get("score"),
-            body.get("meta"),
+            meta,
             rate_limit_seconds=_settings().score_rate_limit_seconds,
         )
     except ValueError as error:
@@ -515,9 +571,9 @@ def matchmaking_stream(player: dict[str, Any], slug: str):
     if _require_game(slug) is None:
         return jsonify({"error": f"game not found: {slug}"}), 404
     try:
-        timeout = min(max(float(request.args.get("timeout", 60)), 0), 120)
+        timeout = min(max(float(request.args.get("timeout", 30)), 0), 60)
     except ValueError:
-        timeout = 60.0
+        timeout = 30.0
     player_id = player["id"]
 
     def generate():
@@ -589,6 +645,7 @@ def remix(player: dict[str, Any], slug: str):
     except registry.ManifestError as error:
         return jsonify({"error": str(error)}), 400
     models.sync_registry(get_db(), registry_dir)
+    models.set_game_owner(get_db(), manifest.slug, player["id"])
     models.record_remix(get_db(), slug, manifest.slug, player["id"])
     return jsonify(manifest.to_dict()), 201
 
@@ -596,6 +653,12 @@ def remix(player: dict[str, Any], slug: str):
 @api_bp.post("/games/<slug>/publish")
 @require_player
 def publish(player: dict[str, Any], slug: str):
+    existing = models.get_game(get_db(), slug)
+    if existing is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    owner = existing.get("owner_id")
+    if not _is_admin() and (owner is None or owner != player["id"]):
+        return jsonify({"error": "you do not own this game"}), 403
     registry_dir = _settings().registry_dir
     try:
         manifest = registry.read_manifest(registry_dir / slug)
@@ -628,6 +691,15 @@ def publish_game(player: dict[str, Any]):
 
     slug = manifest_data.get("slug")
     existing = models.get_game(get_db(), slug) if isinstance(slug, str) else None
+    if existing is not None and not _is_admin():
+        owner = existing.get("owner_id")
+        if owner is None:
+            return jsonify(
+                {"error": "this game is managed on disk; push a new slug or use an admin token"}
+            ), 403
+        if owner != player["id"]:
+            return jsonify({"error": "you do not own this game"}), 403
+
     data = dict(manifest_data)
     data.setdefault("author", player["handle"])
     if existing and not data.get("remix_of"):
@@ -636,6 +708,8 @@ def publish_game(player: dict[str, Any]):
 
     saved = registry.save_game(registry_dir, manifest, files, binary=body.get("binary"))
     models.sync_registry(get_db(), registry_dir)
+    if existing is None:
+        models.set_game_owner(get_db(), saved.slug, player["id"])
     changelog = str(body.get("changelog") or ("Update" if existing else "Initial publish"))
     models.record_version(get_db(), saved, changelog)
     return jsonify(saved.to_dict()), (200 if existing else 201)

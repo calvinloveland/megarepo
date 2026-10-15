@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% macro stars(avg) %}<span class="stars-mini" aria-label="{{ '%.1f'|format(avg) }} out of 5">{% for i in range(1, 6) %}<span class="star{% if i <= avg|round(0, 'floor')|int %} on{% endif %}">★</span>{% endfor %}</span>{% endmacro %}
+{% macro stars(avg) %}{% set filled = (avg + 0.5) | int %}<span class="stars-mini" role="img" aria-label="{{ '%.1f'|format(avg) }} out of 5">{% for i in range(1, 6) %}<span class="star{% if i <= filled %} on{% endif %}" aria-hidden="true">★</span>{% endfor %}</span>{% endmacro %}
 {% block title %}Gamebase — Arcade{% endblock %}
 {% block content %}
 <section class="hero">
@@ -8,18 +8,21 @@
     Host, play, and remix browser games with built-in identity, high scores,
     achievements, and matchmaking. Every game is a folder — remix one in a click.
   </p>
-  <div class="tag-row" style="margin-top: 16px;">
-    <button class="btn small secondary" data-rescan>Rescan registry</button>
+  <div class="catalog-controls">
+    <label class="sr-only" for="catalog-search">Search games</label>
+    <input id="catalog-search" type="search" placeholder="Search games…" autocomplete="off" />
+    <nav class="sort-bar" aria-label="Sort games">
+      <span class="muted small">Sort:</span>
+      {% for key, label in sort_options.items() %}
+        <a class="sort-link{% if sort == key %} active{% endif %}"
+           {% if sort == key %}aria-current="true"{% endif %}
+           href="/?sort={{ key }}">{{ label }}</a>
+      {% endfor %}
+    </nav>
   </div>
-  <nav class="sort-bar" aria-label="Sort games">
-    <span class="muted small">Sort:</span>
-    {% for key, label in sort_options.items() %}
-      <a class="sort-link{% if sort == key %} active{% endif %}" href="/?sort={{ key }}">{{ label }}</a>
-    {% endfor %}
-  </nav>
 </section>
 
-<section class="grid">
+<section class="grid" aria-label="Games">
   {% for card in cards %}
     <article class="card">
       {% if card.thumbnail %}
@@ -30,7 +33,7 @@
       <div class="tag-row">
         {% for tag in card.tags %}<span class="pill muted">{{ tag }}</span>{% endfor %}
       </div>
-      <h3><a href="/g/{{ card.slug }}">{{ card.title }}</a></h3>
+      <h2 class="card-title"><a href="/g/{{ card.slug }}">{{ card.title }}</a></h2>
       <p>{{ card.description or "No description yet." }}</p>
       <div class="meta">
         <span>{{ stars(card.rating.average) }} <span class="muted">{{ '%.1f'|format(card.rating.average) }} ({{ card.rating.count }})</span></span>

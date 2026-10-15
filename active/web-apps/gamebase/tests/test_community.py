@@ -28,12 +28,13 @@ def test_rating_aggregates_and_updates(client):
     assert updated["your_rating"] == 1
 
 
-def test_rating_validation_and_auth(client):
+def test_rating_validation_and_auth(client, app):
     token, _ = create_player(client, handle="CCC")
     for bad in (0, 6, "x", 2.5, True):
         response = client.post(RATING, json={"rating": bad}, headers=auth(token))
         assert response.status_code == 400, bad
-    assert client.post(RATING, json={"rating": 5}).status_code == 401
+    with app.test_client() as anonymous:
+        assert anonymous.post(RATING, json={"rating": 5}).status_code == 401
 
 
 def test_comments_round_trip_and_ownership(client):
@@ -68,14 +69,15 @@ def test_comment_validation_and_rate_limit(client):
     assert "Retry-After" in second.headers
 
 
-def test_plays_are_counted_per_player(client):
+def test_plays_are_counted_per_player(client, app):
     first, _ = create_player(client, handle="AAA")
     second, _ = create_player(client, handle="BBB")
     client.post(PLAY, headers=auth(first))
     client.post(PLAY, headers=auth(first))
     stats = client.post(PLAY, headers=auth(second)).get_json()
     assert stats == {"plays": 3, "players": 2}
-    assert client.post(PLAY).status_code == 401
+    with app.test_client() as anonymous:
+        assert anonymous.post(PLAY).status_code == 401
 
 
 def test_api_games_include_rating_and_stats(client):

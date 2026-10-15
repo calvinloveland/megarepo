@@ -108,6 +108,8 @@ can find the current player without scanning the board.
   `criteria: {type: meta, key: level, gte: 5}`.
 - `criteria.type: distinct` with `key` and `gte` unlocks after N *distinct* values
   of `meta[key]` across submissions — not farmable by periodic re-submits.
+- `criteria.type: all` with `all: [c1, c2, …]` requires every nested condition,
+  e.g. `{type: all, all: [{type: meta, key: result, eq: win}, {type: meta, key: moves, lte: 14}]}`.
 - `criteria: {}` (or omitted) means the game unlocks it manually via the SDK.
 - `hidden: true` hides the achievement until unlocked.
 
@@ -191,6 +193,8 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | Method | Path | Description |
 | --- | --- | --- |
 | `POST` | `/api/identity` | Create a player + token. Optional `{handle}` (a 3-letter tag, uppercased). |
+| `GET` | `/api/session` | `{authenticated, player?}` for the front end. |
+| `POST` | `/api/logout` | Clear the session cookie and revoke the token. |
 | `GET` | `/api/me` | Current player, achievements, points. |
 | `GET` | `/api/me/recovery` | The player's recovery code. |
 | `POST` | `/api/identity/recover` | Adopt a player by `{code}` (new device). |
@@ -301,11 +305,19 @@ port produced.
 - Score submission is rate-limited (`GAMEBASE_SCORE_RATE_LIMIT`, seconds). A 429
   response carries `Retry-After` and `retry_after_seconds`, and the SDK retries
   a submission once when the cooldown is short so a fast run is not lost.
-- **Games are not isolated from each other.** The iframe is same-origin so the
-  SDK and in-game `localStorage` work, which means any published game can read
-  `gamebase.token` and other games' `localStorage` keys. Only publish games you
-  trust; per-game isolation (an opaque-origin iframe with a `postMessage`
-  broker) is future work.
+- **Games are not fully isolated from each other.** The iframe is same-origin so
+  in-game `localStorage` works. The session token is now an **httpOnly cookie**,
+  so game JavaScript cannot read it, but a game you publish can still call the
+  API as the current player. Only publish games you trust; per-game isolation
+  (opaque-origin iframe + `postMessage` broker) remains future work.
+- **Writes are owned.** A game created through the API is owned by the creating
+  player; only that player (or an `X-Admin-Token`) can overwrite it. Games that
+  exist only on disk are treated as operator-managed and rejected by the API.
+- **Inputs are validated at the boundary.** `meta` must be a mapping, manifest
+  numbers (points, matchmaking players, score bounds) must be numeric, handles
+  are length/charset checked, and request bodies are capped by
+  `GAMEBASE_MAX_CONTENT_BYTES`. Deleting a game folder removes it (and its
+  player data) from the catalog on the next rescan.
 
 ## Continuous games and save state
 
@@ -355,6 +367,8 @@ are revalidation hints and are not part of the ETag.
 | `GAMEBASE_AUTO_RESCAN` | `1` | Resync the catalog when the registry folder changes. |
 | `GAMEBASE_STATE_MAX_BYTES` | `8388608` | Max size of one player save blob (gzipped at rest). |
 | `GAMEBASE_COMMENT_RATE_LIMIT` | `15` | Minimum seconds between a player's comments on one game. |
+| `GAMEBASE_MAX_CONTENT_BYTES` | `16777216` | Maximum request body size. |
+| `GAMEBASE_ADMIN_TOKEN` | _(unset)_ | If set, `X-Admin-Token` may edit operator-managed games. |
 | `PORT` | `5120` | Server port (`5121` in the launcher registry). |
 
 ## Running and testing

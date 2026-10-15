@@ -46,9 +46,14 @@ capabilities:
     points: 25
     hidden: false
     criteria:
-      type: meta
-      key: margin
-      gte: 16
+      type: all
+      all:
+        - type: meta
+          key: result
+          eq: win
+        - type: meta
+          key: margin
+          gte: 16
   - id: corner-grab
     title: Corner Stone
     description: Capture a corner square.

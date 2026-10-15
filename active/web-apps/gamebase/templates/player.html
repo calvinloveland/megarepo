@@ -4,16 +4,20 @@
 <section class="hero">
   <h1>{{ player.handle }}</h1>
   <p>
-    {{ achievements|length }} achievements · <span class="stat">{{ points }}</span> points
+    {{ achievements|length }} achievement{{ '' if achievements|length == 1 else 's' }} ·
+    <span class="stat">{{ points }}</span> points ·
+    {{ ratings|length }} rating{{ '' if ratings|length == 1 else 's' }} ·
+    {{ comments|length }} comment{{ '' if comments|length == 1 else 's' }}
     {% if player.is_guest %}· <span class="muted">guest player</span>{% endif %}
   </p>
 </section>
 
+{% if achievements %}
 <section class="grid">
   {% for achievement in achievements %}
     <article class="card">
       <div class="achievement unlocked">
-        <span class="icon">{{ achievement.icon or "🏆" }}</span>
+        <span class="icon" aria-hidden="true">{{ achievement.icon or "🏆" }}</span>
         <span>
           <span class="title">{{ achievement.title or achievement.achievement_id }}</span>
           <span class="desc">{{ achievement.description }}</span>
@@ -21,8 +25,36 @@
       </div>
       <p class="small"><a href="/g/{{ achievement.slug }}">{{ achievement.game_title or achievement.slug }}</a></p>
     </article>
-  {% else %}
-    <p class="empty">No achievements yet. Go <a href="/">play something</a>.</p>
   {% endfor %}
 </section>
+{% else %}
+  <p class="empty">No achievements yet. Go <a href="/">play something</a>.</p>
+{% endif %}
+
+{% if ratings %}
+<section class="panel" style="margin-bottom: 16px;">
+  <h2>Ratings</h2>
+  {% for rating in ratings %}
+    <p class="small" style="margin: 6px 0;">
+      <a href="/g/{{ rating.slug }}">{{ rating.title or rating.slug }}</a>
+      — <span class="stars-mini" role="img" aria-label="{{ rating.rating }} out of 5">{% for i in range(1, 6) %}<span class="star{% if i <= rating.rating %} on{% endif %}" aria-hidden="true">★</span>{% endfor %}</span>
+    </p>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if comments %}
+<section class="panel" style="margin-bottom: 64px;">
+  <h2>Comments</h2>
+  {% for comment in comments %}
+    <div class="comment">
+      <div class="comment-head">
+        <a href="/g/{{ comment.slug }}">{{ comment.title or comment.slug }}</a>
+        <span class="muted small">{{ comment.created_at_human }}</span>
+      </div>
+      <div class="comment-body">{{ comment.body }}</div>
+    </div>
+  {% endfor %}
+</section>
+{% endif %}
 {% endblock %}

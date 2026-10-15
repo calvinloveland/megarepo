@@ -18,6 +18,17 @@
         <a href="/">Arcade</a>
         <a href="/create">Add a game</a>
         <a href="/sdk/gamebase.js">SDK</a>
+        <span class="identity">
+          <button id="identity-chip" class="identity-chip" type="button" hidden aria-expanded="false"></button>
+          <div id="identity-panel" class="identity-panel" hidden>
+            <p class="small muted">Your tag. Save this recovery code to continue on another device:</p>
+            <code id="identity-recovery">…</code>
+            <div class="tag-row" style="margin-top: 8px;">
+              <button class="btn small secondary" type="button" data-copy="#identity-recovery">Copy</button>
+              <button class="btn small secondary" type="button" id="identity-logout">New tag</button>
+            </div>
+          </div>
+        </span>
       </nav>
     </div>
   </header>
@@ -32,22 +43,25 @@
   </main>
 
   <footer class="site-footer">
-    <div class="container">
-      Gamebase — hosting and platform services for AI-created web games.
+    <div class="container footer-row">
+      <span>Gamebase — hosting and platform services for AI-created web games.</span>
+      <button class="btn small secondary" type="button" data-rescan>Rescan registry</button>
     </div>
   </footer>
 
-  <div id="tag-gate" class="tag-gate" hidden>
+  <div id="tag-gate" class="tag-gate" hidden role="dialog" aria-modal="true" aria-labelledby="tag-title" aria-describedby="tag-desc">
     <div class="tag-gate-inner">
-      <div class="tag-gate-title">ENTER YOUR TAG</div>
+      <div class="tag-gate-title" id="tag-title">ENTER YOUR TAG</div>
+      <p class="tag-gate-desc" id="tag-desc">Pick a 3-character tag — it's how you appear on leaderboards and comments.</p>
       <div class="tag-gate-slots">
         <input class="tag-slot" maxlength="1" inputmode="text" autocomplete="off" aria-label="Tag character 1" />
         <input class="tag-slot" maxlength="1" inputmode="text" autocomplete="off" aria-label="Tag character 2" />
         <input class="tag-slot" maxlength="1" inputmode="text" autocomplete="off" aria-label="Tag character 3" />
       </div>
-      <div class="tag-gate-hint" id="tag-hint">3 characters · A–Z / 0–9</div>
+      <div class="tag-gate-hint" id="tag-hint" role="status" aria-live="polite">3 characters · A–Z / 0–9</div>
       <div class="tag-gate-actions">
         <button class="btn" id="tag-submit" type="button">Start</button>
+        <button class="btn secondary" id="tag-guest" type="button">Play as guest</button>
         <button class="btn secondary" id="tag-random" type="button">Random</button>
       </div>
     </div>

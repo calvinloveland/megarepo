@@ -22,7 +22,7 @@ def _submit(client, token, score, meta=None):
     return client.post(SCORES, json=body, headers=auth(token))
 
 
-def test_leaderboard_flags_the_viewing_player(client):
+def test_leaderboard_flags_the_viewing_player(client, app):
     first, _ = create_player(client, handle="viewer-a")
     second, _ = create_player(client, handle="viewer-b")
     _submit(client, first, 10)
@@ -32,8 +32,9 @@ def test_leaderboard_flags_the_viewing_player(client):
     by_handle = {entry["handle"]: entry["is_me"] for entry in board}
     assert by_handle == {"viewer-a": True, "viewer-b": False}
 
-    anonymous = client.get(LEADERBOARD).get_json()["leaderboard"]
-    assert all(entry["is_me"] is False for entry in anonymous)
+    with app.test_client() as anonymous:
+        board = anonymous.get(LEADERBOARD).get_json()["leaderboard"]
+    assert all(entry["is_me"] is False for entry in board)
 
 
 def test_my_best_returns_score_and_rank(client):

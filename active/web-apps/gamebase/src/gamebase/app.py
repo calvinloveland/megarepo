@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from flask import Flask, current_app, g, jsonify, send_file
+from flask import Flask, current_app, g, jsonify, render_template, request, send_file
 
 from . import db, models
 from .config import Settings
@@ -28,6 +28,14 @@ def create_app(settings: Settings | None = None, *, sync_catalog: bool = True) -
     )
     app.config["GAMEBASE"] = settings
     app.config["SECRET_KEY"] = "gamebase-dev-secret"
+    app.config["MAX_CONTENT_LENGTH"] = settings.max_content_bytes
+
+    @app.after_request
+    def _security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        return response
 
     @app.teardown_appcontext
     def _close_db(exception: BaseException | None = None) -> None:
@@ -124,7 +132,21 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(404)
     def _missing(error):
-        return jsonify({"error": "not found"}), 404
+        if request.path.startswith("/api") or "application/json" in request.headers.get("Accept", ""):
+            return jsonify({"error": "not found"}), 404
+        return render_template("error.html", code=404, message="That page does not exist."), 404
+
+    @app.errorhandler(413)
+    def _too_large(error):
+        if request.path.startswith("/api"):
+            return jsonify({"error": "request body too large"}), 413
+        return render_template("error.html", code=413, message="That request was too large."), 413
+
+    @app.errorhandler(500)
+    def _server_error(error):
+        if request.path.startswith("/api"):
+            return jsonify({"error": "internal server error"}), 500
+        return render_template("error.html", code=500, message="Something went wrong."), 500
 
 
 def main() -> None:  # pragma: no cover - thin entrypoint

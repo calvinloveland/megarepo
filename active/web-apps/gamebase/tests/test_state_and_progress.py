@@ -59,12 +59,13 @@ def test_state_size_limit_returns_413(tmp_path, registry_dir):
         assert response.status_code == 413
 
 
-def test_state_delete_and_auth(client):
+def test_state_delete_and_auth(client, app):
     token, _ = create_player(client, handle="deleter")
     client.put(STATE, json={"state": {"n": 1}}, headers=auth(token))
     assert client.delete(STATE, headers=auth(token)).get_json()["deleted"] is True
     assert client.get(STATE, headers=auth(token)).get_json()["state"] is None
-    assert client.get(STATE).status_code == 401
+    with app.test_client() as anonymous:
+        assert anonymous.get(STATE).status_code == 401
 
 
 def test_progress_unlocks_meta_achievement_without_a_score(client):

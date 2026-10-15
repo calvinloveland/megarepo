@@ -275,6 +275,81 @@ textarea { min-height: 84px; resize: vertical; }
 .comment-delete:hover { text-decoration: underline; }
 .comment-body { margin-top: 6px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
 
+/* ── Accessibility + layout helpers ─────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.play-frame:focus-visible, .play-frame:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.footer-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+.catalog-controls { display: flex; align-items: center; gap: 16px; margin-top: 18px; flex-wrap: wrap; }
+.catalog-controls #catalog-search { width: min(280px, 70vw); }
+
+.card-title { margin: 0; font-size: 17px; }
+
+/* Game page: comments span full width and stack last on mobile. */
+.community-comments { grid-column: 1 / -1; }
+
+/* ── Identity chip ──────────────────────────────────────── */
+.identity { position: relative; }
+.identity-chip {
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.identity-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 60;
+  width: 260px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  text-align: left;
+}
+.identity-panel code { display: block; margin: 8px 0; padding: 8px; background: #0d1420; border-radius: 6px; color: var(--accent); font-size: 14px; }
+
+.tag-gate-desc { color: var(--muted); font-size: 13px; max-width: 42ch; margin: 0 auto 16px; }
+
+.stars-mini .star { color: #64748b; }
+.stars-mini .star.on { color: var(--warn); }
+
+@media (max-width: 640px) {
+  .btn.small { padding: 9px 14px; }
+  .star-btn { font-size: 38px; padding: 2px; }
+  .identity-panel { width: min(260px, 86vw); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  .card:hover { transform: none; }
+  .card:hover .card-thumb img { transform: none; }
+  .star-btn:hover { transform: none; }
+}
+
 /* ── Arcade tag gate ────────────────────────────────────── */
 .tag-gate {
   position: fixed;

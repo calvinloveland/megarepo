@@ -83,6 +83,7 @@ capabilities:
 | `{type: meta, key: K, gte/lte/eq: V}` | `meta[K]` in the submission meets the bound |
 | `{type: count, gte: N}` | the player has N score submissions |
 | `{type: distinct, key: K, gte: N}` | the player has N distinct `meta[K]` values |
+| `{type: all, all: [c1, c2, …]}` | every nested condition holds (e.g. `result=win` AND `moves≤14`) |
 | `{}` | never automatically; call `Gamebase.unlock(id)` |
 
 Prefer `meta`/`distinct` over `count` for idle/continuous games.
@@ -156,6 +157,9 @@ The declared `entry` file is required. Paths must be relative (no `..`).
 
 ## Rules
 
+- Games you create are **owned by your identity**: only you can push an update
+  to the same slug. Games already on the server are managed on disk and cannot
+  be overwritten through the API (an operator can use `X-Admin-Token`).
 - Self-contained: `index.html` plus your JS/CSS. No build tooling at runtime.
 - Absolute `/sdk/gamebase.js` and relative asset paths both work.
 - Add a square-ish preview image (`thumbnail.png`, ~16:10) next to the game and
@@ -209,6 +213,27 @@ Gamebase.ready();
 ```
 
 ---
+
+## REST endpoints
+
+All responses are JSON. Auth is an httpOnly session cookie (browser) or a
+bearer token in `Authorization: Bearer <token>` (CLI/agents). Get a token from
+`POST /api/identity`.
+
+| Method | Path |
+| --- | --- |
+| `POST` | `/api/identity` / `/api/identity/recover` / `/api/logout` |
+| `GET` | `/api/session`, `/api/me`, `/api/me/recovery` |
+| `GET` | `/api/games`, `/api/games/<slug>`, `/api/games/<slug>/files` |
+| `POST` | `/api/games` (push), `/api/games/<slug>/publish` |
+| `GET` | `/api/games/<slug>/leaderboard`, `/api/games/<slug>/my-best`, `/api/games/<slug>/me` |
+| `POST` | `/api/games/<slug>/scores`, `/progress`, `/rating`, `/comments`, `/play` |
+| `GET` | `/api/games/<slug>/rating`, `/comments`, `/achievements` |
+| `POST` | `/api/games/<slug>/achievements` (`{ids}`), `/achievements/<id>` |
+| `POST`/`GET`/`DELETE` | `/api/games/<slug>/state` (save blob) |
+| `POST`/`GET`/`DELETE` | `/api/games/<slug>/matchmaking` |
+| `GET` | `/api/matches/<id>` · `POST /api/matches/<id>/result` |
+| `POST` | `/api/games/<slug>/remix`, `/api/rescan` |
 
 ## Copy-paste prompt for the human
 

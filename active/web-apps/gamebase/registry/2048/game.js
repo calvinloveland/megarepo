@@ -227,8 +227,9 @@
   }
 
   function submitRun() {
-    if (ui.submitted) return;
+    if (ui.submitted && ui.lastSubmitted === ui.score) return;
     ui.submitted = true;
+    ui.lastSubmitted = ui.score;
     Gamebase.endRun({
       score: ui.score,
       meta: { highest: ui.highest, moves: ui.moves, won: ui.won ? 1 : 0 },
@@ -247,6 +248,7 @@
     if (!ui.won && ui.highest >= 2048) {
       ui.won = true;
       finish("You win!", "You built the 2048 tile with a score of " + ui.score + ". Keep going for a higher score.", true);
+      submitRun();
       return;
     }
     if (!canMove(ui.board)) gameOver();

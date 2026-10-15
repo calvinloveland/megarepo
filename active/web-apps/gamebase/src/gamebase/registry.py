@@ -101,6 +101,23 @@ def _require_slug(value: Any, label: str = "slug") -> str:
     return value
 
 
+def _as_int(value: Any, label: str, default: int = 0) -> int:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError) as error:
+        raise ManifestError(f"{label} must be an integer (got {value!r})") from error
+
+
+def _as_number(value: Any, label: str) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ManifestError(f"{label} must be a number (got {value!r})")
+    return value
+
+
 def _parse_achievements(raw: Any) -> list[dict[str, Any]]:
     if raw is None:
         return []
@@ -126,7 +143,7 @@ def _parse_achievements(raw: Any) -> list[dict[str, Any]]:
                 "title": str(entry.get("title") or achievement_id.replace("-", " ").title()),
                 "description": str(entry.get("description") or ""),
                 "icon": str(entry.get("icon") or "🏆"),
-                "points": int(entry.get("points") or 0),
+                "points": _as_int(entry.get("points"), f"achievement {achievement_id} points", 0),
                 "hidden": bool(entry.get("hidden") or False),
                 "criteria": criteria,
             }
@@ -150,8 +167,8 @@ def _parse_capabilities(raw: Any) -> dict[str, Any]:
             raise ManifestError("capabilities.leaderboard.order must be 'asc' or 'desc'")
         capabilities["leaderboard"] = {
             "order": order,
-            "min": leaderboard.get("min"),
-            "max": leaderboard.get("max"),
+            "min": _as_number(leaderboard.get("min"), "capabilities.leaderboard.min"),
+            "max": _as_number(leaderboard.get("max"), "capabilities.leaderboard.max"),
             "label": str(leaderboard.get("label") or "Score"),
         }
 
@@ -163,7 +180,7 @@ def _parse_capabilities(raw: Any) -> dict[str, Any]:
     if matchmaking:
         if not isinstance(matchmaking, dict):
             raise ManifestError("capabilities.matchmaking must be a mapping")
-        players = int(matchmaking.get("players") or 2)
+        players = _as_int(matchmaking.get("players"), "capabilities.matchmaking.players", 2)
         if players < 2:
             raise ManifestError("capabilities.matchmaking.players must be at least 2")
         capabilities["matchmaking"] = {

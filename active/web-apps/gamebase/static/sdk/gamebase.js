@@ -12,16 +12,17 @@
  *     const match = await Gamebase.findMatch();
  *   </script>
  *
- * Identity is a bearer token kept in localStorage, so the same browser keeps
- * the same player across games on the platform.
+ * Identity is an httpOnly session cookie set by the platform, so it is the
+ * same player across every game and is not readable by game JavaScript.
  */
 (function (global) {
   "use strict";
 
-  const TOKEN_KEY = "gamebase.token";
   const listeners = {};
+  const LEGACY_TOKEN_KEY = "gamebase.token";
   let playerPromise = null;
   let cachedPlayer = null;
+  let playArmed = false;
 
   function apiBase() {
     if (global.GAMEBASE_API_BASE) return global.GAMEBASE_API_BASE.replace(/\/$/, "");
@@ -34,19 +35,11 @@
     return match ? match[1] : null;
   }
 
-  function token() {
+  function clearLegacyToken() {
     try {
-      return global.localStorage.getItem(TOKEN_KEY);
+      global.localStorage.removeItem(LEGACY_TOKEN_KEY);
     } catch (error) {
-      return null;
-    }
-  }
-
-  function storeToken(value) {
-    try {
-      global.localStorage.setItem(TOKEN_KEY, value);
-    } catch (error) {
-      /* private mode — identity will not persist */
+      /* ignore */
     }
   }
 
@@ -71,11 +64,10 @@
   async function request(path, options) {
     const opts = options || {};
     const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
-    const current = token();
-    if (current) headers.Authorization = "Bearer " + current;
     const response = await fetch(apiBase() + path, {
       method: opts.method || "GET",
       headers: headers,
+      credentials: "same-origin",
       body: opts.body ? JSON.stringify(opts.body) : undefined,
       keepalive: Boolean(opts.keepalive),
     });
@@ -98,32 +90,50 @@
       method: "POST",
       body: handle ? { handle: handle } : {},
     });
-    storeToken(payload.token);
     cachedPlayer = payload.player;
     emit("ready", cachedPlayer);
     return cachedPlayer;
   }
 
-  async function withToken() {
+  async function fetchMe() {
     const payload = await request("/me");
     cachedPlayer = payload.player;
     emit("ready", cachedPlayer);
     return cachedPlayer;
   }
 
+  /** Record a play the first time the player actually interacts with the game. */
+  function armPlay() {
+    if (playArmed || typeof document === "undefined") return;
+    playArmed = true;
+    const fire = () => {
+      document.removeEventListener("pointerdown", fire);
+      document.removeEventListener("keydown", fire);
+      document.removeEventListener("touchstart", fire);
+      Gamebase.play().catch(() => {});
+    };
+    document.addEventListener("pointerdown", fire, { once: true });
+    document.addEventListener("keydown", fire, { once: true });
+    document.addEventListener("touchstart", fire, { once: true });
+  }
+
   /** Resolve the current player, creating a guest identity on first use. */
   function ready(handle) {
     if (!playerPromise) {
-      playerPromise = (token() ? withToken() : fetchIdentity(handle)).catch(async (error) => {
-        // A stale or revoked token should not permanently break the game.
-        if (error && error.status === 401) {
-          storeToken("");
+      clearLegacyToken();
+      playerPromise = fetchMe()
+        .catch((error) => {
+          if (error && error.status === 401) return fetchIdentity(handle);
+          throw error;
+        })
+        .then((player) => {
+          armPlay();
+          return player;
+        })
+        .catch((error) => {
           playerPromise = null;
-          return fetchIdentity(handle);
-        }
-        playerPromise = null;
-        throw error;
-      });
+          throw error;
+        });
     }
     return playerPromise;
   }
@@ -135,10 +145,7 @@
   }
 
   function authHeaders(extra) {
-    const headers = Object.assign({}, extra || {});
-    const current = token();
-    if (current) headers.Authorization = "Bearer " + current;
-    return headers;
+    return Object.assign({}, extra || {});
   }
 
   function parseSseChunk(chunk) {
@@ -399,7 +406,6 @@
     /** Adopt an existing player on this device using a recovery code. */
     async recover(code) {
       const payload = await request("/identity/recover", { method: "POST", body: { code: code } });
-      storeToken(payload.token);
       cachedPlayer = payload.player;
       playerPromise = Promise.resolve(cachedPlayer);
       emit("ready", cachedPlayer);
@@ -457,19 +463,22 @@
         },
       };
     },
-    /** Wait for an opponent: SSE push first, polling as a fallback. */
+    /**
+     * Wait for an opponent. Polls by default so a long queue does not hold a
+     * server thread; pass `{stream: true}` to use the SSE push endpoint.
+     */
     async waitForMatch(options) {
       const opts = options || {};
       const timeout = opts.timeout || 60000;
       const slug = requireSlug();
-      if (!opts.poll && typeof fetch !== "undefined") {
+      if (opts.stream && typeof fetch !== "undefined") {
         try {
           return await streamMatch(slug, timeout);
         } catch (error) {
           /* stream unavailable — fall back to polling */
         }
       }
-      const interval = opts.interval || 1000;
+      const interval = opts.interval || 1500;
       const started = Date.now();
       for (;;) {
         const ticket = await Gamebase.matchStatus();

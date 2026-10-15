@@ -87,7 +87,8 @@ def test_scan_skips_invalid_game_directories(client, registry_dir):
     assert "valid-game" in health["games"]
 
 
-def test_publish_records_new_version(client, registry_dir):
+def test_publish_records_new_version(client, registry_dir, monkeypatch):
+    monkeypatch.setenv("GAMEBASE_ADMIN_TOKEN", "test-admin")
     token, _ = create_player(client, handle="publisher")
     manifest_path = registry_dir / "test-game" / "game.yaml"
     manifest_path.write_text(
@@ -97,7 +98,7 @@ def test_publish_records_new_version(client, registry_dir):
     response = client.post(
         "/api/games/test-game/publish",
         json={"changelog": "Buffed the orb"},
-        headers=auth(token),
+        headers={**auth(token), "X-Admin-Token": "test-admin"},
     )
     assert response.status_code == 200
     versions = client.get("/api/games/test-game").get_json()["versions"]

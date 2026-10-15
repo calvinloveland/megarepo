@@ -43,9 +43,14 @@ capabilities:
     points: 20
     hidden: false
     criteria:
-      type: meta
-      key: moves
-      lte: 14
+      type: all
+      all:
+        - type: meta
+          key: result
+          eq: win
+        - type: meta
+          key: moves
+          lte: 14
   - id: diagonal
     title: Diagonal Dandy
     description: Win with a diagonal line of four.

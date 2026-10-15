@@ -454,22 +454,27 @@
 
   // ----- Game status --------------------------------------------------------
   function insufficientMaterial(board) {
-    const pieces = [];
+    const minors = [];
     for (let i = 0; i < 64; i++) {
       const p = board[i];
-      if (p && ptype(p) !== KING) pieces.push(p);
+      if (!p || ptype(p) === KING) continue;
+      const t = ptype(p);
+      if (t !== BISHOP && t !== KNIGHT) return false; // pawn/rook/queen can mate
+      minors.push({ type: t, color: pcolor(p), square: i });
     }
-    if (pieces.length === 0) return true;
-    if (pieces.length === 1) {
-      const t = ptype(pieces[0]);
-      return t === KNIGHT || t === BISHOP;
+    if (minors.length === 0) return true;                 // K vs K
+    if (minors.length === 1) return true;                 // K+minor vs K
+    if (
+      minors.length === 2 &&
+      minors[0].type === BISHOP &&
+      minors[1].type === BISHOP &&
+      minors[0].color !== minors[1].color
+    ) {
+      // K+B vs K+B is a draw only when the bishops share a square colour.
+      const colour = (square) => (Math.floor(square / 8) + (square % 8)) % 2;
+      return colour(minors[0].square) === colour(minors[1].square);
     }
-    // Two bishops on opposite colours, no other pieces, is a draw — but only
-    // when they belong to different sides. Same-colour lone bishops also draw.
-    if (pieces.length === 2) {
-      const t0 = ptype(pieces[0]), t1 = ptype(pieces[1]);
-      if (t0 === BISHOP && t1 === BISHOP) return true;
-    }
+    // K+B+B, K+N+N, etc. are not automatic draws — mate is still possible.
     return false;
   }
 
