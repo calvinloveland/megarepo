@@ -1,0 +1,122 @@
+/* Gamebase shared game kit — optional styling every game can reuse.
+ *
+ *   <link rel="stylesheet" href="/static/kit/gamekit.css">
+ *   <body class="gb"> … <div class="gb-shell"> … </div></body>
+ *
+ * It is deliberately small: theme tokens plus the handful of components every
+ * Gamebase game was re-implementing (topbar + tag, status, buttons, overlay,
+ * board grid, HUD). Games can override anything.
+ */
+
+:root {
+  --gb-bg: #0a0e17;
+  --gb-panel: #111827;
+  --gb-panel-2: #16233c;
+  --gb-border: rgba(148, 163, 184, 0.16);
+  --gb-text: #e2e8f0;
+  --gb-muted: #8896ad;
+  --gb-accent: #4ade80;
+  --gb-accent-dim: rgba(74, 222, 128, 0.14);
+  --gb-warn: #fbbf24;
+  --gb-danger: #f87171;
+  --gb-mono: "SF Mono", "Consolas", "Courier New", monospace;
+  --gb-radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+body.gb {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 15%, #16233c 0%, var(--gb-bg) 65%);
+  color: var(--gb-text);
+  font-family: var(--gb-mono);
+  line-height: 1.45;
+}
+
+.gb-shell { width: min(920px, 96vw); padding: 18px; }
+
+.gb-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+.gb-title { margin: 0; font-size: 20px; letter-spacing: 2px; text-transform: uppercase; }
+
+.gb-tag {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--gb-accent);
+  background: var(--gb-accent-dim);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.gb-status { min-height: 20px; color: var(--gb-muted); font-size: 13px; margin: 8px 0; }
+.gb-hint { color: var(--gb-muted); font-size: 12px; }
+
+.gb-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.gb-btn {
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: var(--gb-accent);
+  color: #04150b;
+  cursor: pointer;
+}
+.gb-btn:hover { filter: brightness(1.08); }
+.gb-btn.secondary { background: transparent; border-color: var(--gb-border); color: var(--gb-text); font-weight: 500; }
+.gb-btn[disabled] { opacity: 0.5; cursor: default; }
+
+.gb-hud { display: flex; justify-content: center; gap: 18px; font-size: 14px; margin: 10px 0; }
+.gb-hud b { color: var(--gb-accent); }
+
+.gb-board { display: grid; gap: 3px; background: #0d1420; padding: 8px; border-radius: var(--gb-radius); border: 1px solid var(--gb-border); }
+.gb-cell {
+  border: 0;
+  padding: 0;
+  aspect-ratio: 1;
+  background: var(--gb-panel-2);
+  border-radius: 4px;
+  font: inherit;
+  color: var(--gb-text);
+  cursor: pointer;
+}
+.gb-cell:disabled { cursor: default; }
+.gb-cell.on { background: var(--gb-accent-dim); }
+
+.gb-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 8, 14, 0.9);
+}
+.gb-overlay[hidden] { display: none !important; }
+
+.gb-card {
+  width: min(420px, 90vw);
+  padding: 22px;
+  text-align: center;
+  background: var(--gb-panel);
+  border: 1px solid var(--gb-border);
+  border-radius: 14px;
+}
+.gb-card h2 { margin: 0 0 8px; color: var(--gb-accent); letter-spacing: 1px; }
+.gb-card p { margin: 0 0 16px; color: var(--gb-muted); font-size: 13px; }
+
+.gb-panel { background: var(--gb-panel); border: 1px solid var(--gb-border); border-radius: var(--gb-radius); padding: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
