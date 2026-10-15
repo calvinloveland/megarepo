@@ -133,6 +133,36 @@ CREATE TABLE IF NOT EXISTS remixes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_remixes_parent ON remixes (parent_slug);
+
+CREATE TABLE IF NOT EXISTS ratings (
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    slug TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (player_id, slug)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ratings_slug ON ratings (slug);
+
+CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL,
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_slug ON comments (slug, id);
+
+CREATE TABLE IF NOT EXISTS plays (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL,
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_plays_slug ON plays (slug);
 """
 
 
