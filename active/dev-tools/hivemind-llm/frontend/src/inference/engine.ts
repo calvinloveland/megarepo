@@ -7,19 +7,14 @@
  */
 
 import * as webllm from '@mlc-ai/web-llm';
-import type { ModelInfo, GenerationProgress } from '../types';
-
-type ProgressCallback = (progress: GenerationProgress) => void;
-type TokenCallback = (token: string) => void;
-
-type ModelResolution = {
-  modelId: string;
-  fallbackReason?: string;
-};
-
-type LoadOptions = {
-  maxVramGB?: number;
-};
+import type { ModelInfo } from '../types';
+import type {
+  ChatTurn,
+  GenerateOptions,
+  InferenceBackend,
+  LoadOptions,
+  ResolvedModel,
+} from './backend';
 
 const MODEL_ID_ALIASES: Record<string, string> = {
   'SmolLM-135M-Instruct-q4f16_1-MLC': 'SmolLM2-135M-Instruct-q0f32-MLC',
@@ -57,7 +52,8 @@ const pickFallbackModel = (maxVramGB?: number, hasF16?: boolean) => {
   const maxVramMB = maxVramGB ? maxVramGB * 1024 : undefined;
   const candidates = webllm.prebuiltAppConfig.model_list
     .filter((record) => {
-      const isLLM = !record.model_type || record.model_type === webllm.ModelType.LLM;
+      const isLLM =
+        record.model_type === undefined || record.model_type === webllm.ModelType.LLM;
       if (!isLLM) return false;
       if (!record.vram_required_MB) return false;
       if (maxVramMB && record.vram_required_MB > maxVramMB) return false;
@@ -69,7 +65,7 @@ const pickFallbackModel = (maxVramGB?: number, hasF16?: boolean) => {
   return candidates[0];
 };
 
-const resolveModelId = async (modelId: string, options?: LoadOptions): Promise<ModelResolution> => {
+const resolveModelId = async (modelId: string, options?: LoadOptions): Promise<ResolvedModel> => {
   const normalized = normalizeModelId(modelId);
   const hasF16 = await supportsShaderF16();
   const record = getPrebuiltModelRecord(normalized);
@@ -124,7 +120,10 @@ const resolveModelId = async (modelId: string, options?: LoadOptions): Promise<M
   );
 };
 
-export class InferenceEngine {
+export class InferenceEngine implements InferenceBackend {
+  readonly kind = 'webgpu' as const;
+  readonly label = 'WebGPU';
+
   private engine: webllm.MLCEngine | null = null;
   private currentModelId: string | null = null;
   private isLoading = false;
@@ -132,15 +131,12 @@ export class InferenceEngine {
   /**
    * Load a model for inference
    */
-  async loadModel(
-    model: ModelInfo,
-    onProgress?: (progress: number) => void,
-    options?: LoadOptions
-  ): Promise<ModelResolution> {
+  async loadModel(model: ModelInfo, options?: LoadOptions): Promise<ResolvedModel> {
     if (this.isLoading) {
       throw new Error('Model loading already in progress');
     }
 
+    const onProgress = options?.onProgress;
     const resolved = await resolveModelId(model.mlc_model_id, options);
 
     if (this.currentModelId === resolved.modelId) {
@@ -198,14 +194,8 @@ export class InferenceEngine {
    * Generate a response (streaming)
    */
   async generate(
-    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-    options: {
-      maxTokens?: number;
-      temperature?: number;
-      topP?: number;
-      onToken?: TokenCallback;
-      onProgress?: ProgressCallback;
-    } = {}
+    messages: ChatTurn[],
+    options: GenerateOptions = {}
   ): Promise<string> {
     if (!this.engine) {
       throw new Error('No model loaded');

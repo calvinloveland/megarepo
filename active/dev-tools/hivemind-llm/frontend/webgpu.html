@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/hivemind.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HiveMind LLM - WebGPU Smoke Test</title>
+    <meta
+      name="description"
+      content="Diagnostic page to validate WebGPU availability and run a simple compute test. The chat app works without WebGPU."
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">HiveMind LLM</p>
+          <h1>WebGPU Readiness</h1>
+          <p class="subhead">
+            Optional diagnostic. The chat app runs on CPU (WASM) when WebGPU is unavailable, so no browser flag is required.
+          </p>
+          <a class="button" href="/">Open Chat Interface</a>
+        </div>
+        <div class="badge" id="status-badge">Checking…</div>
+      </header>
+
+      <section class="panel">
+        <div class="status">
+          <div>
+            <p class="label">Status</p>
+            <p id="status-text">Initializing WebGPU…</p>
+          </div>
+          <button id="run-test" class="button" disabled>Run WebGPU self-test</button>
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <p class="label">Adapter</p>
+            <p id="adapter-info" class="value">—</p>
+          </div>
+          <div class="card">
+            <p class="label">Device</p>
+            <p id="device-info" class="value">—</p>
+          </div>
+          <div class="card">
+            <p class="label">Features</p>
+            <p id="feature-info" class="value">—</p>
+          </div>
+        </div>
+
+        <div class="log">
+          <p class="label">Log</p>
+          <pre id="log" aria-live="polite"></pre>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

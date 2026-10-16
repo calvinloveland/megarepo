@@ -7,6 +7,7 @@
 export interface PeerCapabilities {
   vram_gb: number;
   webgpu_supported: boolean;
+  backend?: BackendKind;
   compute_capability: string;
   browser: string;
   estimated_tflops: number;
@@ -44,6 +45,8 @@ export interface ModelInfo {
   id: string;
   name: string;
   mlc_model_id: string;
+  /** Optional Transformers.js / ONNX repo for the CPU (WASM) backend. */
+  wasmModelId?: string;
   num_layers: number;
   hidden_size?: number;
   quantization?: string;
@@ -118,6 +121,9 @@ export interface WebRTCSignalEvent {
 }
 
 // ==================== Inference Types ====================
+
+/** Browser inference backend: GPU (WebGPU) or CPU (WASM). */
+export type BackendKind = 'webgpu' | 'wasm';
 
 export interface InferenceRequest {
   prompt: string;

@@ -8,9 +8,19 @@ import { getGPUDescription } from '../inference/webgpu';
 export function ClusterStatus() {
   const { connected, peerState, clusterStats, peerId } = useClusterStore();
   const { activeModel, generation } = useChatStore();
-  const { webgpu, modelLoaded, modelLoadProgress } = useHardwareStore();
+  const { webgpu, backend, modelLoaded, modelLoadProgress } = useHardwareStore();
 
-  const gpuDescription = webgpu ? getGPUDescription(webgpu) : 'Detecting...';
+  const backendLabel =
+    backend === 'wasm'
+      ? 'CPU · WASM'
+      : backend === 'webgpu'
+      ? 'GPU · WebGPU'
+      : 'Detecting...';
+  const gpuDescription = backend === 'wasm'
+    ? backendLabel
+    : webgpu
+    ? `${backendLabel} · ${getGPUDescription(webgpu)}`
+    : 'Detecting...';
   const isFinalizingShaders = !modelLoaded && modelLoadProgress >= 0.8;
 
   return (

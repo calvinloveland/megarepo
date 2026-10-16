@@ -5,6 +5,16 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      // Chat app is the default landing page; the WebGPU smoke test is a
+      // secondary diagnostic page at /webgpu.html.
+      input: {
+        index: path.resolve(__dirname, 'index.html'),
+        webgpu: path.resolve(__dirname, 'webgpu.html'),
+      },
+    },
+  },
   define: {
     global: 'globalThis',
   },

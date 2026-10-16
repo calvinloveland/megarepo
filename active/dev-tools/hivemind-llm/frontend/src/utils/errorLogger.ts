@@ -235,7 +235,7 @@ export function registerWebGPUErrorListener(): void {
     const device = await originalRequestDevice.apply(this, args as [GPUDeviceDescriptor]);
     device.addEventListener('uncapturederror', (event: GPUUncapturedErrorEvent) => {
       const message = event.error?.message || 'Unknown WebGPU error';
-      const name = event.error?.name || 'GPUError';
+      const name = (event.error as { name?: string } | null)?.name || 'GPUError';
       instance?.logMessage(`WebGPU: ${message}`, { type: name });
       console.error('[WebGPU] Uncaptured error:', event.error);
     });

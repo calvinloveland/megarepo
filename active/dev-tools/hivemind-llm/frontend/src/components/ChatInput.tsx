@@ -6,13 +6,13 @@ import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
-  disabled: boolean;
+  disabled?: boolean;
   placeholder?: string;
 }
 
 export function ChatInput({
   onSend,
-  disabled,
+  disabled = false,
   placeholder = 'Type a message...',
 }: ChatInputProps) {
   const [message, setMessage] = useState('');

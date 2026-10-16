@@ -11,8 +11,8 @@ import {
 } from './store';
 import { coordinator } from './network/coordinator';
 import { peerMesh } from './network/peers';
-import { inferenceEngine } from './inference/engine';
-import { detectWebGPU, meetsMinimumRequirements } from './inference/webgpu';
+import { backendManager } from './inference/backendManager';
+import { detectInferenceCapabilities } from './inference/detect';
 import { initializeErrorLogger, registerWebGPUErrorListener } from './utils/errorLogger';
 import type { ChatMessage } from './types';
 
@@ -51,9 +51,9 @@ function App() {
   } = useChatStore();
 
   const {
-    webgpu,
     modelLoaded,
     setWebGPU,
+    setBackend,
     setModelLoaded,
     setModelLoadProgress,
   } = useHardwareStore();
@@ -64,38 +64,32 @@ function App() {
 
     async function initialize() {
       try {
-        // 1. Detect WebGPU capabilities (with timeout)
-        console.log('Detecting WebGPU...');
-        const gpuInfo = await Promise.race([
-          detectWebGPU(),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))
-        ]) as Awaited<ReturnType<typeof detectWebGPU>> | null;
-        
+        // 1. Detect compute capabilities (with timeout). WebGPU is optional:
+        //    when it is missing we run the model on CPU via WASM.
+        console.log('Detecting inference capabilities...');
+        const detected = await Promise.race([
+          detectInferenceCapabilities(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+        ]);
+
         if (!mounted) return;
-        
-        if (!gpuInfo) {
-          console.warn('WebGPU detection timed out');
-          setWebGPU({ supported: false, adapter: null, limits: null, estimatedVRAM: 0 });
-          addMessage({
-            id: crypto.randomUUID(),
-            role: 'system',
-            content: '⚠️ WebGPU detection timed out. Some features may be limited.',
-            timestamp: new Date(),
-          });
-        } else {
-          setWebGPU(gpuInfo);
-          
-          const requirements = meetsMinimumRequirements(gpuInfo);
-          if (!requirements.meets) {
-            console.warn('Requirements not met:', requirements.reason);
-            addMessage({
-              id: crypto.randomUUID(),
-              role: 'system',
-              content: `⚠️ ${requirements.reason}`,
-              timestamp: new Date(),
-            });
-          }
-        }
+
+        const capabilities = detected ?? {
+          webgpu: { supported: false, adapter: null, limits: null, estimatedVRAM: 0 },
+          wasmSupported: typeof WebAssembly !== 'undefined',
+          recommended: 'wasm' as const,
+          reason: 'Capability detection timed out — defaulting to CPU (WASM).',
+        };
+
+        const gpuInfo = capabilities.webgpu;
+        setWebGPU(gpuInfo);
+        setBackend(capabilities.recommended, capabilities.reason);
+        addMessage({
+          id: crypto.randomUUID(),
+          role: 'system',
+          content: `⚙️ ${capabilities.reason}`,
+          timestamp: new Date(),
+        });
 
         // 2. Connect to coordinator (async, don't block UI)
         console.log('Connecting to coordinator...');
@@ -107,15 +101,14 @@ function App() {
           peerMesh.initialize(peerId);
 
           // 3. Report capabilities
-          if (gpuInfo) {
-            coordinator.reportCapabilities({
-              vram_gb: gpuInfo.estimatedVRAM,
-              webgpu_supported: gpuInfo.supported,
-              compute_capability: gpuInfo.adapter?.architecture || 'unknown',
-              browser: navigator.userAgent,
-              estimated_tflops: 0,
-            });
-          }
+          coordinator.reportCapabilities({
+            vram_gb: capabilities.recommended === 'webgpu' ? gpuInfo.estimatedVRAM : 0,
+            webgpu_supported: gpuInfo.supported,
+            backend: capabilities.recommended,
+            compute_capability: gpuInfo.adapter?.architecture || 'unknown',
+            browser: navigator.userAgent,
+            estimated_tflops: 0,
+          });
         }).catch((error) => {
           console.error('Failed to connect:', error);
           if (!mounted) return;
@@ -144,19 +137,24 @@ function App() {
 
       // Load the model
       try {
-        const { fallbackReason } = await inferenceEngine.loadModel(
+        const hardware = useHardwareStore.getState();
+        const loadResult = await backendManager.loadModel(
           assignment.model,
-          (progress) => {
-            setModelLoadProgress(progress);
-          },
-          { maxVramGB: webgpu?.estimatedVRAM }
+          hardware.backend ?? 'wasm',
+          {
+            maxVramGB: hardware.webgpu?.estimatedVRAM,
+            onProgress: (progress) => {
+              setModelLoadProgress(progress);
+            },
+          }
         );
+        setBackend(loadResult.backend, loadResult.fallbackReason ?? hardware.backendReason);
 
-        if (fallbackReason) {
+        if (loadResult.fallbackReason) {
           addMessage({
             id: crypto.randomUUID(),
             role: 'system',
-            content: `ℹ️ ${fallbackReason}`,
+            content: `ℹ️ ${loadResult.fallbackReason}`,
             timestamp: new Date(),
           });
         }
@@ -257,7 +255,7 @@ function App() {
         setGeneration({ status: 'generating', tokens_generated: 0 });
         
         let fullResponse = '';
-        await inferenceEngine.generate(conversationMessages, {
+        await backendManager.generate(conversationMessages, {
           maxTokens: 512,
           temperature: 0.7,
           onToken: (token) => {

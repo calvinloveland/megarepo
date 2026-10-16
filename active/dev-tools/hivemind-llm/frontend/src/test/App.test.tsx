@@ -5,36 +5,49 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import App from '../App';
 
 // Mock the stores
-vi.mock('../store', () => ({
-  useClusterStore: () => ({
-    connected: false,
-    peerState: 'connecting',
-    setConnected: vi.fn(),
-    setPeerId: vi.fn(),
-    setPeerState: vi.fn(),
-    setClusterStats: vi.fn(),
-    setLayerAssignment: vi.fn(),
-    layerAssignment: null,
-  }),
-  useChatStore: () => ({
-    messages: [],
-    generation: { status: 'idle', currentPrompt: null, tokensGenerated: 0, startTime: null },
-    addMessage: vi.fn(),
-    updateLastMessage: vi.fn(),
-    setActiveModel: vi.fn(),
-    setGeneration: vi.fn(),
-  }),
-  useHardwareStore: () => ({
+vi.mock('../store', () => {
+  const hardware = () => ({
     modelLoaded: false,
+    backend: null,
+    backendReason: null,
     setWebGPU: vi.fn(),
+    setBackend: vi.fn(),
     setModelLoaded: vi.fn(),
     setModelLoadProgress: vi.fn(),
-  }),
-}));
+  });
+  (hardware as unknown as { getState: () => unknown }).getState = () => ({
+    backend: 'wasm',
+    backendReason: null,
+    webgpu: null,
+    modelLoaded: false,
+  });
+
+  return {
+    useClusterStore: () => ({
+      connected: false,
+      peerState: 'connecting',
+      setConnected: vi.fn(),
+      setPeerId: vi.fn(),
+      setPeerState: vi.fn(),
+      setClusterStats: vi.fn(),
+      setLayerAssignment: vi.fn(),
+      layerAssignment: null,
+    }),
+    useChatStore: () => ({
+      messages: [],
+      generation: { status: 'idle', currentPrompt: null, tokensGenerated: 0, startTime: null },
+      addMessage: vi.fn(),
+      updateLastMessage: vi.fn(),
+      setActiveModel: vi.fn(),
+      setGeneration: vi.fn(),
+    }),
+    useHardwareStore: hardware,
+  };
+});
 
 // Mock the network modules
 vi.mock('../network/coordinator', () => ({
@@ -68,11 +81,16 @@ vi.mock('../network/peers', () => ({
   },
 }));
 
-vi.mock('../inference/engine', () => ({
-  inferenceEngine: {
-    loadModel: vi.fn().mockResolvedValue(undefined),
+vi.mock('../inference/backendManager', () => ({
+  backendManager: {
+    loadModel: vi.fn().mockResolvedValue({ modelId: 'test-model', backend: 'wasm' }),
     generate: vi.fn(),
     getCurrentModelId: vi.fn(),
+    isModelLoaded: vi.fn().mockReturnValue(false),
+    resetChat: vi.fn(),
+    unload: vi.fn(),
+    activeKind: null,
+    activeLabel: null,
   },
 }));
 
@@ -93,6 +111,7 @@ vi.mock('../utils/errorLogger', () => ({
     flush: vi.fn(),
     destroy: vi.fn(),
   }),
+  registerWebGPUErrorListener: vi.fn(),
 }));
 
 describe('App', () => {

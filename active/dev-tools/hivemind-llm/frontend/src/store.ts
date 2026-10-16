@@ -11,6 +11,7 @@ import type {
   GenerationProgress,
   WebGPUInfo,
   ModelInfo,
+  BackendKind,
 } from './types';
 
 // ==================== Cluster Store ====================
@@ -99,21 +100,27 @@ export const useChatStore = create<ChatState>((set) => ({
 
 interface HardwareState {
   webgpu: WebGPUInfo | null;
+  backend: BackendKind | null;
+  backendReason: string | null;
   modelLoaded: boolean;
   modelLoadProgress: number;
   
   // Actions
   setWebGPU: (info: WebGPUInfo) => void;
+  setBackend: (backend: BackendKind | null, reason?: string | null) => void;
   setModelLoaded: (loaded: boolean) => void;
   setModelLoadProgress: (progress: number) => void;
 }
 
 export const useHardwareStore = create<HardwareState>((set) => ({
   webgpu: null,
+  backend: null,
+  backendReason: null,
   modelLoaded: false,
   modelLoadProgress: 0,
   
   setWebGPU: (webgpu) => set({ webgpu }),
+  setBackend: (backend, backendReason = null) => set({ backend, backendReason }),
   setModelLoaded: (modelLoaded) => set({ modelLoaded }),
   setModelLoadProgress: (modelLoadProgress) => set({ modelLoadProgress }),
 }));

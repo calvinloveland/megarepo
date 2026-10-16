@@ -7,10 +7,10 @@ import type { ChatMessage } from '../types';
 
 interface ChatMessagesProps {
   messages: ChatMessage[];
-  isGenerating: boolean;
+  isGenerating?: boolean;
 }
 
-export function ChatMessages({ messages, isGenerating }: ChatMessagesProps) {
+export function ChatMessages({ messages, isGenerating = false }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive

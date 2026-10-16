@@ -57,7 +57,7 @@ const formatAdapterInfo = (info: GPUAdapterInfo | undefined) => {
   return parts || info.description || 'Unknown adapter'
 }
 
-const formatFeatures = (featureSet: GPUFeatureName[]) => {
+const formatFeatures = (featureSet: readonly string[]) => {
   if (featureSet.length === 0) {
     return 'No optional features reported'
   }
@@ -65,7 +65,8 @@ const formatFeatures = (featureSet: GPUFeatureName[]) => {
 }
 
 const initWebGPU = async () => {
-  if (!('gpu' in navigator)) {
+  const gpu = navigator.gpu
+  if (!gpu) {
     setStatus('error', 'WebGPU is not available in this browser.')
     logLine('WebGPU API missing. Try Chrome/Edge 113+ or enable chrome://flags/#enable-unsafe-webgpu')
     logTroubleshootingTips()
@@ -75,7 +76,7 @@ const initWebGPU = async () => {
   setStatus('warn', 'Requesting GPU adapter…')
 
   try {
-    adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' })
+    adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' })
     if (!adapter) {
       setStatus('error', 'No WebGPU adapter found.')
       logLine('navigator.gpu.requestAdapter returned null.')
@@ -83,7 +84,7 @@ const initWebGPU = async () => {
       return
     }
 
-    const info = adapter.requestAdapterInfo ? await adapter.requestAdapterInfo() : undefined
+    const info = adapter.info
     if (adapterInfo) {
       adapterInfo.textContent = formatAdapterInfo(info)
     }

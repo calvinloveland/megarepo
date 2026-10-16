@@ -24,7 +24,6 @@ describe('detectWebGPU', () => {
   it('should return supported=false when WebGPU is unavailable', async () => {
     // Temporarily remove GPU mock
     const originalGPU = globalThis.navigator.gpu;
-    // @ts-expect-error - removing for test
     delete globalThis.navigator.gpu;
     
     const result = await detectWebGPU();
@@ -33,13 +32,12 @@ describe('detectWebGPU', () => {
     expect(result.adapter).toBeNull();
     
     // Restore mock
-    // @ts-expect-error - restoring mock
     globalThis.navigator.gpu = originalGPU;
   });
 
   it('should handle adapter request failure', async () => {
     const originalGPU = globalThis.navigator.gpu;
-    // @ts-expect-error - mock returning null
+    // @ts-expect-error - partial mock for the failure case
     globalThis.navigator.gpu = {
       requestAdapter: vi.fn().mockResolvedValue(null),
     };
@@ -48,7 +46,6 @@ describe('detectWebGPU', () => {
     
     expect(result.supported).toBe(false);
     
-    // @ts-expect-error - restoring
     globalThis.navigator.gpu = originalGPU;
   });
 });
