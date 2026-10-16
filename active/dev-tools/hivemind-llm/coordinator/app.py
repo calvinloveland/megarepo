@@ -49,6 +49,7 @@ class CapabilitiesReport(BaseModel):
     compute_capability: str = "unknown"
     browser: str = "unknown"
     estimated_tflops: float = 0.0
+    backend: str = "unknown"
 
     @classmethod
     def from_payload(cls, payload: dict) -> "CapabilitiesReport":
@@ -63,6 +64,7 @@ class CapabilitiesReport(BaseModel):
             compute_capability=self.compute_capability,
             browser=self.browser,
             estimated_tflops=self.estimated_tflops,
+            backend=self.backend,
         )
 
 
@@ -162,6 +164,7 @@ def cluster_stats():
                 "vram_gb": round(p.capabilities.vram_gb, 2),
                 "layers": p.assigned_layers,
                 "browser": p.capabilities.browser,
+                "backend": p.capabilities.backend,
             }
             for pid, p in peers.items()
         ],
@@ -180,6 +183,7 @@ def list_peers():
                 "state": p.state.value,
                 "vram_gb": round(p.capabilities.vram_gb, 2),
                 "layers": p.assigned_layers,
+                "backend": p.capabilities.backend,
             }
             for pid, p in peers.items()
         ]

@@ -31,11 +31,12 @@ class PeerState(Enum):
 @dataclass
 class PeerCapabilities:
     """Hardware and software capabilities of a peer."""
-    vram_gb: float                 # Available GPU VRAM in GB
+    vram_gb: float                 # Available GPU VRAM in GB (0 for CPU/WASM peers)
     webgpu_supported: bool         # Whether WebGPU is available
     compute_capability: str        # GPU compute capability string
     browser: str                   # Browser name and version
     estimated_tflops: float = 0.0  # Estimated compute performance
+    backend: str = "unknown"       # Active inference backend ("webgpu" or "wasm")
 
 
 @dataclass
@@ -112,12 +113,10 @@ class ClusterState:
                 self._peers[peer_id].capabilities = capabilities
                 return self._get_assignment_for_peer(peer_id)
             
-            # Validate capabilities
-            if not capabilities.webgpu_supported:
-                logger.warning(f"Peer {peer_id} does not support WebGPU")
-                return None
-            
-            if capabilities.vram_gb < 0.2:
+            # Validate capabilities. Peers may use either WebGPU or a CPU
+            # (WASM) backend; WASM peers report little/no VRAM but can still
+            # run a full model, so we only gate on VRAM for GPU peers.
+            if capabilities.webgpu_supported and capabilities.vram_gb < 0.2:
                 logger.warning(f"Peer {peer_id} has insufficient VRAM: {capabilities.vram_gb}GB")
                 return None
             
