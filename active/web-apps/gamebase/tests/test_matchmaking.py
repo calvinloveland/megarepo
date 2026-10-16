@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from conftest import auth, create_player
+from conftest import auth, create_player, write_game
 
 
 def _queue(client, token, slug: str = "test-game"):
@@ -83,6 +83,63 @@ def test_matchmaking_requires_capability(client):
     token, _ = create_player(client, handle="no-match")
     response = _queue(client, token, slug="time-trial")
     assert response.status_code == 400
+
+
+TABLE_MANIFEST = """
+slug: table-game
+title: Table Game
+version: 1.0.0
+capabilities:
+  matchmaking:
+    players: 3
+    min: 2
+    autoStart: false
+""".strip()
+
+
+def _table(client, registry_dir):
+    write_game(registry_dir, "table-game", TABLE_MANIFEST)
+    assert client.get("/api/games/table-game").status_code == 200
+    return "/api/games/table-game/matchmaking"
+
+
+def test_lobby_waits_for_the_host_to_start(client, registry_dir):
+    endpoint = _table(client, registry_dir)
+    first, first_player = create_player(client, handle="seat-a")
+    second, _ = create_player(client, handle="seat-b")
+
+    one = client.post(endpoint, headers=auth(first)).get_json()
+    two = client.post(endpoint, headers=auth(second)).get_json()
+    assert one["status"] == "queued" and two["status"] == "queued"
+
+    started = client.post(endpoint + "/start", headers=auth(first))
+    assert started.status_code == 201
+    assert started.get_json()["state"] == "active"
+    assert len(started.get_json()["players"]) == 2
+
+    seen = client.get(endpoint, headers=auth(second)).get_json()["ticket"]
+    assert seen["status"] == "matched"
+    assert seen["match"]["id"] == started.get_json()["id"]
+
+
+def test_full_table_seats_everyone_who_queued(client, registry_dir):
+    endpoint = _table(client, registry_dir)
+    tokens = [create_player(client, handle=f"seat-{index}")[0] for index in range(3)]
+    for token in tokens:
+        assert client.post(endpoint, headers=auth(token)).get_json()["status"] == "queued"
+
+    match = client.post(endpoint + "/start", headers=auth(tokens[0])).get_json()
+    assert len(match["players"]) == 3
+
+
+def test_start_requires_a_queue_spot_and_enough_players(client, registry_dir):
+    endpoint = _table(client, registry_dir)
+    solo, _ = create_player(client, handle="seat-solo")
+    client.post(endpoint, headers=auth(solo))
+    assert client.post(endpoint + "/start", headers=auth(solo)).status_code == 400
+
+    outsider, _ = create_player(client, handle="seat-out")
+    assert client.post(endpoint + "/start", headers=auth(outsider)).status_code == 409
 
 
 def _matched_pair(client):

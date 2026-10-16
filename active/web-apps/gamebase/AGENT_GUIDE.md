@@ -71,7 +71,9 @@ capabilities:
       points: 25
       criteria: {type: meta, key: level, gte: 5}
   matchmaking:                # optional; omit for single-player games
-    players: 2
+    players: 2                # table size (max seats)
+    min: 2                    # start with at least this many
+    autoStart: true           # false = wait for the host to start
     mode: duel
 ```
 
@@ -161,6 +163,21 @@ automatically if a direct connection cannot be made. `match.players[0]` is the
 host (`Gamebase.hostId(matchId)` / `channel.isHost`), so the host can run the
 authoritative simulation while peers only send input — no server compute per
 game, and nothing runs when nobody is connected.
+
+Lobby tables (more than two players) declare `matchmaking: {players: 6, min: 2,
+autoStart: false}`: everyone queues with `findMatch()` (autoStart false means no
+match forms yet), the host seats them with `Gamebase.startMatch()`, and then all
+call `connectPeers(matchId)` — a star with the host at the centre.
+
+Peer messaging and failover:
+- `channel.send(data)` broadcasts to every peer; `channel.send(data, playerId)`
+  targets one peer (use this for private state such as hole cards).
+- `channel.isHost` / `channel.hostId` update live, and `channel.on("hostchange",
+  ({hostId, previousHostId, isHost}) => …)` fires when the host leaves. Election is
+  deterministic (the earliest seated player still present), so every client agrees.
+- To make a takeover seamless, the current host should broadcast a **public
+  checkpoint** after each change; the new host resumes from it and re-syncs. See
+  `registry/holdem/game.js` for a full table that survives the host leaving.
 
 The platform handles community features for you: players rate games 1–5 stars,
 comment, and every launch is counted for the “most played” ranking. The SDK

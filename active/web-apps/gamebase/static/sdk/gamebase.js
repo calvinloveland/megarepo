@@ -353,8 +353,8 @@
     const opts = options || {};
     let players = match.players || [];
     const myId = cachedPlayer ? cachedPlayer.id : null;
-    const hostId = matchHostId(match);
-    const isHost = Boolean(myId) && myId === hostId;
+    let hostId = matchHostId(match);
+    let knownRoster = myId ? [myId] : [];
     const handlers = {};
     const connections = new Map(); // peerId -> { pc, remoteSet, pending }
     const channels = new Map(); // peerId -> RTCDataChannel
@@ -378,6 +378,17 @@
       if (mode === next) return;
       mode = next;
       emit("modechange", { mode: mode });
+    }
+
+    /** Deterministic host election: the earliest seated player still present. */
+    function recomputeHost() {
+      const remaining = players.filter((player) => knownRoster.includes(player.player_id));
+      const elected = remaining.length ? remaining[0].player_id : hostId;
+      if (elected && elected !== hostId) {
+        const previous = hostId;
+        hostId = elected;
+        emit("hostchange", { hostId: hostId, previousHostId: previous, isHost: hostId === myId });
+      }
     }
 
     function sendSignal(message) {
@@ -474,17 +485,30 @@
     }
 
     function offerToKnownPeers() {
-      if (!isHost || !useP2P) return;
+      if (hostId !== myId || !useP2P) return;
       players.forEach((player) => {
-        if (player.player_id !== myId && !connections.has(player.player_id)) newConnection(player.player_id, true);
+        const peerId = player.player_id;
+        if (peerId === myId || !knownRoster.includes(peerId)) return;
+        const existing = connections.get(peerId);
+        if (existing) {
+          const state = existing.pc.connectionState;
+          if (state !== "failed" && state !== "closed") return;
+          connections.delete(peerId);
+        }
+        newConnection(peerId, true);
       });
     }
 
     const api = {
-      matchId: matchId,
-      myId: myId,
-      hostId: hostId,
-      isHost: isHost,
+      get matchId() {
+        return matchId;
+      },
+      get hostId() {
+        return hostId;
+      },
+      get isHost() {
+        return hostId === myId;
+      },
       get mode() {
         return mode;
       },
@@ -494,21 +518,33 @@
       get peerIds() {
         return Array.from(channels.keys());
       },
-      send(data) {
+      send(data, to) {
         const serialized = JSON.stringify(data);
-        if (channels.size) {
+        if (to) {
+          const channel = channels.get(to);
+          if (channel && channel.readyState === "open") {
+            try {
+              channel.send(serialized);
+            } catch (error) {
+              /* ignore */
+            }
+            return;
+          }
+        } else if (channels.size) {
+          let delivered = false;
           channels.forEach((channel) => {
             if (channel.readyState === "open") {
               try {
                 channel.send(serialized);
+                delivered = true;
               } catch (error) {
                 /* ignore */
               }
             }
           });
-          return;
+          if (delivered) return;
         }
-        if (signal && signal.connected) signal.send({ t: "data", data: data });
+        if (signal && signal.connected) signal.send({ t: "data", data: data, to: to || null });
       },
       on(event, callback) {
         (handlers[event] = handlers[event] || []).push(callback);
@@ -536,20 +572,24 @@
       .then((info) => {
         signal = openRealtimeChannel(matchId, info);
         signal.on("open", () => { if (mode === "connecting") offerToKnownPeers(); });
-        signal.on("roster", async () => {
+        signal.on("roster", async (rosterIds) => {
+          if (Array.isArray(rosterIds) && rosterIds.length) knownRoster = rosterIds;
           try {
             const latest = await request("/matches/" + matchId);
             players = latest.players || players;
           } catch (error) {
             /* keep the known players */
           }
+          recomputeHost();
           offerToKnownPeers();
-          emit("roster", players.map((player) => player.player_id));
+          emit("roster", knownRoster);
         });
         signal.on("message", (message) => {
           if (!message) return;
           if (message.t === "p2p") return void onSignal(message);
-          if (message.t === "data" && mode !== "p2p" && message.from) emitData(message.from, JSON.stringify(message.data));
+          if (message.t !== "data" || !message.from) return;
+          const addressed = message.to ? message.to === myId : mode !== "p2p";
+          if (addressed) emitData(message.from, JSON.stringify(message.data));
         });
         signal.on("close", () => {
           if (!channels.size) setMode("closed");
@@ -724,6 +764,12 @@
       await ready();
       const match = await request("/matches/" + matchId);
       return openPeerMesh(matchId, match, options);
+    },
+    /** Host action for lobby-style tables: seat everyone currently waiting. */
+    async startMatch() {
+      await ready();
+      const slug = requireSlug();
+      return request("/games/" + slug + "/matchmaking/start", { method: "POST" });
     },
     /**
      * Publish shared turn-based state to a match (members only). Pass the last

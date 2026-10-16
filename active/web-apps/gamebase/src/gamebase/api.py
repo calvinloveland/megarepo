@@ -652,8 +652,38 @@ def join_matchmaking(player: dict[str, Any], slug: str):
     config = game["capabilities"].get("matchmaking")
     if not config:
         return jsonify({"error": "this game does not support matchmaking"}), 400
-    ticket = models.queue_for_match(get_db(), slug, player["id"], int(config.get("players", 2)))
+    capacity = int(config.get("players", 2))
+    ticket = models.queue_for_match(
+        get_db(),
+        slug,
+        player["id"],
+        capacity=capacity,
+        min_players=int(config.get("min", capacity)),
+        auto_start=bool(config.get("autoStart", True)),
+    )
     return jsonify(ticket), 201 if ticket["status"] == "matched" else 200
+
+
+@api_bp.post("/games/<slug>/matchmaking/start")
+@require_player
+def start_matchmaking(player: dict[str, Any], slug: str):
+    """Host action: seat everyone waiting (used by lobby-style tables)."""
+    game = _require_game(slug)
+    if game is None:
+        return jsonify({"error": f"game not found: {slug}"}), 404
+    config = game["capabilities"].get("matchmaking")
+    if not config:
+        return jsonify({"error": "this game does not support matchmaking"}), 400
+    capacity = int(config.get("players", 2))
+    try:
+        match = models.start_match(
+            get_db(), slug, player["id"], capacity, int(config.get("min", capacity))
+        )
+    except models.NotFound as error:
+        return jsonify({"error": str(error)}), 409
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    return jsonify(match), 201
 
 
 @api_bp.get("/games/<slug>/matchmaking")

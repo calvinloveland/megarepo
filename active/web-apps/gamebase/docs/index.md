@@ -224,6 +224,7 @@ All mutating player endpoints accept `Authorization: Bearer <token>` (issued by
 | `PUT` | `/api/games/<slug>/state` | Save `{state, revision?, schema_version?}`; 409 on stale revision. |
 | `DELETE` | `/api/games/<slug>/state` | Delete the save blob. |
 | `POST` | `/api/games/<slug>/matchmaking` | Join queue / form a match. |
+| `POST` | `/api/games/<slug>/matchmaking/start` | Host action: seat everyone waiting (lobby tables). |
 | `GET` | `/api/games/<slug>/matchmaking` | Current ticket (+ match). |
 | `GET` | `/api/games/<slug>/matchmaking/stream` | SSE: push ticket/match changes (`?timeout=` seconds). |
 | `DELETE` | `/api/games/<slug>/matchmaking` | Cancel a queued ticket. |
@@ -472,6 +473,12 @@ Gamebase is deliberately thin so that idle time costs nothing:
   calls an off-platform service, opens its own socket, loads a third-party
   resource, or declares a backend capability. `holdem` is the worked example: the
   host runs the dealer, peers send actions, and bots fill the remaining seats.
+- **Full tables + host switching.** Matchmaking takes a capacity and a minimum
+  (`matchmaking: {players: 6, min: 2, autoStart: false}`); the host seats players
+  with `startMatch()` and they join a peer-to-peer star. If the host leaves, the
+  earliest seated player still present is elected (deterministically, on every
+  client), `channel.on("hostchange")` fires, and the new host resumes from the
+  last public checkpoint — so a 6-seat table keeps playing when the host drops.
 
 ## Shared game kit
 

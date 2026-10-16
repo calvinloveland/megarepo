@@ -757,6 +757,7 @@
     overlayTitle: $("overlay-title"),
     overlayBody: $("overlay-body"),
     overlayBtn: $("overlay-btn"),
+    overlayStart: $("overlay-start"),
     overlayOnline: $("overlay-online"),
     seatChoices: $("seat-choices"),
   };
@@ -796,7 +797,22 @@
     firstHandUnlocked: false,
     lastSubmit: 0,
     stats: { hands_played: 0, hands_won: 0, chips_won: 0, biggest_pot: 0, all_in_win: 0 },
-    online: { matchId: null, myId: null, oppId: null, channel: null, hostSeat: 0, guestSeat: 1 },
+    online: {
+      matchId: null,
+      myId: null,
+      channel: null,
+      hostId: null,
+      roster: [],
+      seatPlayers: [],
+      seatByPlayer: {},
+      seen: {},
+      lastCheckpoint: null,
+      pendingPrivate: null,
+      lobbyTimer: null,
+      startTimer: null,
+      lobbyActive: false,
+      started: false,
+    },
     seatEls: [],
     config: { seats: 6, startingStack: 1000, smallBlind: 10, bigBlind: 20 },
   };
@@ -1043,16 +1059,18 @@
 
   function scheduleActionClock() {
     clearTimeout(U.actionTimer);
-    if (!U.isHost || !U.session || U.session.handOver) return;
-    if (U.session.toAct !== U.online.guestSeat) return;
+    if (!U.isHost || U.mode !== "online" || !U.session || U.session.handOver) return;
+    const seat = U.session.toAct;
+    if (seat === null || seat === U.mySeat || U.isBot[seat]) return;
+    const playerId = U.online.seatPlayers[seat];
+    if (!playerId) return;
     U.actionTimer = setTimeout(() => {
-      if (!U.session || U.session.handOver || U.session.toAct !== U.online.guestSeat) return;
+      if (!U.session || U.session.handOver || U.session.toAct !== seat) return;
       const legal = HoldemEngine.legalInfo(U.session);
+      if (!legal) return;
       const check = legal.actions.find((entry) => entry.type === "check");
       const call = legal.actions.find((entry) => entry.type === "call");
-      const action = check ? { type: "check" } : call ? { type: "call" } : { type: "fold" };
-      HoldemEngine.applyAction(U.session, action);
-      afterEngineChange();
+      hostApplyAction(seat, check ? { type: "check" } : call ? { type: "call" } : { type: "fold" });
     }, 30000);
   }
 
@@ -1094,7 +1112,7 @@
     clearTimeout(U.botTimer);
     clearTimeout(U.nextTimer);
     clearTimeout(U.actionTimer);
-    if (!U.session) {
+    if (!U.stacks || U.stacks.length !== U.config.seats) {
       U.stacks = new Array(U.config.seats).fill(U.config.startingStack);
     }
     for (let i = 0; i < U.config.seats; i++) {
@@ -1114,7 +1132,6 @@
       handId: U.mode + "-" + U.handIndex,
     });
     U.session = state;
-    U.handStartStacks = state.stacks.slice();
     U.reflect = false;
     U.trackedHandId = null;
     U.myHole = state.hole[U.mySeat] ? state.hole[U.mySeat].slice() : [];
@@ -1148,6 +1165,7 @@
     updateStats();
     persistStats();
     submitRun();
+    if (U.isHost && U.mode === "online") broadcastCheckpoint();
     showResult();
     render();
     if (U.mode === "solo" || (U.mode === "online" && U.isHost)) {
@@ -1187,11 +1205,12 @@
     clearTimeout(U.nextTimer);
     overlayUI.show(
       "Hold 'Em Together",
-      "Play a 2–6 seat table against bots, or go online for peer-to-peer heads-up poker. " +
+      "Play a 2–6 seat table against bots, or go online for a peer-to-peer table. " +
       "Real blinds, betting rounds, side pots and all-in showdowns.",
       "Play vs bots",
       () => startSolo(U.seatPref)
     );
+    els.overlayStart.hidden = true;
     els.overlayOnline.hidden = false;
     els.seatChoices.hidden = false;
     els.nextHand.hidden = true;
@@ -1212,6 +1231,7 @@
       canDeal ? "Next hand" : null,
       () => dealNextHand()
     );
+    els.overlayStart.hidden = true;
     els.overlayOnline.hidden = true;
     els.seatChoices.hidden = true;
     els.nextHand.hidden = !canDeal;
@@ -1222,6 +1242,7 @@
   function startSolo(seats) {
     const count = Math.max(2, Math.min(6, Number(seats) || U.seatPref || 6));
     U.seatPref = count;
+    resetOnline();
     U.mode = "solo";
     const handle = root.Gamebase && Gamebase.player
       ? String(Gamebase.player.handle || "YOU").toUpperCase().slice(0, 10)
@@ -1236,7 +1257,14 @@
 
   function resetOnline() {
     if (U.online.channel) { try { U.online.channel.close(); } catch (error) { /* gone */ } }
-    U.online = { matchId: null, myId: null, oppId: null, channel: null, hostSeat: 0, guestSeat: 1 };
+    stopLobbyPoll();
+    if (U.online.startTimer) clearTimeout(U.online.startTimer);
+    U.online = {
+      matchId: null, myId: null, channel: null, hostId: null,
+      roster: [], seatPlayers: [], seatByPlayer: {}, seen: {},
+      lastCheckpoint: null, pendingPrivate: null,
+      lobbyTimer: null, startTimer: null, lobbyActive: false, started: false,
+    };
     U.session = null;
     U.view = null;
     U.myHole = [];
@@ -1251,73 +1279,175 @@
     try { U.online.channel.send(message); } catch (error) { /* channel gone */ }
   }
 
-  function broadcastState() {
-    if (!U.isHost || !U.online.channel || !U.session || !U.view) return;
-    send({
-      t: "sync",
-      handId: U.view.handId,
+  /** Targeted send — reaches exactly one peer over WebRTC or the relay. */
+  function sendTo(message, playerId) {
+    if (!U.online.channel || !playerId) return;
+    try { U.online.channel.send(message, playerId); } catch (error) { /* channel gone */ }
+  }
+
+  /**
+   * Public broadcast. Peers on an open P2P channel get the broadcast; peers
+   * still on the relay get a targeted copy (the relay drops unaddressed
+   * payloads once any channel reports p2p), so a mixed mesh still reaches all.
+   */
+  function broadcastPublic(message) {
+    if (!U.online.channel) return;
+    const me = U.online.myId;
+    const open = new Set(U.online.channel.peerIds || []);
+    const peers = U.online.roster.filter((playerId) => playerId && playerId !== me);
+    peers.forEach((playerId) => { if (!open.has(playerId)) sendTo(message, playerId); });
+    send(message);
+  }
+
+  function seatForPlayer(playerId) {
+    const seat = U.online.seatByPlayer[playerId];
+    return typeof seat === "number" ? seat : null;
+  }
+
+  /**
+   * Present humans keep their match seat. A player we have actually seen drop
+   * out becomes a host-run bot, so a hand keeps going after someone leaves.
+   * Players who have not connected yet are left as humans (never botted early).
+   */
+  function refreshHumanSeats() {
+    if (!U.config.seats) return;
+    const roster = U.online.roster.slice();
+    if (U.online.myId && roster.indexOf(U.online.myId) < 0) roster.push(U.online.myId);
+    const seen = U.online.seen;
+    U.humanSeats = [];
+    U.isBot = [];
+    for (let seat = 0; seat < U.config.seats; seat++) {
+      const playerId = U.online.seatPlayers[seat];
+      let human = true;
+      if (playerId && roster.indexOf(playerId) >= 0) {
+        human = true;
+        seen[playerId] = true;
+      } else if (playerId && seen[playerId]) {
+        human = false;
+      }
+      U.isBot[seat] = !human;
+      if (human) U.humanSeats.push(seat);
+      else if (playerId) U.names[seat] = "BOT " + (seat + 1);
+    }
+  }
+
+  function allPlayersPresent() {
+    const seats = U.online.seatPlayers.filter(Boolean);
+    if (!seats.length) return false;
+    return seats.every((playerId) => playerId === U.online.myId || U.online.roster.indexOf(playerId) >= 0);
+  }
+
+  /**
+   * Public checkpoint: stacks, blinds, button, hand number and seat map —
+   * enough for a successor to redeal the in-flight hand and keep the table
+   * consistent. It never contains hole cards.
+   */
+  function buildCheckpoint() {
+    return {
+      t: "checkpoint",
+      matchId: U.online.matchId,
+      handIndex: U.handIndex,
+      dealerSeat: U.dealerSeat,
+      seedBase: U.seedBase,
+      stacks: U.stacks.slice(),
       config: {
         seats: U.config.seats,
         startingStack: U.config.startingStack,
         smallBlind: U.config.smallBlind,
         bigBlind: U.config.bigBlind,
-        names: U.names,
-        humanSeats: U.humanSeats,
+      },
+      names: U.names.slice(),
+      seatPlayers: U.online.seatPlayers.slice(),
+    };
+  }
+
+  function broadcastCheckpoint() {
+    if (!U.isHost || !U.online.channel) return;
+    broadcastPublic(buildCheckpoint());
+  }
+
+  function broadcastState() {
+    if (!U.isHost || !U.online.channel || !U.session || !U.view) return;
+    broadcastPublic({
+      t: "sync",
+      handId: U.view.handId,
+      hostId: U.online.channel.hostId || U.online.myId,
+      hostSeat: U.mySeat,
+      config: {
+        seats: U.config.seats,
+        startingStack: U.config.startingStack,
+        smallBlind: U.config.smallBlind,
+        bigBlind: U.config.bigBlind,
+        names: U.names.slice(),
+        humanSeats: U.humanSeats.slice(),
+        seatPlayers: U.online.seatPlayers.slice(),
       },
       view: U.view,
-      hostSeat: 0,
-      guestSeat: 1,
     });
-    const guestSeat = U.online.guestSeat;
-    const guestHole = U.session.hole[guestSeat];
-    if (guestHole) {
-      send({
-        t: "private",
-        handId: U.view.handId,
-        seat: guestSeat,
-        to: U.online.oppId,
-        hole: guestHole.slice(),
-      });
+    // Private hole cards are point-to-point: each player sees only their own.
+    for (let seat = 0; seat < U.config.seats; seat++) {
+      const playerId = U.online.seatPlayers[seat];
+      if (!playerId || playerId === U.online.myId) continue;
+      if (U.humanSeats.indexOf(seat) < 0) continue;
+      const hole = U.session.hole[seat];
+      if (!hole) continue;
+      sendTo({ t: "private", handId: U.view.handId, seat, cards: hole.slice() }, playerId);
     }
+    broadcastCheckpoint();
   }
 
   function onPeerMessage(data) {
     if (!data || typeof data.t !== "string") return;
-    if (data.t === "hello") {
-      if (data.name) {
-        U.online.oppName = String(data.name).toUpperCase().slice(0, 10);
-        if (U.names.length) { U.names[U.online.guestSeat] = U.online.oppName; render(); }
-        if (U.isHost) broadcastState();
-      }
-      return;
-    }
     if (U.isHost) {
-      if (data.t === "action") handleGuestAction(data);
+      if (data.t === "action" && data.from) {
+        const seat = seatForPlayer(data.from);
+        if (seat !== null) hostApplyAction(seat, data.action, data.handId);
+      }
       return;
     }
     if (data.t === "sync") applySync(data);
-    else if (data.t === "private") {
-      if (U.view && data.seat === U.mySeat && data.handId === U.view.handId) {
-        U.myHole = Array.isArray(data.hole) ? data.hole.slice(0, 2) : [];
-        render();
-      }
+    else if (data.t === "private") applyPrivate(data);
+    else if (data.t === "checkpoint") U.online.lastCheckpoint = data;
+  }
+
+  function applyPrivate(data) {
+    if (!data || !Array.isArray(data.cards)) return;
+    const forMe = data.seat === U.mySeat ||
+      (data.seat !== undefined && U.online.seatPlayers[data.seat] === U.online.myId);
+    if (!forMe) return;
+    if (U.view && data.handId === U.view.handId) {
+      U.myHole = data.cards.slice(0, 2);
+      U.online.pendingPrivate = null;
+      render();
+    } else {
+      // Sync has not arrived yet (or arrived out of order): buffer it.
+      U.online.pendingPrivate = { handId: data.handId, cards: data.cards.slice(0, 2) };
     }
   }
 
-  function handleGuestAction(data) {
-    if (!U.session || U.session.handOver || !U.view) return;
-    if (data.handId !== U.view.handId) return;
-    if (U.session.toAct !== U.online.guestSeat) return;
+  /** Host: validate and apply a remote human's action from its own seat. */
+  function hostApplyAction(seat, rawAction, handId) {
+    if (!U.session || U.session.handOver || !U.view) return false;
+    if (handId && handId !== U.view.handId) return false;
+    if (U.session.toAct !== seat) return false;
     const legal = HoldemEngine.legalInfo(U.session);
-    const action = sanitizeAction(data.action, legal);
-    if (!action) return;
+    const action = sanitizeAction(rawAction, legal);
+    if (!action) return false;
     HoldemEngine.applyAction(U.session, action);
     afterEngineChange();
+    return true;
   }
 
   function applySync(data) {
     const config = data.config || {};
     if (config.names) U.names = config.names.slice();
+    if (Array.isArray(config.seatPlayers)) {
+      U.online.seatPlayers = config.seatPlayers.slice();
+      U.online.seatByPlayer = {};
+      U.online.seatPlayers.forEach((playerId, seat) => {
+        if (playerId) U.online.seatByPlayer[playerId] = seat;
+      });
+    }
     if (Array.isArray(config.humanSeats)) U.humanSeats = config.humanSeats.slice();
     U.config = {
       seats: config.seats || U.config.seats,
@@ -1325,75 +1455,283 @@
       smallBlind: config.smallBlind || U.config.smallBlind,
       bigBlind: config.bigBlind || U.config.bigBlind,
     };
-    U.mySeat = typeof data.guestSeat === "number" ? data.guestSeat : U.mySeat;
+    if (typeof data.hostId === "string") U.online.hostId = data.hostId;
+    U.isHost = Boolean(U.online.channel && U.online.channel.isHost);
     U.isBot = [];
     for (let i = 0; i < U.config.seats; i++) U.isBot[i] = U.humanSeats.indexOf(i) < 0;
     const isNewHand = !U.view || data.handId !== U.view.handId;
     if (isNewHand) {
       if (U.seatEls.length !== U.config.seats) buildSeatElements(U.config.seats);
       U.endedHandId = null;
-      U.myHole = [];
       U.reflect = false;
     }
     U.view = data.view;
+    if (isNewHand) U.myHole = [];
+    if (U.online.pendingPrivate && U.online.pendingPrivate.handId === data.handId) {
+      U.myHole = U.online.pendingPrivate.cards.slice(0, 2);
+      U.online.pendingPrivate = null;
+    }
     if (isNewHand && U.view && !U.view.handOver) {
       // A fresh hand from the host: clear the previous result overlay.
       overlayUI.hide();
       els.nextHand.hidden = true;
     }
+    U.online.started = true;
     render();
     if (U.view && U.view.handOver) finishHand();
   }
+
+  // ── Lobby ─────────────────────────────────────────────────────────────────
+
+  function showLobby(title, body, canStart) {
+    overlayUI.show(title, body, null, null);
+    els.overlayStart.hidden = !canStart;
+    els.overlayStart.disabled = false;
+    els.overlayStart.textContent = "Start";
+    els.overlayOnline.hidden = true;
+    els.seatChoices.hidden = true;
+    els.nextHand.hidden = true;
+  }
+
+  function stopLobbyPoll() {
+    U.online.lobbyActive = false;
+    if (U.online.lobbyTimer) {
+      clearTimeout(U.online.lobbyTimer);
+      U.online.lobbyTimer = null;
+    }
+  }
+
+  async function lobbyPoll() {
+    if (!U.online.lobbyActive || U.online.matchId) return;
+    try {
+      const ticket = await Gamebase.matchStatus();
+      if (ticket && ticket.status === "matched" && ticket.match) {
+        beginOnlineMatch(ticket.match);
+        return;
+      }
+    } catch (error) { /* keep polling */ }
+    if (!U.online.lobbyActive) return;
+    showLobby("Lobby", lobbyBody(), true);
+    U.online.lobbyTimer = setTimeout(lobbyPoll, 1500);
+  }
+
+  function lobbyBody(extra) {
+    const name = U.online.myName || "YOU";
+    return [
+      extra || "Waiting for players…",
+      "At the table: " + name + " (you).",
+      "2–6 players. The first player seated is the host.",
+    ].join(" ");
+  }
+
+  async function lobbyStart() {
+    if (U.online.matchId) return null;
+    els.overlayStart.disabled = true;
+    els.overlayStart.textContent = "Starting…";
+    try {
+      const match = await Gamebase.startMatch();
+      beginOnlineMatch(match);
+      return match;
+    } catch (error) {
+      const message = String(error && error.message ? error.message : error);
+      showLobby("Lobby", lobbyBody("Not enough players yet (" + message + ")."));
+      return null;
+    }
+  }
+
+  // ── Match setup / peer channel ────────────────────────────────────────────
+
+  function beginOnlineMatch(match) {
+    stopLobbyPoll();
+    if (U.online.startTimer) { clearTimeout(U.online.startTimer); U.online.startTimer = null; }
+    const myId = U.online.myId || (Gamebase.player && Gamebase.player.id);
+    U.mode = "online";
+    U.online.matchId = match.id;
+    U.online.myId = myId;
+    const players = match.players || [];
+    const hostId = players[0] ? players[0].player_id : myId;
+    U.online.hostId = hostId;
+    U.isHost = myId === hostId;
+    U.online.seatPlayers = players.map((player) => player.player_id);
+    U.online.seatByPlayer = {};
+    U.online.seatPlayers.forEach((playerId, seat) => {
+      if (playerId) U.online.seatByPlayer[playerId] = seat;
+    });
+    const mySeat = seatForPlayer(myId);
+    U.mySeat = typeof mySeat === "number" ? mySeat : 0;
+    U.names = players.map((player, index) =>
+      String(player.handle || "P" + (index + 1)).toUpperCase().slice(0, 10));
+    U.config = {
+      seats: Math.max(2, players.length),
+      startingStack: 1000,
+      smallBlind: 10,
+      bigBlind: 20,
+    };
+    U.humanSeats = players.map((_, index) => index);
+    U.isBot = new Array(U.config.seats).fill(false);
+    U.stacks = new Array(U.config.seats).fill(U.config.startingStack);
+    U.dealerSeat = U.config.seats - 1;
+    U.handIndex = 0;
+    U.online.started = false;
+    U.online.roster = [];
+    U.online.seen = {};
+    U.online.lastCheckpoint = null;
+    U.online.pendingPrivate = null;
+    U.session = null;
+    U.view = null;
+    U.myHole = [];
+    buildSeatElements(U.config.seats);
+    render();
+    const seated = U.names.join(", ");
+    showLobby("Lobby", "Seated: " + seated + ". " + (U.isHost ? "Starting…" : "Waiting for host…"), false);
+    connectOnlinePeers(match);
+  }
+
+  async function connectOnlinePeers(match) {
+    try {
+      const channel = await Gamebase.connectPeers(match.id);
+      U.online.channel = channel;
+      channel.on("open", () => onRosterChange());
+      channel.on("roster", (playerIds) => {
+        if (Array.isArray(playerIds) && playerIds.length) U.online.roster = playerIds.slice();
+        onRosterChange();
+      });
+      channel.on("message", onPeerMessage);
+      channel.on("hostchange", onHostChange);
+      channel.on("modechange", () => render());
+      channel.on("close", () => {
+        if (U.view && !U.view.handOver) els.status.textContent = "Connection lost.";
+      });
+      onRosterChange();
+      if (U.isHost && !U.online.started) {
+        U.online.startTimer = setTimeout(() => {
+          if (U.isHost && !U.online.started) startOnlineHost();
+        }, 4000);
+      }
+    } catch (error) {
+      console.warn("[holdem] peer connection failed", error);
+      overlayUI.show(
+        "Connection failed",
+        String(error && error.message ? error.message : error),
+        "Try again",
+        () => startOnline()
+      );
+      els.overlayStart.hidden = true;
+      els.overlayOnline.hidden = true;
+      els.seatChoices.hidden = true;
+    }
+  }
+
+  function onRosterChange() {
+    refreshHumanSeats();
+    if (U.isHost) {
+      if (!U.online.started) {
+        if (allPlayersPresent()) {
+          if (U.online.startTimer) { clearTimeout(U.online.startTimer); U.online.startTimer = null; }
+          startOnlineHost();
+        }
+      } else {
+        broadcastState();
+      }
+    } else if (U.mode === "online" && U.view) {
+      render();
+    }
+  }
+
+  function startOnlineHost() {
+    if (!U.isHost || U.online.started || !U.online.channel) return;
+    U.online.started = true;
+    U.humanSeats = [];
+    U.isBot = [];
+    for (let seat = 0; seat < U.config.seats; seat++) {
+      U.humanSeats.push(seat);
+      U.isBot[seat] = false;
+    }
+    U.stacks = new Array(U.config.seats).fill(U.config.startingStack);
+    U.dealerSeat = U.config.seats - 1;
+    U.handIndex = 0;
+    dealNextHand();
+  }
+
+  // ── Host handoff ──────────────────────────────────────────────────────────
+
+  function onHostChange(info) {
+    const becameHost = Boolean(info && info.isHost);
+    U.isHost = becameHost;
+    U.online.hostId = info ? info.hostId : U.online.hostId;
+    if (becameHost) {
+      // The SDK emits `hostchange` before our `roster` handler, so defer the
+      // takeover one tick: the roster then reflects who is actually left.
+      clearTimeout(U.botTimer);
+      clearTimeout(U.nextTimer);
+      clearTimeout(U.actionTimer);
+      U.session = null;
+      U.endedHandId = null;
+      if (U.online.started && U.online.lastCheckpoint) {
+        setTimeout(takeOverAsHost, 0);
+      } else if (!U.online.started && allPlayersPresent()) {
+        startOnlineHost();
+      }
+      return;
+    }
+    // No longer the host: void the local in-flight hand and wait for a sync.
+    clearTimeout(U.botTimer);
+    clearTimeout(U.nextTimer);
+    clearTimeout(U.actionTimer);
+    U.session = null;
+    U.endedHandId = null;
+    overlayUI.show("Host left", "Electing a new host…", null, null);
+    els.overlayStart.hidden = true;
+    els.overlayOnline.hidden = true;
+    els.seatChoices.hidden = true;
+    els.nextHand.hidden = true;
+  }
+
+  function takeOverAsHost() {
+    const checkpoint = U.online.lastCheckpoint;
+    if (!checkpoint) { startOnlineHost(); return; }
+    U.mode = "online";
+    U.isHost = true;
+    U.config = {
+      seats: checkpoint.config.seats,
+      startingStack: checkpoint.config.startingStack,
+      smallBlind: checkpoint.config.smallBlind,
+      bigBlind: checkpoint.config.bigBlind,
+    };
+    U.names = checkpoint.names.slice();
+    U.online.seatPlayers = checkpoint.seatPlayers.slice();
+    U.online.seatByPlayer = {};
+    U.online.seatPlayers.forEach((playerId, seat) => {
+      if (playerId) U.online.seatByPlayer[playerId] = seat;
+    });
+    const mine = seatForPlayer(U.online.myId);
+    U.mySeat = typeof mine === "number" ? mine : U.mySeat;
+    U.stacks = checkpoint.stacks.slice();
+    U.dealerSeat = checkpoint.dealerSeat;
+    U.handIndex = checkpoint.handIndex;
+    U.seedBase = checkpoint.seedBase || U.seedBase;
+    U.online.started = true;
+    refreshHumanSeats();
+    if (U.seatEls.length !== U.config.seats) buildSeatElements(U.config.seats);
+    showLobby("Taking over as host", "Resuming from the last checkpoint…", false);
+    // Deal the next hand: the in-flight hand is voided, chips are restored.
+    dealNextHand();
+  }
+
+  // ── Entry point ───────────────────────────────────────────────────────────
 
   async function startOnline() {
     U.mode = "online";
     els.mode.textContent = "Online";
     resetOnline();
-    overlayUI.show("Finding an opponent…", "Searching the matchmaking queue for another player.", null, null);
-    els.overlayOnline.hidden = true;
-    els.seatChoices.hidden = true;
-    els.nextHand.hidden = true;
+    showLobby("Joining the lobby…", "Queueing for a 2–6 player table.", false);
     try {
-      const match = await GameKit.online.findMatch(120000);
-      if (!match) { showMenu(); return; }
-      const myId = Gamebase.player.id;
-      const hostId = match.players[0].player_id;
-      U.isHost = myId === hostId;
-      U.online.matchId = match.id;
-      U.online.myId = myId;
-      const opponent = match.players.find((player) => player.player_id !== myId) || {};
-      U.online.oppId = opponent.player_id || null;
-      U.mySeat = U.isHost ? 0 : 1;
-      U.online.hostSeat = 0;
-      U.online.guestSeat = 1;
+      await Gamebase.ready();
+      U.online.myId = Gamebase.player.id;
       U.online.myName = String(Gamebase.player.handle || "YOU").toUpperCase().slice(0, 10);
-      U.online.oppName = String(opponent.handle || "OPP").toUpperCase().slice(0, 10);
-
-      const channel = await GameKit.online.peers(match.id);
-      U.online.channel = channel;
-      channel.on("open", () => {
-        send({ t: "hello", name: U.online.myName });
-        if (U.isHost) broadcastState();
-      });
-      channel.on("roster", () => {
-        send({ t: "hello", name: U.online.myName });
-        if (U.isHost) broadcastState();
-      });
-      channel.on("message", onPeerMessage);
-      channel.on("close", () => {
-        if (U.view && !U.view.handOver) els.status.textContent = "Connection lost.";
-      });
-
-      if (U.isHost) {
-        const names = [U.online.myName, U.online.oppName];
-        for (let i = 2; i < 6; i++) names.push("BOT " + (i - 1));
-        initTable({ seats: 6, humanSeats: [0, 1], names, mySeat: 0, isHost: true });
-        dealNextHand();
-      } else {
-        overlayUI.show("Waiting for the host…", "The host will deal the first hand.", null, null);
-        els.overlayOnline.hidden = true;
-        els.seatChoices.hidden = true;
-      }
+      await Gamebase.findMatch();
+      U.online.lobbyActive = true;
+      lobbyPoll();
     } catch (error) {
       console.warn("[holdem] matchmaking failed", error);
       overlayUI.show(
@@ -1402,6 +1740,7 @@
         "Try again",
         () => startOnline()
       );
+      els.overlayStart.hidden = true;
       els.overlayOnline.hidden = true;
       els.seatChoices.hidden = true;
     }
@@ -1438,6 +1777,7 @@
   });
   els.nextHand.addEventListener("click", () => dealNextHand());
   els.overlayOnline.addEventListener("click", () => startOnline());
+  els.overlayStart.addEventListener("click", () => lobbyStart());
 
   Array.prototype.forEach.call(els.seatChoices.querySelectorAll(".seat-choice"), (button) => {
     button.addEventListener("click", () => {
@@ -1468,6 +1808,8 @@
     botDecide,
     startSolo,
     startOnline,
+    lobbyStart,
+    hostStart: lobbyStart,
     nextHand: dealNextHand,
     act(type, amount) { humanAction({ type, amount }); },
     autoAct() {
@@ -1482,6 +1824,10 @@
     },
     setSpeed(ms) { U.botDelay = Math.max(0, Number(ms) || 0); },
     onlineMode() { return U.online.channel ? U.online.channel.mode : null; },
+    isHost() { return U.isHost; },
+    mySeat() { return U.mySeat; },
+    roster() { return U.online.roster.slice(); },
+    myHole() { return U.myHole.slice(); },
     state() {
       const view = U.view;
       const seats = view
@@ -1499,6 +1845,7 @@
         isHost: U.isHost,
         mySeat: U.mySeat,
         seats: U.config.seats,
+        bots: U.isBot.slice(),
         handId: view ? view.handId : null,
         handOver: view ? view.handOver : true,
         street: view ? view.street : null,
@@ -1515,10 +1862,15 @@
         stats: Object.assign({}, U.stats),
         online: {
           matchId: U.online.matchId,
+          hostId: U.online.hostId,
           isHost: U.isHost,
           mode: U.online.channel ? U.online.channel.mode : null,
           connected: U.online.channel ? U.online.channel.connected : false,
           peerIds: U.online.channel ? U.online.channel.peerIds : [],
+          roster: U.online.roster.slice(),
+          seatPlayers: U.online.seatPlayers.slice(),
+          started: U.online.started,
+          hasCheckpoint: Boolean(U.online.lastCheckpoint),
         },
       };
     },

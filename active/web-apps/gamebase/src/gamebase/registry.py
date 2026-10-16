@@ -183,8 +183,16 @@ def _parse_capabilities(raw: Any) -> dict[str, Any]:
         players = _as_int(matchmaking.get("players"), "capabilities.matchmaking.players", 2)
         if players < 2:
             raise ManifestError("capabilities.matchmaking.players must be at least 2")
+        minimum = _as_int(matchmaking.get("min"), "capabilities.matchmaking.min", players)
+        if minimum < 2 or minimum > players:
+            raise ManifestError("capabilities.matchmaking.min must be between 2 and players")
+        auto_start = matchmaking.get("autoStart", True)
+        if not isinstance(auto_start, bool):
+            raise ManifestError("capabilities.matchmaking.autoStart must be a boolean")
         capabilities["matchmaking"] = {
             "players": players,
+            "min": minimum,
+            "autoStart": auto_start,
             "mode": str(matchmaking.get("mode") or "standard"),
         }
 
