@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Brass &amp; Boiler — bot runner harness</title>
+<style>
+  body { margin: 0; background: #0d0a07; color: #f3e6c8; font: 13px/1.6 "Courier New", monospace; }
+  .wrap { display: grid; grid-template-columns: 1fr 420px; gap: 14px; padding: 14px; }
+  h1 { font: 700 16px Georgia, serif; letter-spacing: .08em; color: #f2dc9b; margin: 0 0 8px; }
+  #log { white-space: pre-wrap; background: #16110c; border: 1px solid #4a3a22; border-radius: 8px;
+         padding: 10px; height: 420px; overflow: auto; }
+  iframe { width: 100%; height: 640px; border: 1px solid #4a3a22; border-radius: 8px; background: #000; }
+  .pass { color: #7ddca0; } .fail { color: #ff8a7a; } .dim { color: #b39a6a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Bot runner — real protocol, real rate limit</h1>
+    <div id="log">Idle.</div>
+  </div>
+  <iframe id="stage" src="about:blank" title="game under test"></iframe>
+</div>
+
+<script type="module">
+/*
+ * Runs a submitted bot against the live game over postMessage, with the Arena's
+ * 30 actions/second limit enforced. This is the only place the bots are tested
+ * the way the Arena will run them: a real iframe, a real clock, real messages.
+ *
+ * Playwright calls window.botRunner.run(...); the numbers come back as JSON.
+ */
+import { createClient } from '../../vendor/conformance/conformance.js';
+
+const ACTION_INTERVAL_MS = 1000 / 30;
+const frame = document.getElementById('stage');
+const log = document.getElementById('log');
+
+function line(text, cls = '') {
+  const span = document.createElement('span');
+  span.className = cls;
+  span.textContent = `${text}\n`;
+  log.append(span);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function run({ botUrl, gameUrl = '/index.html', seed = 'arena', timeLimitMs = 30_000 }) {
+  log.textContent = '';
+  frame.src = 'about:blank';
+  await new Promise((r) => setTimeout(r, 60));
+
+  const client = createClient(frame);
+  let lastState = null;
+  let done = false;
+  let actions = 0;
+  let illegal = 0;
+  let lastActionAt = 0;
+  const stats = { tetrises: 0, otherClears: 0, maxScore: 0, maxLines: 0, maxLevel: 1, maxPiece: 0 };
+  let previousLines = 0;
+
+  window.addEventListener('message', (event) => {
+    if (event.source !== frame.contentWindow) return;
+    const msg = event.data;
+    if (!msg || msg.proto !== 'tetris/2') return;
+    if (msg.type === 'update' || (msg.type === 'result' && msg.payload && msg.payload.state)) {
+      const state = msg.type === 'update' ? msg.payload : msg.payload.state;
+      lastState = state;
+      if (typeof state.lines === 'number') {
+        const delta = state.lines - previousLines;
+        if (delta > 0) {
+          // One message per lock in practice; handle a coalesced jump anyway.
+          stats.tetrises += Math.floor(delta / 4);
+          if (delta % 4 !== 0) stats.otherClears += 1;
+        }
+        previousLines = state.lines;
+      }
+      stats.maxScore = Math.max(stats.maxScore, state.score || 0);
+      stats.maxLines = Math.max(stats.maxLines, state.lines || 0);
+      stats.maxLevel = Math.max(stats.maxLevel, state.level || 1);
+      stats.maxPiece = Math.max(stats.maxPiece, state.piece_count || 0);
+      if (state.game_over) done = true;
+    }
+  });
+
+  frame.src = new URL(gameUrl, location.href).href;
+  await client.waitForReady(10_000);
+  lastState = await client.newGame({ seed });
+  stats.maxPiece = lastState.piece_count;
+
+  const startedAt = performance.now();
+  const timer = setTimeout(() => { done = true; }, timeLimitMs);
+
+  const game = {
+    get done() { return done; },
+    state: () => lastState,
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    input: async (action) => {
+      // The Arena delays anything over 30 actions/second; model it, so a bot
+      // cannot get away with an action storm here that would stall there.
+      const since = performance.now() - lastActionAt;
+      if (since < ACTION_INTERVAL_MS) await new Promise((r) => setTimeout(r, ACTION_INTERVAL_MS - since));
+      lastActionAt = performance.now();
+      const res = await client.input(action);
+      actions += 1;
+      if (res && res.legal === false) illegal += 1;
+      if (res && res.state) lastState = res.state;
+      return res;
+    },
+  };
+
+  const { default: botFn } = await import(/* @vite-ignore */ new URL(botUrl, location.href).href);
+  let error = null;
+  try {
+    await botFn(game, { seed, gameName: 'Brass & Boiler', deadlineMs: timeLimitMs });
+  } catch (err) {
+    error = String((err && err.stack) || err);
+  }
+  clearTimeout(timer);
+  done = true;
+  await client.pause(true);
+
+  const result = {
+    seed,
+    error,
+    actions,
+    illegal,
+    ms: Math.round(performance.now() - startedAt),
+    ...stats,
+    state: lastState,
+  };
+  line(`score ${result.maxScore} · lines ${result.maxLines} · level ${result.maxLevel} · pieces ${result.maxPiece} · tetrises ${result.tetrises} · other clears ${result.otherClears} · actions ${actions} (illegal ${illegal})`, error ? 'fail' : 'pass');
+  client.destroy();
+  return result;
+}
+
+window.botRunner = { run };
+</script>
+</body>
+</html>

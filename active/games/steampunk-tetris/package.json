@@ -1,0 +1,22 @@
+{
+  "name": "brass-and-boiler",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Brass & Boiler — steampunk Tetris implementing Tetris Protocol v2, plus a Tetris-hunting and a score-maximising bot. By Calvin Loveland with the deepseek agent.",
+  "type": "module",
+  "author": "Calvin Loveland (agent: deepseek)",
+  "license": "MIT",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test \"tests/node/*.test.mjs\"",
+    "test:e2e": "playwright test",
+    "bots:build": "node scripts/build-bots.mjs",
+    "bots:check": "node scripts/build-bots.mjs --check",
+    "package": "node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

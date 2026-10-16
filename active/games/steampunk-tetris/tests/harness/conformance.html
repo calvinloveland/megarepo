@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Brass &amp; Boiler — Protocol v2 conformance harness</title>
+<style>
+  body { margin: 0; background: #0d0a07; color: #f3e6c8; font: 13px/1.5 "Courier New", monospace; }
+  .wrap { padding: 16px; display: grid; gap: 12px; grid-template-columns: 1fr 380px; align-items: start; }
+  h1 { font: 700 16px Georgia, serif; letter-spacing: .08em; margin: 0 0 6px; color: #f2dc9b; }
+  #report { white-space: pre-wrap; background: #16110c; border: 1px solid #4a3a22; border-radius: 8px;
+            padding: 10px; max-height: 420px; overflow: auto; }
+  .pass { color: #7ddca0; } .fail { color: #ff8a7a; }
+  iframe { width: 100%; height: 640px; border: 1px solid #4a3a22; border-radius: 8px; background: #000; }
+  button { font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid #c8a24a;
+           background: linear-gradient(180deg, #3a2c1c, #1d1610); color: #f2dc9b; cursor: pointer; }
+  label { display: block; margin: 6px 0 2px; color: #b39a6a; }
+  input { width: 100%; padding: 7px 9px; background: #16110c; color: #f3e6c8; border: 1px solid #4a3a22; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Protocol v2 conformance — Brass &amp; Boiler</h1>
+    <div id="report">Idle. Press "Run checks".</div>
+  </div>
+  <div>
+    <label for="game">Game URL</label>
+    <input id="game" value="../../index.html">
+    <p><button id="run" type="button">Run checks</button></p>
+    <div id="score" class="pass"></div>
+    <iframe id="stage" src="about:blank" title="game under test"></iframe>
+  </div>
+</div>
+
+<script type="module">
+/*
+ * Local mirror of the Arena's upload validator. The checks themselves are
+ * vendored from the challenge repo (vendor/conformance/conformance.js) and are
+ * never edited here — if the shipped suite changes, we re-copy it.
+ *
+ * Playwright drives this page through window.harness; a human can just press
+ * the button.
+ */
+import { createClient, runConformance, formatReport } from '../../vendor/conformance/conformance.js';
+
+const frame = document.getElementById('stage');
+const report = document.getElementById('report');
+const score = document.getElementById('score');
+
+const esc = (s) => String(s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+
+function paint(lines) {
+  report.innerHTML = lines.map((line) => {
+    const cls = line.startsWith('FAIL') ? 'fail' : line.startsWith('PASS') ? 'pass' : '';
+    return `<span class="${cls}">${esc(line)}</span>`;
+  }).join('\n');
+  report.scrollTop = report.scrollHeight;
+}
+
+/* The listener must exist before the game loads, so the iframe is created bare
+   and only pointed at the game once the client is attached. */
+async function run(gameUrl) {
+  report.textContent = 'Running…';
+  score.textContent = '';
+  frame.src = 'about:blank';
+  await new Promise((r) => setTimeout(r, 60));
+
+  const client = createClient(frame);
+  const lines = [];
+  frame.src = new URL(gameUrl, location.href).href;
+
+  const summary = await runConformance(client, (p) => {
+    if (p.phase === 'start') {
+      lines.push(`…     ${p.name}`);
+    } else {
+      lines[lines.length - 1] = `${p.pass ? 'PASS' : 'FAIL'}  ${p.name} — ${p.note}`;
+    }
+    paint(lines);
+  });
+
+  const text = formatReport(summary, 'Brass & Boiler');
+  paint([...lines, '', text]);
+  score.textContent = `${summary.passed}/${summary.total} checks passed`;
+  score.className = summary.pass ? 'pass' : 'fail';
+  client.destroy();
+  return { ...summary, report: text };
+}
+
+document.getElementById('run').addEventListener('click', () => {
+  run(document.getElementById('game').value).catch((err) => { report.textContent = String(err); });
+});
+
+window.harness = { run, frame };
+</script>
+</body>
+</html>

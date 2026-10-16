@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brass &amp; Boiler — Steampunk Tetris</title>
+<meta name="author" content="Calvin Loveland (agent: deepseek)">
+<meta name="description" content="Steampunk Tetris implementing Tetris Protocol v2. Built by Calvin Loveland with the deepseek agent.">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div class="forge-glow" aria-hidden="true"></div>
+<svg class="gear gear-a" viewBox="0 0 100 100" aria-hidden="true">
+  <path d="M50 6l7 12 13-5 3 14 14 3-5 13 12 7-12 7 5 13-14 3-3 14-13-5-7 12-7-12-13 5-3-14-14-3 5-13-12-7 12-7-5-13 14-3 3-14 13 5z"/>
+  <circle cx="50" cy="50" r="16"/>
+</svg>
+<svg class="gear gear-b" viewBox="0 0 100 100" aria-hidden="true">
+  <path d="M50 6l7 12 13-5 3 14 14 3-5 13 12 7-12 7 5 13-14 3-3 14-13-5-7 12-7-12-13 5-3-14-14-3 5-13-12-7 12-7-5-13 14-3 3-14 13 5z"/>
+  <circle cx="50" cy="50" r="16"/>
+</svg>
+
+<div class="boiler">
+  <header class="nameplate">
+    <div class="flange" aria-hidden="true"></div>
+    <h1>Brass &amp; Boiler</h1>
+    <p class="maker">Calvin Loveland &middot; agent deepseek &middot; Tetris Protocol v2</p>
+    <div class="flange" aria-hidden="true"></div>
+  </header>
+
+  <main class="deck">
+    <section class="gauge" aria-label="Reserve, hopper and pressure">
+      <div class="panel holster">
+        <h2>Reserve</h2>
+        <canvas id="hold" class="preview-mini" width="120" height="90"></canvas>
+        <p class="hint" id="hold-hint">C to stow</p>
+      </div>
+
+      <div class="panel hopper">
+        <h2>Hopper</h2>
+        <canvas id="next" class="preview-strip" width="120" height="360"></canvas>
+      </div>
+
+      <div class="panel pressure">
+        <h2>Boiler</h2>
+        <div class="dial">
+          <div class="dial-face">
+            <div class="needle" id="needle"></div>
+            <div class="dial-hub"></div>
+          </div>
+        </div>
+        <p class="readout" id="pressure-readout">Level 1</p>
+        <p class="hint" id="gravity-readout">1000 ms / row</p>
+      </div>
+    </section>
+
+    <section class="chamber-frame" id="chamber">
+      <div class="chamber-bolts" aria-hidden="true"></div>
+      <canvas id="board" width="300" height="600" aria-label="Tetris playfield"></canvas>
+      <div class="overlay" id="overlay" data-mode="intro">
+        <div class="overlay-card">
+          <h3 id="overlay-title">Brass &amp; Boiler</h3>
+          <p id="overlay-body">Firing up the boiler&hellip;</p>
+          <p class="overlay-keys" id="overlay-keys">&larr; &rarr; move &middot; &uarr; stoke &middot; &darr; drop &middot; space slam &middot; C stow &middot; P pause &middot; R new game</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="readouts" aria-label="Scoreboard">
+      <div class="panel ledger">
+        <h2>Ledger</h2>
+        <dl class="ledger-grid">
+          <div><dt>Score</dt><dd id="score">0</dd></div>
+          <div><dt>Level</dt><dd id="level">1</dd></div>
+          <div><dt>Lines</dt><dd id="lines">0</dd></div>
+          <div><dt>Tetrises</dt><dd id="tetrises">0</dd></div>
+          <div><dt>Pieces</dt><dd id="pieces">0</dd></div>
+          <div><dt>Run time</dt><dd id="clock">0:00</dd></div>
+        </dl>
+        <p class="medal" id="feat-readout">Awaiting first part</p>
+      </div>
+
+      <div class="panel tally">
+        <h2>Parts Bin</h2>
+        <ul id="tally"></ul>
+      </div>
+
+      <div class="panel keys">
+        <h2>Controls</h2>
+        <ul class="keylist">
+          <li><kbd>&larr;</kbd><kbd>&rarr;</kbd><span>Move</span></li>
+          <li><kbd>&darr;</kbd><span>Soft drop</span></li>
+          <li><kbd>&uarr;</kbd><kbd>X</kbd><span>Rotate cw</span></li>
+          <li><kbd>Z</kbd><span>Rotate ccw</span></li>
+          <li><kbd>space</kbd><span>Hard drop</span></li>
+          <li><kbd>C</kbd><span>Hold</span></li>
+          <li><kbd>P</kbd><span>Pause</span></li>
+          <li><kbd>R</kbd><span>New game</span></li>
+          <li><kbd>M</kbd><span>Mute</span></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <nav class="touch-pad" id="touch-pad" aria-label="Touch controls">
+    <button type="button" data-action="left">&larr;</button>
+    <button type="button" data-action="rotate_ccw">&#8630;</button>
+    <button type="button" data-action="soft_drop">&darr;</button>
+    <button type="button" data-action="hard_drop">&#8681;&#8681;</button>
+    <button type="button" data-action="rotate_cw">&#8631;</button>
+    <button type="button" data-action="hold">HOLD</button>
+    <button type="button" data-action="right">&rarr;</button>
+  </nav>
+
+  <footer class="plaque">
+    <span>Boiler pressure raises the tempo &mdash; one row per gravity step, straight off the protocol table.</span>
+    <span class="stamp">CL &middot; deepseek</span>
+  </footer>
+</div>
+
+<script src="./game-adapter.js"></script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

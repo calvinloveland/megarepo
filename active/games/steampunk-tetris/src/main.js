@@ -1,0 +1,399 @@
+/*
+ * Brass & Boiler — page wiring.
+ *
+ * Responsibilities, in order of importance:
+ *   1. Run the engine off the wall clock (PROTOCOL.md §4) and answer the Arena.
+ *   2. Render, make noise, update the HUD.
+ *   3. Let a human play with the keyboard.
+ *
+ * The protocol surface lives behind the official `game-adapter.js`, which the
+ * challenge ships for exactly this purpose; `window.installTetrisAdapter` is
+ * loaded by a classic <script> before this module runs.
+ *
+ * Built by Calvin Loveland with the deepseek agent.
+ */
+
+import { TetrisEngine } from './engine.js';
+import { Renderer } from './render.js';
+import { SteamAudio } from './audio.js';
+import { PIECE_PALETTE, PIECE_GLYPH } from './theme.js';
+import { PIECE_TYPES } from './constants.js';
+
+const GAME_NAME = 'Brass & Boiler';
+const GAME_AUTHOR = 'Calvin Loveland (agent: deepseek)';
+
+const engine = new TetrisEngine({ seed: 'arena' });
+const audio = new SteamAudio();
+const renderer = new Renderer(document.getElementById('board'), {
+  nextCanvas: document.getElementById('next'),
+  holdCanvas: document.getElementById('hold'),
+});
+
+/* Deterministic test surface (see project AGENTS.md): Playwright drives the
+   engine through this instead of gambling on real-time frames. */
+let frozen = false;
+let clockOffset = 0;
+const now = () => performance.now() + clockOffset;
+
+/* ------------------------------------------------------------ human input */
+
+const DAS_MS = 150;
+const ARR_MS = 38;
+const SOFT_DAS_MS = 60;
+const SOFT_ARR_MS = 40;
+
+const held = { left: false, right: false, down: false };
+let moveDir = 0;
+let dasTimer = 0;
+let arrTimer = 0;
+let softDas = 0;
+let softArr = 0;
+let humanPlaying = false;
+let overlayMode = 'intro';
+let introUntil = 0;
+
+const el = (id) => document.getElementById(id);
+const ui = {
+  score: el('score'), level: el('level'), lines: el('lines'), tetrises: el('tetrises'),
+  pieces: el('pieces'), clock: el('clock'), needle: el('needle'),
+  pressure: el('pressure-readout'), gravity: el('gravity-readout'),
+  feat: el('feat-readout'), tally: el('tally'), overlay: el('overlay'),
+  overlayTitle: el('overlay-title'), overlayBody: el('overlay-body'),
+  overlayKeys: el('overlay-keys'), holdHint: el('hold-hint'),
+};
+
+const last = {};
+function setText(node, value) {
+  if (!node) return;
+  if (last[node.id] === value) return;
+  last[node.id] = value;
+  node.textContent = value;
+}
+
+function setOverlay(mode, title, body, keys) {
+  overlayMode = mode;
+  ui.overlay.dataset.mode = mode;
+  if (title) ui.overlayTitle.textContent = title;
+  if (body) ui.overlayBody.textContent = body;
+  if (ui.overlayKeys) ui.overlayKeys.hidden = !keys;
+}
+
+function clockText(ms) {
+  const total = Math.floor(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/* --------------------------------------------------------------- adapter */
+
+const adapter = window.installTetrisAdapter({
+  name: GAME_NAME,
+  author: GAME_AUTHOR,
+  getState: () => engine.toState(),
+  onNew: ({ seed, sequence }) => {
+    engine.reset({ seed, sequence });
+    humanPlaying = true;
+    setOverlay('hidden');
+    renderer.particles.length = 0;
+    renderer.steam.length = 0;
+    renderer.flashes.length = 0;
+  },
+  onInput: (action) => engine.applyAction(action),
+  onPause: (paused) => engine.setPaused(paused),
+});
+
+/* ------------------------------------------------------------------ loop */
+
+let lastFrame = 0;
+
+function frame(ts) {
+  const dtMs = lastFrame ? Math.min(100, ts - lastFrame) : 16;
+  lastFrame = ts;
+
+  if (!frozen) {
+    engine.tick(now());
+    handleEvents();
+    adapter.notify();
+  }
+  if (!engine.paused && !engine.gameOver) humanRepeat(dtMs);
+  renderer.update(dtMs / 1000);
+  const state = renderer.draw(engine);
+  paint(state, dtMs);
+
+  if (overlayMode === 'intro' && now() > introUntil) setOverlay('hidden');
+  requestAnimationFrame(frame);
+}
+
+function handleEvents() {
+  for (const ev of engine.drainEvents()) {
+    switch (ev.type) {
+      case 'move':
+        audio.move();
+        break;
+      case 'rotate':
+        audio.rotate();
+        break;
+      case 'softdrop':
+        audio.softDrop();
+        break;
+      case 'lock':
+        audio.lock();
+        renderer.burst(lastPieceCells, { count: 8, spread: 0.6 });
+        break;
+      case 'harddrop':
+        audio.hardDrop();
+        renderer.burst(lastPieceCells, { count: 16, spread: 1.2 });
+        renderer.kick(2 + Math.min(4, ev.detail * 0.6));
+        break;
+      case 'hold':
+        audio.hold();
+        break;
+      case 'clear': {
+        const { lines, rows, perfect } = ev.detail;
+        audio.clear(lines);
+        renderer.flash(rows);
+        renderer.vent(lines);
+        renderer.kick(lines * 4);
+        if (lines >= 4) renderer.kick(9);
+        if (perfect) renderer.kick(6);
+        break;
+      }
+      case 'gameover':
+        audio.gameOver();
+        setOverlay('over', 'Boiler blown', `Final score ${engine.score}. Lines ${engine.lines}.`,
+          'Press R to fire up a new run.');
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+function humanRepeat(dt) {
+  if (moveDir !== 0) {
+    if (dasTimer > 0) {
+      dasTimer -= dt;
+      if (dasTimer <= 0) arrTimer = 0;
+    } else {
+      arrTimer += dt;
+      let guard = 0;
+      while (arrTimer >= ARR_MS && guard++ < 6) {
+        arrTimer -= ARR_MS;
+        engine.applyAction(moveDir < 0 ? 'left' : 'right');
+      }
+    }
+  }
+  if (held.down) {
+    if (softDas > 0) {
+      softDas -= dt;
+      if (softDas <= 0) softArr = 0;
+    } else {
+      softArr += dt;
+      let guard = 0;
+      while (softArr >= SOFT_ARR_MS && guard++ < 8) {
+        softArr -= SOFT_ARR_MS;
+        engine.applyAction('soft_drop');
+      }
+    }
+  }
+}
+
+/* ----------------------------------------------------------------- paint */
+
+let lastPieceCells = [];
+let lastLevel = 1;
+
+function paint(state, dtMs) {
+  if (state.piece) lastPieceCells = state.piece.cells;
+
+  setText(ui.score, state.score.toLocaleString('en-US'));
+  setText(ui.level, String(state.level));
+  setText(ui.lines, String(state.lines));
+  setText(ui.tetrises, String(engine.tetrises));
+  setText(ui.pieces, String(state.piece_count));
+  setText(ui.clock, clockText(state.elapsed_ms));
+  setText(ui.pressure, `Level ${state.level}`);
+  setText(ui.gravity, `${state.gravity_ms} ms / row`);
+
+  if (ui.needle) {
+    const pct = Math.min(1, (state.level - 1) / 19);
+    ui.needle.style.transform = `rotate(${-120 + pct * 240}deg)`;
+  }
+
+  const lc = engine.lastClear;
+  const fresh = state.elapsed_ms - lc.at < 2600;
+  setText(ui.feat, state.game_over
+    ? `Topped out at level ${state.level}`
+    : (lc.lines && fresh)
+      ? `${['', 'Single', 'Double', 'Triple', 'TETRIS'][lc.lines]}${lc.spin ? ` · ${lc.spin}` : ''}${lc.perfect ? ' · PERFECT CLEAR' : ''}`
+      : `${GAME_NAME} · ${state.piece_count} pieces fed`);
+
+  if (state.level !== lastLevel) {
+    if (state.level > lastLevel) audio.levelUp();
+    lastLevel = state.level;
+  }
+  void dtMs;
+}
+
+function buildTally() {
+  ui.tally.innerHTML = '';
+  for (const type of PIECE_TYPES) {
+    const li = document.createElement('li');
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.style.background = PIECE_PALETTE[type].face;
+    const name = document.createElement('span');
+    name.textContent = `${PIECE_GLYPH[type]} ${type}`;
+    const count = document.createElement('span');
+    count.className = 'count';
+    count.dataset.type = type;
+    count.textContent = '0';
+    li.append(chip, name, count);
+    ui.tally.append(li);
+  }
+}
+
+function paintTally() {
+  for (const node of ui.tally.querySelectorAll('.count')) {
+    node.textContent = String(engine.pieceStats[node.dataset.type] || 0);
+  }
+}
+
+/* ------------------------------------------------------------- keyboard */
+
+const KEYMAP = {
+  ArrowLeft: 'left', KeyA: 'left',
+  ArrowRight: 'right', KeyD: 'right',
+  ArrowDown: 'down', KeyS: 'down',
+  ArrowUp: 'rotate_cw', KeyX: 'rotate_cw', KeyW: 'rotate_cw',
+  KeyZ: 'rotate_ccw', ControlLeft: 'rotate_ccw', ControlRight: 'rotate_ccw',
+  Space: 'hard_drop', Enter: 'hard_drop',
+  KeyC: 'hold', ShiftLeft: 'hold', ShiftRight: 'hold',
+};
+
+function pressAction(action) {
+  audio.unlock();
+  if (overlayMode === 'over') setOverlay('hidden');
+  return engine.applyAction(action);
+}
+
+window.addEventListener('keydown', (e) => {
+  audio.unlock();
+  if (e.code === 'KeyM') {
+    audio.setEnabled(!audio.enabled);
+    return;
+  }
+  if (e.code === 'KeyR') {
+    e.preventDefault();
+    engine.reset({ seed: `human-${Date.now().toString(36)}` });
+    setOverlay('hidden');
+    renderer.flashes.length = 0;
+    return;
+  }
+  if (e.code === 'KeyP' || e.code === 'Escape') {
+    e.preventDefault();
+    engine.setPaused(!engine.paused);
+    setOverlay(engine.paused ? 'paused' : 'hidden', 'Boiler banked', 'Pause engaged — the clock is stopped.',
+      'Press P to stoke it back up.');
+    return;
+  }
+
+  const action = KEYMAP[e.code];
+  if (!action) return;
+  if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+
+  if (action === 'left' || action === 'right') {
+    const dir = action === 'left' ? -1 : 1;
+    held[action] = true;
+    moveDir = dir;
+    dasTimer = DAS_MS;
+    arrTimer = 0;
+    pressAction(action);
+    return;
+  }
+  if (action === 'down') {
+    if (!held.down) {
+      held.down = true;
+      softDas = SOFT_DAS_MS;
+      softArr = 0;
+      pressAction('soft_drop');
+    }
+    return;
+  }
+  pressAction(action);
+});
+
+window.addEventListener('keyup', (e) => {
+  const action = KEYMAP[e.code];
+  if (!action) return;
+  if (action === 'left' || action === 'right') {
+    held[action] = false;
+    if (held.left) moveDir = -1;
+    else if (held.right) moveDir = 1;
+    else moveDir = 0;
+  }
+  if (action === 'down') held.down = false;
+});
+
+/* Touch pad: one action per tap, held buttons repeat like keys. */
+for (const button of document.querySelectorAll('.touch-pad button')) {
+  const action = button.dataset.action;
+  let holdTimer = null;
+  const fire = () => pressAction(action);
+  button.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    fire();
+    if (action === 'left' || action === 'right' || action === 'soft_drop') {
+      holdTimer = setInterval(fire, 55);
+    }
+  });
+  const stop = () => {
+    if (holdTimer) clearInterval(holdTimer);
+    holdTimer = null;
+  };
+  button.addEventListener('pointerup', stop);
+  button.addEventListener('pointercancel', stop);
+  button.addEventListener('pointerleave', stop);
+}
+
+window.addEventListener('resize', () => renderer.resize());
+
+/* ----------------------------------------------------------------- boot */
+
+buildTally();
+setInterval(paintTally, 250);
+
+/* The page is live from the first frame: the protocol requires the game to run
+   without any input, so a human gets a running demo and presses R when ready. */
+setOverlay('intro', 'Brass & Boiler', 'Stoke the boiler — pieces fall on the wall clock, not on frames.',
+  '← → move · ↑ rotate · ↓ drop · space slam · C stow · P pause · R new game');
+introUntil = now() + 4200;
+
+requestAnimationFrame(frame);
+
+window.__tetris = {
+  version: '2.0',
+  name: GAME_NAME,
+  author: GAME_AUTHOR,
+  engine,
+  renderer,
+  adapter,
+  api: {
+    state: () => engine.toState(),
+    reset: (opts) => engine.reset(opts),
+    freeze: () => { frozen = true; },
+    unfreeze: () => { frozen = false; },
+    /** Deterministic time travel for tests: freezes the page clock first. */
+    advance: (ms, step = 8) => {
+      frozen = true;
+      for (let acc = 0; acc < ms; acc += step) {
+        clockOffset += step;
+        engine.tick(now());
+        handleEvents();
+      }
+      adapter.notify();
+      return engine.toState();
+    },
+    press: (action) => engine.applyAction(action),
+    tally: () => ({ ...engine.pieceStats }),
+  },
+};
