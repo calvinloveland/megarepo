@@ -2,7 +2,9 @@
 
 **Distributed Browser-Based LLM Inference — The More Users, The Smarter It Gets**
 
-HiveMind LLM is a chat application that runs large language models directly in users' browsers using WebGPU. What makes it unique: as more users join the chat, their combined computing power automatically unlocks access to larger, more capable models.
+HiveMind LLM is a chat application that runs large language models directly in users' browsers. It uses WebGPU for GPU acceleration when available and automatically falls back to a CPU/WASM backend (Transformers.js + ONNX Runtime Web) otherwise — so it works in stock Chrome, Firefox, and Safari **without enabling `chrome://flags/#enable-unsafe-webgpu`** or any other browser flag.
+
+What makes it unique: as more users join the chat, their combined computing power can be pooled to unlock access to larger, more capable models or to ensemble answers across peers.
 
 ## 🎯 Core Concept
 
@@ -12,7 +14,9 @@ HiveMind LLM is a chat application that runs large language models directly in u
 10+ users → Llama 3.2 3B or larger (fully distributed)
 ```
 
-Unlike traditional LLM services where the server does all the work, HiveMind distributes model inference across all connected users. Each browser handles a portion of the model's layers, coordinating via WebRTC for peer-to-peer communication.
+Unlike traditional LLM services where the server does all the work, HiveMind distributes model inference across all connected users. GPU peers can shard model layers and coordinate via WebRTC; CPU/WASM peers run a full small model locally. The coordinator picks a model and role for each peer based on its reported backend and capacity.
+
+> **Backends.** `webgpu` = WebLLM (MLC) running on the GPU. `wasm` = Transformers.js (ONNX Runtime Web) running quantized ONNX models on the CPU. The app selects a backend at startup and falls back automatically if the preferred one fails to load.
 
 ## 🏗️ Architecture
 
@@ -39,7 +43,8 @@ Unlike traditional LLM services where the server does all the work, HiveMind dis
 │  │  Layers   │  │  │  │  Layers   │  │  │  │  Layers   │  │
 │  │   0-10    │  │  │  │  11-20    │  │  │  │  21-31    │  │
 │  └───────────┘  │  │  └───────────┘  │  │  └───────────┘  │
-│    WebGPU       │  │    WebGPU       │  │    WebGPU       │
+│    WebGPU /    │  │    WebGPU /    │  │    WebGPU /    │
+│    WASM (CPU)  │  │    WASM (CPU)  │  │    WASM (CPU)  │
 └─────────────────┘  └─────────────────┘  └─────────────────┘
          │                    │                    │
          └────────── WebRTC P2P Mesh ─────────────┘
@@ -47,7 +52,7 @@ Unlike traditional LLM services where the server does all the work, HiveMind dis
 
 ## 🚀 How It Works
 
-1. **User Joins**: When you open HiveMind, your browser checks WebGPU capability and reports available VRAM to the coordinator.
+1. **User Joins**: When you open HiveMind, your browser detects whether WebGPU is usable and otherwise selects the CPU/WASM backend. It then reports its backend and available capacity to the coordinator. No browser flag is required.
 
 2. **Cluster Formation**: The coordinator tracks all connected peers and their compute capacity.
 
@@ -71,9 +76,9 @@ Unlike traditional LLM services where the server does all the work, HiveMind dis
 ## 🔧 Technology Stack
 
 ### Frontend
-- **Static HTML** + **TypeScript** for the UI
-- **WebGPU** via [@aspect-build/aspect-webassets](https://github.com/aspect-build/aspect-webassets) for GPU compute
-- **WebLLM** (MLC-AI) for browser-based model inference
+- **React** + **TypeScript** for the UI
+- **WebGPU** via [WebLLM](https://webllm.mlc.ai/) for GPU inference (optional)
+- **[Transformers.js](https://huggingface.co/docs/transformers.js)** (`@huggingface/transformers`) + ONNX Runtime Web for CPU/WASM inference
 - **WebRTC** for peer-to-peer hidden state transfer
 
 ### Backend (Coordinator)
@@ -82,9 +87,9 @@ Unlike traditional LLM services where the server does all the work, HiveMind dis
 - **Redis** (optional) for multi-instance coordinator scaling
 
 ### ML/Inference
-- **MLC-compiled models** in WebGPU format
-- Custom layer partitioning for distributed inference
-- Quantized models (4-bit) to minimize VRAM requirements
+- **WebGPU**: MLC-compiled models (4-bit quantized)
+- **WASM**: quantized ONNX models loaded from the Hugging Face Hub
+- Custom layer partitioning for distributed GPU inference (roadmap)
 
 ## 📦 Project Structure
 
@@ -137,13 +142,15 @@ Then open `http://localhost:5173` in multiple browser windows to see the distrib
 
 This is an experimental project exploring browser-based distributed LLM inference. Current status:
 
-- [ ] Coordinator service (signaling + cluster management)
-- [ ] WebGPU capability detection
-- [ ] Single-peer inference with WebLLM
+- [x] Coordinator service (signaling + cluster management)
+- [x] Compute capability detection (WebGPU with WASM fallback)
+- [x] Single-peer inference with WebLLM and Transformers.js
+- [x] Chat UI with backend indicator
 - [ ] WebRTC peer mesh
 - [ ] Distributed layer execution
 - [ ] Dynamic model switching
-- [ ] Chat UI
+
+> **Note:** today each peer loads and runs a *full* model locally; the coordinator's layer assignments are not yet used for true layer sharding. The practical "more users" benefit currently comes from model/role selection and (on the roadmap) answer ensembling rather than pipeline parallelism.
 
 ## 🔮 Future Ideas
 
@@ -156,7 +163,8 @@ This is an experimental project exploring browser-based distributed LLM inferenc
 ## 📚 Inspiration
 
 - [Petals](https://petals.dev/) - BitTorrent-style distributed LLM inference
-- [WebLLM](https://webllm.mlc.ai/) - High-performance in-browser LLM inference
+- [WebLLM](https://webllm.mlc.ai/) - High-performance in-browser LLM inference on WebGPU
+- [Transformers.js](https://huggingface.co/docs/transformers.js) - In-browser ONNX inference with a CPU/WASM fallback
 - [BOINC](https://boinc.berkeley.edu/) - Volunteer distributed computing
 
 ## 📄 License

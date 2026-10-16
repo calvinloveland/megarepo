@@ -2,9 +2,22 @@
 
 ## Overview
 
-HiveMind LLM implements **pipeline parallelism** across browser peers, similar to how Petals distributes model layers across GPU servers, but entirely in the browser using WebGPU.
+HiveMind LLM is designed for **pipeline parallelism** across browser peers, similar to how Petals distributes model layers across GPU servers, but entirely in the browser. Inference is **backend-agnostic**: peers with WebGPU use WebLLM for GPU acceleration, while peers without a usable GPU run a full small model on the CPU via Transformers.js (ONNX Runtime Web/WASM). The WASM path requires no browser flags and keeps the app working on stock browsers (including Linux/Android where WebGPU is still gated).
 
 ## Key Architectural Decisions
+
+### 0. Backend-agnostic inference (CPU/WASM fallback)
+
+The frontend defines a single `InferenceBackend` interface with two implementations:
+
+| Backend  | Runtime                          | Models                    | Browser flag needed? |
+|----------|----------------------------------|---------------------------|----------------------|
+| `webgpu` | WebLLM (MLC)                     | MLC-compiled 4-bit models | Sometimes (Linux/Android) |
+| `wasm`   | Transformers.js + ONNX Runtime   | Quantized ONNX from HF Hub | No                  |
+
+At startup the app calls `detectInferenceCapabilities()`. If WebGPU is present with enough estimated VRAM it recommends `webgpu`; otherwise it recommends `wasm`. `BackendManager.loadModel()` then tries the preferred backend and falls back to the other if loading fails (for example, a WebGPU device that cannot allocate the model). The active backend is shown in the cluster status bar.
+
+If you are adding a model, provide either an MLC id (for WebGPU) or an ONNX repo id (for WASM). The WASM resolver maps known HiveMind ids to Hugging Face repos and otherwise falls back to a small default model.
 
 ### 1. Pipeline Parallelism (Not Tensor Parallelism)
 
@@ -127,7 +140,9 @@ sequenceDiagram
 
 ### Browser Inference Engine
 
-Each browser runs a modified WebLLM instance that:
+> **Implementation status:** the layer-sharded design below is the target. Today each peer loads and runs a **full** model through the `webgpu` or `wasm` backend; the `loadLayers`/`forward` API is not yet implemented.
+
+In the target design, each browser runs a modified WebLLM instance that:
 
 1. Loads only assigned layers (not the full model)
 2. Accepts hidden states as input (not just tokens)
@@ -232,12 +247,12 @@ class ClusterState:
 
 ### 5. Browser Limitations
 
-**Challenge**: WebGPU support and VRAM access vary by browser.
+**Challenge**: WebGPU support and VRAM access vary by browser and platform, and on some platforms WebGPU is still behind an `#enable-unsafe-webgpu` flag.
 
 **Mitigation**:
-- Graceful degradation: WebGL fallback for unsupported browsers
-- Clear capability detection before joining the swarm
-- Minimum requirements clearly communicated to users
+- Never gate the app on WebGPU: fall back to the CPU/WASM backend (Transformers.js) automatically
+- Detect capabilities before joining the swarm and report the active backend to the coordinator
+- Communicate the active backend and model clearly to users
 
 ## Security Considerations
 
