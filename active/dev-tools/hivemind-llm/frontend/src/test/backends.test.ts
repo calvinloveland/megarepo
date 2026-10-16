@@ -42,6 +42,18 @@ describe('resolveWasmModelId', () => {
     );
   });
 
+  it('maps a known MLC id to the canonical ONNX repo', () => {
+    const model: ModelInfo = {
+      id: 'llama-3.2-1b',
+      name: 'Llama 3.2 1B',
+      mlc_model_id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+      num_layers: 16,
+    };
+    expect(resolveWasmModelId(model).modelId).toBe(
+      'onnx-community/Llama-3.2-1B-Instruct-ONNX'
+    );
+  });
+
   it('honours an explicit wasmModelId repo id', () => {
     const model: ModelInfo = { ...SMOL_MODEL, wasmModelId: 'org/custom-model' };
     expect(resolveWasmModelId(model)).toEqual({ modelId: 'org/custom-model' });

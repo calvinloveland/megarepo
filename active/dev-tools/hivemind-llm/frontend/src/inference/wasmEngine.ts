@@ -29,10 +29,10 @@ export const WASM_MODEL_ALIASES: Record<string, string> = {
   'smollm-135m': 'HuggingFaceTB/SmolLM2-135M-Instruct',
   'SmolLM-135M-Instruct-q4f16_1-MLC': 'HuggingFaceTB/SmolLM2-135M-Instruct',
   'SmolLM2-135M-Instruct-q0f32-MLC': 'HuggingFaceTB/SmolLM2-135M-Instruct',
-  'llama-3.2-1b': 'onnx-community/Llama-3.2-1B-Instruct',
-  'Llama-3.2-1B-Instruct-q4f16_1-MLC': 'onnx-community/Llama-3.2-1B-Instruct',
-  'llama-3.2-3b': 'onnx-community/Llama-3.2-3B-Instruct',
-  'Llama-3.2-3B-Instruct-q4f16_1-MLC': 'onnx-community/Llama-3.2-3B-Instruct',
+  'llama-3.2-1b': 'onnx-community/Llama-3.2-1B-Instruct-ONNX',
+  'Llama-3.2-1B-Instruct-q4f16_1-MLC': 'onnx-community/Llama-3.2-1B-Instruct-ONNX',
+  'llama-3.2-3b': 'onnx-community/Llama-3.2-3B-Instruct-ONNX',
+  'Llama-3.2-3B-Instruct-q4f16_1-MLC': 'onnx-community/Llama-3.2-3B-Instruct-ONNX',
 };
 
 export function resolveWasmModelId(model: ModelInfo): ResolvedModel {
