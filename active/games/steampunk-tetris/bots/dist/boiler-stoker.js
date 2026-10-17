@@ -85,6 +85,31 @@ const SAFETY = 1.5;
 const LOOKAHEAD_CANDIDATES = 6;
 const LOOKAHEAD_WEIGHT = 0.55;
 
+/**
+ * Search ladder, deepest first, in order of how much time the piece has left.
+ * Early levels fall in seconds per row, so a six-ply search is nearly free there
+ * and the stack it builds is what the endgame inherits; by level 18 a piece lives
+ * for ~200ms and thinking is a luxury the action budget cannot pay for. Each
+ * rung is [minimum budget in ms, plies, beam].
+ */
+const SEARCH_LADDER = [
+  [1500, 6, 3],
+  [700, 5, 3],
+  [320, 4, 3],
+  [150, 3, 2],
+  [0, 2, 2],
+];
+
+/** Pick the search rung the current piece can actually afford. */
+function searchRung(cfg, state) {
+  if (!cfg.adaptiveSearch) return { plies: cfg.lookaheadPlies ?? 4, beam: cfg.lookaheadBeam ?? 3 };
+  const budget = budgetMs(state, cfg) * (cfg.safety ?? SAFETY);
+  for (const [minimum, plies, beam] of SEARCH_LADDER) {
+    if (budget >= minimum) return { plies, beam };
+  }
+  return { plies: 2, beam: 2 };
+}
+
 const gravityMs = (level) => (level >= 26 ? 1 : GRAVITY_MS[level - 1]);
 const lockDelayMs = (level) => (level >= 26 ? 5 : LOCK_DELAY_MS[level - 1]);
 
@@ -538,8 +563,9 @@ function rankPlacements(cfg, board, state) {
 
   if (cfg.mode === 'score' && cfg.lookahead && state.next && state.next[0]) {
     const width = cfg.lookaheadCandidates ?? LOOKAHEAD_CANDIDATES;
-    const plies = cfg.lookaheadPlies ?? 2;
-    const beam = cfg.lookaheadBeam ?? 5;
+    const rung = searchRung(cfg, state);
+    const plies = rung.plies;
+    const beam = rung.beam;
     const weight = cfg.lookaheadWeight ?? LOOKAHEAD_WEIGHT;
     const head = scored.slice(0, width);
     for (const cand of head) {

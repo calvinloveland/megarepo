@@ -1,0 +1,38 @@
+
+Seeker Ace (chaser) vs Taunter T6 (evader)   band [1.6, 4.5], 0 at 8
+
+  series  0  chaser 4 - 1 evader   chaser wins
+  series  1  chaser 4 - 1 evader   chaser wins
+  series  2  chaser 2 - 3 evader   evader wins
+  series  3  chaser 3 - 2 evader   chaser wins
+  series  4  chaser 4 - 1 evader   chaser wins
+  series  5  chaser 4 - 1 evader   chaser wins
+  series  6  chaser 1 - 4 evader   evader wins
+  series  7  chaser 2 - 3 evader   evader wins
+  series  8  chaser 5 - 0 evader   chaser wins
+  series  9  chaser 4 - 1 evader   chaser wins
+  series 10  chaser 3 - 2 evader   chaser wins
+  series 11  chaser 3 - 2 evader   chaser wins
+  series 12  chaser 4 - 1 evader   chaser wins
+  series 13  chaser 4 - 1 evader   chaser wins
+  series 14  chaser 4 - 1 evader   chaser wins
+  series 15  chaser 1 - 4 evader   evader wins
+  series 16  chaser 3 - 2 evader   chaser wins
+  series 17  chaser 4 - 1 evader   chaser wins
+  series 18  chaser 4 - 1 evader   chaser wins
+  series 19  chaser 1 - 4 evader   evader wins
+
+series won by chaser: 15/20
+matches: 100 | chaser tags 64 (64%) | evader survives 36 (36%)
+mean distance 10.08 | mean taunt-band fraction 0.33
+mean tag time 16.8s
+survivor mean distance 10.31 | survivor taunt fraction 0.35
+
+distance histogram (% of ticks):
+    0.0-  1.6:   3.8%
+    1.6-  4.5:  18.4%
+    4.5-  8.0:  25.3%
+    8.0- 12.0:  20.8%
+   12.0- 20.0:  19.8%
+   20.0-1000000000.0:  11.9%
+  median 8.40 | mean 10.18

@@ -33,8 +33,10 @@ The agents are the end of an arms race (each timestamp is a snapshot in `results
 | S1 | `seeker_s1.json` | chaser | `starters/starter_chaser.json` | tag | 180 | beats T1 in 8/10 series |
 | T5 | `taunter_t5.json` | evader | T4 | taunt | 150 | survives 76%, beats S1 in 10/10 series |
 | SF | `seeker_final.json` | chaser | S1 | tag | 200 | beats T5 in 15/16 series |
-| T6 | `taunter_t6.json` (**taunter**) | evader | T5 | taunt | 120 | beats SF in 10/12 series |
-| SC2 | `seeker_champion2.json` (**seeker**) | chaser | SF | tag | 300+250 | beats T6 in 17/20 series |
+| T6 | `taunter_t6.json` (**taunter**) | evader | T5 | taunt (strict band) | 120 | beats SF in 10/12 series |
+| SC | `seeker_champion.json` | chaser | SF | tag | 300 | beats T6 in 11/16 series |
+| SC2 | `seeker_champion2.json` (**seeker**) | chaser | SC | tag | 250 | beats T6 in 17/20 series |
+| (ACE) | `seeker_ace.json` | chaser | SC2 | tag | 300 | 15/20 — a diversity experiment that did not beat SC2 |
 
 ## How the trainer works (`taunt_ga.py`)
 
