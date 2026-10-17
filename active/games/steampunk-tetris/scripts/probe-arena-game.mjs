@@ -66,11 +66,17 @@ const rows = [];
 try {
   for (const game of games) {
     const page = await browser.newPage({ viewport: { width: 1000, height: 900 } });
-    await page.goto('http://127.0.0.1:8146/tests/harness/bot-runner.html');
-    const result = await page.evaluate(
-      ([url, bot, s, cap]) => window.botRunner.run({ botUrl: `/bots/dist/${bot}.js`, gameUrl: url, seed: s, timeLimitMs: cap }),
-      [game.url, botFile, seed, limitMs],
-    );
+    let result;
+    try {
+      await page.goto('http://127.0.0.1:8146/tests/harness/bot-runner.html');
+      result = await page.evaluate(
+        ([url, bot, s, cap]) => window.botRunner.run({ botUrl: `/bots/dist/${bot}.js`, gameUrl: url, seed: s, timeLimitMs: cap }),
+        [game.url, botFile, seed, limitMs],
+      );
+    } catch (err) {
+      // A game that never says `ready` (or dies under load) must not stop the sweep.
+      result = { error: String(err.message || err).split('\n')[0], maxScore: 0, maxLevel: 0, maxLines: 0, maxPiece: 0, seed };
+    }
     rows.push({ ...game, ...result });
     const line = `${String(game.name).slice(0, 30).padEnd(32)}${String(result.maxScore).padStart(9)}  lvl ${String(result.maxLevel).padStart(2)}  lines ${String(result.maxLines).padStart(3)}  pieces ${String(result.maxPiece).padStart(4)}  ${result.error ? 'ERROR ' + result.error : ''}`;
     console.log(line + (game.best ? `   (board best ${game.best} by ${game.bestBot})` : ''));
