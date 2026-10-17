@@ -9,6 +9,12 @@
  *   node scripts/submit.mjs                 # game + both bots
  *   node scripts/submit.mjs --game          # just the game
  *   node scripts/submit.mjs --bots          # just the bots
+ *   node scripts/submit.mjs --only stoker   # one submission, on its own
+ *
+ * Submit one thing at a time. The Arena activates a single submission per
+ * validation pass, so uploading the game and both bots in one batch leaves the
+ * earlier ones accepted but inactive — never scheduled, and invisible on the
+ * leaderboard (this happened: Boiler Stoker v5 sat at active: 0 for an hour).
  *   node scripts/submit.mjs --dry-run       # show the requests, send nothing
  *
  * Token lookup order: --token-file, $TETRIS_ARENA_TOKEN, .secrets/tetris-arena.token
@@ -32,6 +38,7 @@ const flag = (name, fallback) => {
 const dryRun = argv.includes('--dry-run');
 const onlyGame = argv.includes('--game');
 const onlyBots = argv.includes('--bots');
+const onlyName = flag('only', null);
 
 /** First .secrets/tetris-arena.token found walking up from the project. */
 function tokenFile() {
@@ -66,6 +73,11 @@ const UPLOADS = [
 let uploads = UPLOADS;
 if (onlyGame) uploads = uploads.filter((u) => u.kind === 'game');
 if (onlyBots) uploads = uploads.filter((u) => u.kind === 'bot');
+if (onlyName) uploads = uploads.filter((u) => u.name.toLowerCase().includes(onlyName.toLowerCase()));
+if (!uploads.length) {
+  console.error(`nothing matches --only ${onlyName}`);
+  process.exit(2);
+}
 
 if (uploads.some((u) => u.prepare)) {
   execFileSync('node', [path.join(ROOT, 'scripts', 'package.mjs')], { cwd: ROOT, stdio: 'inherit' });
