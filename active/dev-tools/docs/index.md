@@ -17,6 +17,7 @@ Development tools and utilities for productivity, automation, and software devel
 ### Documentation & Project Management
 - [**plaintext_project_management**](../plaintext_project_management/README.md) - Lightweight project management using plain text files
 - [**markdown-orphan-finder**](../markdown-orphan-finder/README.md) - Find orphaned markdown files and isolated documentation islands
+- [**receipt-printer**](../receipt-printer/README.md) - ESC/POS helpers for printing text, images, QR codes, and data to an Epson TM-T88V thermal printer
 
 ### LLM & AI Tools
 - [**hivemind-llm**](../hivemind-llm/README.md) - LLM integration and orchestration tools

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Print random scripture passages on the thermal printer.
+# Usage: print-scripture [count]
+set -euo pipefail
+
+PRINTER="/dev/usb/lp0"
+if [ ! -c "$PRINTER" ]; then
+    echo "Error: printer not found at $PRINTER" >&2
+    exit 1
+fi
+
+sudo nix-shell -p python3 --run "python3 '$HOME/bin/print-scripture.py' $(printf '%q ' "$@")"

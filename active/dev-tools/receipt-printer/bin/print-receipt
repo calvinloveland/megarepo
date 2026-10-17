@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Print a file or standard test receipt to the Epson TM-T88V
+PRINTER="/dev/usb/lp0"
+if [ ! -c "$PRINTER" ]; then
+    echo "Error: Printer not found at $PRINTER" >&2
+    exit 1
+fi
+if [ $# -ge 1 ]; then
+    # Print the provided file
+    sudo nix-shell -p python3 --run "python3 -c 'import sys; open(\"$PRINTER\", \"wb\").write(open(\"$1\", \"rb\").read())'"
+else
+    # Print the standard test receipt
+    sudo nix-shell -p python3 --run "python3 $HOME/bin/print-receipt.py"
+fi

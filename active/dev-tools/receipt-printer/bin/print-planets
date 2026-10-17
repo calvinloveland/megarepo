@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Print one image of every planet in the solar system.
+# Usage: print-planets [--width N] [--dwarf] [--invert] [--no-cache]
+set -euo pipefail
+
+PRINTER="/dev/usb/lp0"
+if [ ! -c "$PRINTER" ]; then
+    echo "Error: printer not found at $PRINTER" >&2
+    exit 1
+fi
+
+sudo nix-shell -p python3Packages.pillow --run "python3 '$HOME/bin/print-planets.py' $(printf '%q ' "$@")"

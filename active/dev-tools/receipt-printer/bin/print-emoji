@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Print emoji as a bitmap. Usage: print-emoji "<emoji>" [scale]
+set -euo pipefail
+sudo nix-shell -p python3Packages.pillow --run "python3 '$HOME/bin/print-emoji.py' $(printf '%q ' "$@")"

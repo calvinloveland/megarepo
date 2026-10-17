@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Print a phrase N times on the thermal printer.
+# Usage: print-repeat "<phrase>" <count> [--condensed]
+set -euo pipefail
+
+PRINTER="/dev/usb/lp0"
+if [ ! -c "$PRINTER" ]; then
+    echo "Error: printer not found at $PRINTER" >&2
+    exit 1
+fi
+if [ $# -lt 2 ]; then
+    echo "Usage: print-repeat \"<phrase>\" <count> [--condensed]" >&2
+    exit 1
+fi
+
+sudo nix-shell -p python3 --run "python3 '$HOME/bin/print-repeat.py' $(printf '%q ' "$@")"

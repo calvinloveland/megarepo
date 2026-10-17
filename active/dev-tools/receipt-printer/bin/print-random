@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Print N chars of /dev/random entropy. Usage: print-random [count] [--alphabet 62|94|hex]
+set -euo pipefail
+sudo nix-shell -p python3 --run "python3 '$HOME/bin/print-random.py' $(printf '%q ' "$@")"

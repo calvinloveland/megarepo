@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Print a joke as two slips: setup, cut, punchline.
+# Usage: print-joke [--local] [--no-cut] [--setup TEXT --punchline TEXT]
+set -euo pipefail
+
+PRINTER="/dev/usb/lp0"
+if [ ! -c "$PRINTER" ]; then
+    echo "Error: printer not found at $PRINTER" >&2
+    exit 1
+fi
+
+sudo nix-shell -p python3 --run "python3 '$HOME/bin/print-joke.py' $(printf '%q ' "$@")"

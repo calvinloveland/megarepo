@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Print a text file (or stdin) on the thermal printer.
+# Usage: print-text <file|-> [--wrap N] [--condensed] [--cut-each] [--no-cut]
+set -euo pipefail
+
+PRINTER="/dev/usb/lp0"
+if [ ! -c "$PRINTER" ]; then
+    echo "Error: printer not found at $PRINTER" >&2
+    exit 1
+fi
+if [ $# -lt 1 ]; then
+    echo "Usage: print-text <file|-> [--wrap N] [--condensed] [--cut-each] [--no-cut]" >&2
+    exit 1
+fi
+
+sudo nix-shell -p python3 --run "python3 '$HOME/bin/print-text.py' $(printf '%q ' "$@")"

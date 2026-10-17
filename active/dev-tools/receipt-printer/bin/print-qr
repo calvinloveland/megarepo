@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Print a QR code on the thermal printer.
+# Usage: print-qr "<text or url>" [--box N] [--caption TEXT] [--no-caption]
+set -euo pipefail
+
+PRINTER="/dev/usb/lp0"
+if [ ! -c "$PRINTER" ]; then
+    echo "Error: printer not found at $PRINTER" >&2
+    exit 1
+fi
+if [ $# -lt 1 ]; then
+    echo "Usage: print-qr \"<text or url>\" [--box N] [--caption TEXT] [--no-caption]" >&2
+    exit 1
+fi
+
+sudo nix-shell -p python3Packages.qrcode python3Packages.pillow \
+    --run "python3 '$HOME/bin/print-qr.py' $(printf '%q ' "$@")"
