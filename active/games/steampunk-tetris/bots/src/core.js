@@ -602,6 +602,14 @@ const SCORE_CFG = {
   overDeep: 8,
   clearWeight: 1.0,
   dropWeight: 1.0,
+  // While a piece is falling a game reports lock_timer_ms: null, so the budget
+  // estimate falls back on the protocol's table. Games that do not follow the
+  // table can hand out far more lock delay than that — one accepted game gives
+  // ~220ms at level 17 where the spec says 21ms — and assuming the tiny value
+  // makes the bot abandon placements it could comfortably make. This is only a
+  // pre-landing estimate: once a piece rests the game reports the real timer and
+  // that wins. Measured on the Arena corpus: 205k -> 1.36M on that one game,
+  // and no change (232,045 vs 231,607 mean) on protocol-conformant seeds.
   assumedLockMs: 500,
   // Column transitions matter more than Dellacherie's original ratio once the
   // bot is also being paid for line clears: -16 measured best over the seed set

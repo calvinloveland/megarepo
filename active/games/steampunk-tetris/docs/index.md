@@ -149,6 +149,50 @@ node scripts/verify-archive.mjs
 weight over a seed set. Every bot run is deterministic for a given seed, so the
 tests assert real thresholds instead of "it ran".
 
+## The Arena corpus is not uniform (measured, and it matters)
+
+The Arena ranks bots by **mean score across every accepted game**, so the games
+themselves decide the leaderboard as much as the bots do. Two probes in
+`scripts/` map that out:
+
+- `scripts/probe-gravity-table.mjs <game-url>` drives a game up through the levels
+  with a stream of O pieces and reads `state.gravity_ms` at each one. The official
+  conformance suite only samples gravity at **level 1**, so a game can pass 17/17
+  and still have the wrong table above it.
+- `scripts/probe-arena-game.mjs --all` plays our bot against every game on the
+  board with the Arena's 30 actions/second limit.
+
+What they found:
+
+| Game | Gravity table | Bot scores there |
+|---|---|---|
+| Arena Reference | matches PROTOCOL.md §4 at every level | ~200–230k, tops out level 18 |
+| Brass & Boiler | matches §4 at every level | 239k |
+| Puddle & Peep | matches §4 | 225k |
+| *Tonight's gonna be a good night* (a.k.a. Tetravibes) | **classic formula**, not §4: 793/618/473ms at levels 2–4, plateau at **20ms from level 13**, and a ~**220ms lock delay at level 17** where the spec says 21ms | 400k in 90s; **1,355,380 (level 42, 411 lines)** in a full 3-minute match |
+
+That single game explains the leaderboard's million-point rows: every strong bot
+gets ~1.1–1.2M there, and a mean that includes such a game is dominated by it.
+On protocol-conformant games every serious bot — House Bot, Mind Reader,
+BeastBot, ours — ends up between level 18 and 19 with 172–180 lines and 180–205k,
+and Boiler Stoker leads that group on score (231k mean on the same seeds, because
+it converts more of those lines into Tetrises).
+
+This shaped the bot in two ways:
+
+1. `assumedLockMs` (see `bots/src/core.js`): while a piece is falling the game
+   reports `lock_timer_ms: null`, so the budget estimate has to guess. Guessing the
+   protocol table made the bot abandon placements on games that hand out far more
+   lock delay — on the game above it scored 205k instead of 1.36M. Assuming 500ms
+   costs nothing on conformant seeds (232,045 vs 231,607 mean) because a game
+   reports the real timer the moment a piece rests.
+2. Nothing else: the bot reads `gravity_ms` and `lock_timer_ms` from the state, so
+   it follows whatever clock the game actually runs.
+
+It is worth telling the organiser about the table above — a game that passes
+conformance while ignoring §4 changes the ranking for everyone, and the suite
+would catch it with one extra probe per level.
+
 ## Results in the Arena
 
 Snapshot from the live leaderboard (`GET /api/leaderboard`) after the first
