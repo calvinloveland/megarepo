@@ -698,8 +698,12 @@ function makeBot(cfg) {
 const SCORE_CFG = {
   mode: 'score',
   lookahead: true,
+  // Search depth follows the clock (see SEARCH_LADDER): six plies while a piece
+  // falls for seconds, two when it falls for 150ms. Deeper early play is what
+  // the endgame inherits, and thinking must never eat the action budget.
+  adaptiveSearch: true,
   lookaheadPlies: 4,
-  lookaheadCandidates: 8,
+  lookaheadCandidates: 10,
   lookaheadBeam: 3,
   lookaheadWeight: 0.85,
   danger: 12,
