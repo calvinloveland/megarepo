@@ -1,0 +1,38 @@
+EPSON TM-T88V
+THERMAL RECEIPT PRINTER
+=======================
+
+CONNECTION
+USB. Appears as one raw
+character device:
+  /dev/usb/lp0
+Write bytes to it and paper
+comes out. No driver, no
+print queue, no spooler.
+
+LANGUAGE
+ESC/POS. Plain text plus
+escape codes for style,
+alignment, images, cutting.
+
+PAPER
+203 dpi thermal.
+58mm roll = 384 dots wide
+80mm roll = 576 dots wide
+58mm gives 32 characters.
+Anything wider is clipped
+on the right edge.
+
+CONTROL CODES
+ESC @        reset printer
+ESC a 1      centre text
+ESC E 1/0    bold on/off
+GS ! 1/0     double height
+GS V 66 0    feed and cut
+
+IMAGES
+Any picture can be printed
+as a 1-bit bitmap. Photos
+want dithering. QR codes
+must NOT be dithered or
+they stop scanning.
