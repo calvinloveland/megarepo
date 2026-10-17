@@ -1,0 +1,36 @@
+RECEIPT PRINTER
+===============
+
+Epson TM-T88V
+/dev/usb/lp0
+ESC/POS - no driver
+
+COMMANDS
+--------
+print-receipt     test slip
+print-text FILE   text file
+print-repeat T N  phrase xN
+print-image F w h image
+print-emoji "X"   emoji bitmap
+print-qr "URL"    qr code
+print-joke        setup+punch
+print-weather C   weather
+print-scripture n verses
+print-fortune n   fortunes
+print-random n    entropy
+print-newspaper   headlines
+print-planets     planets
+
+GOTCHAS
+-------
+- cut is GS V 66 0
+  (ESC m does nothing)
+- never dither a QR
+- big images: write
+  in 1KB chunks
+- cp437: emoji -> "?"
+
+WIDTH
+-----
+58mm roll = 384 dots
+            32 cols
