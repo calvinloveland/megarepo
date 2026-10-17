@@ -1,0 +1,343 @@
+{
+ "env_version": "1.0",
+ "provisional": [
+  "roles"
+ ],
+ "grid": {
+  "cell_size": 1.0,
+  "origin": "top-left corner of the arena is (0, 0)",
+  "x_axis": "column index, increases to the right",
+  "y_axis": "row index, increases downward",
+  "cell_of_point": "cell (column floor(x), row floor(y))"
+ },
+ "legend": {
+  "#": "wall",
+  ".": "floor",
+  "~": "mud"
+ },
+ "time": {
+  "dt": 0.1,
+  "max_ticks": 400
+ },
+ "agent": {
+  "collision_radius": 0.3,
+  "collision_shape": "axis-aligned square box, half-width = collision_radius, around the capsule",
+  "agents_collide_with_each_other": false
+ },
+ "roles": {
+  "chaser": {
+   "max_speed": 3.2,
+   "turn_rate": 3.0
+  },
+  "evader": {
+   "max_speed": 3.0,
+   "turn_rate": 5.0
+  }
+ },
+ "terrain": {
+  "mud_speed_multiplier": 0.75,
+  "mud_affects_turning": false
+ },
+ "tag": {
+  "radius": 0.7,
+  "winner": "chaser",
+  "timeout_winner": "evader"
+ },
+ "spawn": {
+  "cells": "non-mud floor cells",
+  "position": "cell center",
+  "min_separation": 14.0,
+  "heading": "uniform random in [-pi, pi), drawn from the match seed",
+  "rng": "numpy.random.Generator(PCG64)"
+ },
+ "arena_rules": {
+  "allowed_characters": [
+   "#",
+   ".",
+   "~"
+  ],
+  "rectangular": true,
+  "width": {
+   "min": 30,
+   "max": 48
+  },
+  "height": {
+   "min": 20,
+   "max": 32
+  },
+  "perimeter_is_wall": true,
+  "max_interior_wall_fraction": 0.25,
+  "max_mud_fraction_of_walkable": 0.25,
+  "min_gap_between_obstacles_cells": 2,
+  "wall_components": "8-connected",
+  "walkable_region": "floor and mud together form one 4-connected region",
+  "spawn_possible": "at least two non-mud floor cells at least min_separation apart"
+ },
+ "tournament": {
+  "arena_width": 40,
+  "arena_height": 28,
+  "matches": 5,
+  "wins_needed": 3,
+  "one_match_per_arena": true,
+  "arena_source": "locked generator seeded with the organizer's secret seed",
+  "pairing": "one chaser file and one evader file"
+ },
+ "observation": {
+  "coord_scale": 48.0,
+  "move_scale": 0.33,
+  "block_values": {
+   "floor": 0.0,
+   "mud": 0.5,
+   "wall": 1.0,
+   "outside_arena": 1.0
+  },
+  "block_offsets": [
+   [
+    -2,
+    -2
+   ],
+   [
+    0,
+    -2
+   ],
+   [
+    2,
+    -2
+   ],
+   [
+    -1,
+    -1
+   ],
+   [
+    1,
+    -1
+   ],
+   [
+    -2,
+    0
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    2,
+    0
+   ],
+   [
+    -1,
+    1
+   ],
+   [
+    1,
+    1
+   ],
+   [
+    -2,
+    2
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    2,
+    2
+   ]
+  ],
+  "offset_convention": "dx = columns to the right, dy = rows downward, relative to the cell containing the agent's center",
+  "catalog": [
+   {
+    "name": "blk_-2_-2",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_0_-2",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_2_-2",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_-1_-1",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_1_-1",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_-2_0",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_0_0",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_2_0",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_-1_1",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_1_1",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_-2_2",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_0_2",
+    "group": "blocks"
+   },
+   {
+    "name": "blk_2_2",
+    "group": "blocks"
+   },
+   {
+    "name": "self_x",
+    "group": "self"
+   },
+   {
+    "name": "self_y",
+    "group": "self"
+   },
+   {
+    "name": "heading_cos",
+    "group": "self"
+   },
+   {
+    "name": "heading_sin",
+    "group": "self"
+   },
+   {
+    "name": "move_x",
+    "group": "self"
+   },
+   {
+    "name": "move_y",
+    "group": "self"
+   },
+   {
+    "name": "opp_x",
+    "group": "opponent"
+   },
+   {
+    "name": "opp_y",
+    "group": "opponent"
+   }
+  ],
+  "definitions": {
+   "blk_dx_dy": "block value of the cell at that offset (blk_0_0 is the cell the agent stands on)",
+   "self_x": "own center x / coord_scale",
+   "self_y": "own center y / coord_scale",
+   "heading_cos": "cos(heading)",
+   "heading_sin": "sin(heading), y points down",
+   "move_x": "displacement along x during the previous tick (after mud and collisions) / move_scale",
+   "move_y": "displacement along y during the previous tick (after mud and collisions) / move_scale",
+   "opp_x": "opponent center x / coord_scale",
+   "opp_y": "opponent center y / coord_scale"
+  },
+  "initial_move": [
+   0.0,
+   0.0
+  ]
+ },
+ "actions": [
+  {
+   "name": "turn",
+   "range": [
+    -1.0,
+    1.0
+   ],
+   "effect": "heading += turn * turn_rate * dt"
+  },
+  {
+   "name": "thrust",
+   "range": [
+    -1.0,
+    1.0
+   ],
+   "effect": "speed = max_speed * (thrust + 1) / 2 * terrain multiplier"
+  }
+ ],
+ "tick_order": [
+  "build both observations from the state at the start of the tick",
+  "both agents produce raw outputs; each is clamped to [-1, 1]",
+  "update both headings, wrapped to [-pi, pi)",
+  "compute each speed; mud is looked up at the cell containing the center at the start of the tick",
+  "move both agents along their new headings by speed * dt, one axis at a time (x, then y), stopping flush against any wall in the way (so agents slide along walls)",
+  "record each agent's actual displacement as next tick's move_x, move_y",
+  "if center distance <= tag radius the chaser wins and the match ends",
+  "if this was the last tick the evader wins"
+ ],
+ "practice_opponents": {
+  "omniscient_chaser": "deterministic; shortest walking route around walls to the evader's true position, full thrust",
+  "omniscient_evader": "deterministic; walks to the open cell it can reach before the chaser that is farthest from the chaser, preferring open space",
+  "baselines": "baselines/baseline_chaser.json and baselines/baseline_evader.json, ordinary agent files",
+  "interface": "both scripted opponents act only through the standard action vector, so physics is identical to a trained agent"
+ },
+ "network_limits": {
+  "max_weight_layers": 6,
+  "max_units_per_layer": 256,
+  "max_total_parameters": 50000,
+  "max_abs_weight": 100.0,
+  "output_units": 2,
+  "min_inputs": 1,
+  "activations": {
+   "tanh": "tanh(x)",
+   "relu": "max(0, x)",
+   "leaky_relu": "x if x > 0 else 0.01 * x",
+   "sigmoid": "1 / (1 + exp(-x))",
+   "linear": "x"
+  }
+ },
+ "agent_file": {
+  "schema_version": 1,
+  "max_file_bytes": 2000000,
+  "roles": [
+   "chaser",
+   "evader"
+  ],
+  "name_pattern": "^[A-Za-z0-9 _.'!-]{1,24}$",
+  "color_pattern": "^#[0-9a-fA-F]{6}$",
+  "required_keys": [
+   "schema_version",
+   "env_version",
+   "name",
+   "role",
+   "color",
+   "inputs",
+   "layers",
+   "weights"
+  ],
+  "optional_keys": [
+   "notes"
+  ],
+  "weight_layout": "for each layer in order: kernel W (n_in x units, row-major) then bias b (units). layer output = activation(x @ W + b)",
+  "parameter_count": "sum over layers of (n_in + 1) * units",
+  "notes_max_chars": 500,
+  "validation_smoke_match_ticks": 30
+ },
+ "replay": {
+  "replay_version": 2,
+  "fields": [
+   "arena (name, rows)",
+   "dt",
+   "tag_radius",
+   "frames",
+   "tag_tick (null if none)",
+   "winner",
+   "agents (name, role, color, x[], y[], heading[])"
+  ]
+ },
+ "guarantees": [
+  "no agent ever moves farther in one tick than speed * dt * terrain multiplier",
+  "no agent box ever overlaps a wall"
+ ]
+}

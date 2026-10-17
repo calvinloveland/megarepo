@@ -44,7 +44,7 @@ function line(text, cls = '') {
   log.scrollTop = log.scrollHeight;
 }
 
-async function run({ botUrl, gameUrl = '/index.html', seed = 'arena', timeLimitMs = 30_000 }) {
+async function run({ botUrl, gameUrl = '/index.html', seed = 'arena', timeLimitMs = 30_000, arenaPump = false, nullPump = false }) {
   log.textContent = '';
   frame.src = 'about:blank';
   await new Promise((r) => setTimeout(r, 60));
@@ -90,6 +90,39 @@ async function run({ botUrl, gameUrl = '/index.html', seed = 'arena', timeLimitM
   const startedAt = performance.now();
   const timer = setTimeout(() => { done = true; }, timeLimitMs);
 
+  /* The Arena's runner re-pushes its last *received update* to the bot every
+     60 ms, regardless of what the bot has done since. Modelling that faithfully
+     is the whole point of this flag: it is how a stale state can land after the
+     reply to an action. */
+  let pumped = lastState;
+  window.addEventListener('message', (event) => {
+    if (event.source !== frame.contentWindow) return;
+    const msg = event.data;
+    if (msg && msg.proto === 'tetris/2' && msg.type === 'update') pumped = msg.payload;
+  });
+  let pumpTimer = null;
+  if (arenaPump) pumpTimer = setInterval(() => { lastState = pumped; }, 60);
+  /* Some games blank `piece` while they animate a clear, and a host that
+     re-pushes an old state can hold it blank. This flag reproduces that: the
+     bot sees `piece: null` (but not game over) on most polls. A bot must wait it
+     out, not retire from the match. */
+  let nullTimer = null;
+  if (nullPump) {
+    // Bursts: three seconds of a blank piece every eight seconds, which is what
+    // an animating game plus a stale host looks like from the bot's side.
+    let blanking = false;
+    nullTimer = setInterval(() => {
+      blanking = !blanking;
+      if (!blanking) return;
+    }, 3000);
+    const blankTick = setInterval(() => {
+      if (blanking && lastState && !lastState.game_over && lastState.piece) {
+        lastState = { ...lastState, piece: null };
+      }
+    }, 40);
+    nullTimer = [nullTimer, blankTick];
+  }
+
   const game = {
     get done() { return done; },
     state: () => lastState,
@@ -116,6 +149,9 @@ async function run({ botUrl, gameUrl = '/index.html', seed = 'arena', timeLimitM
     error = String((err && err.stack) || err);
   }
   clearTimeout(timer);
+  if (pumpTimer) clearInterval(pumpTimer);
+  if (Array.isArray(nullTimer)) nullTimer.forEach(clearInterval);
+  else if (nullTimer) clearInterval(nullTimer);
   done = true;
   await client.pause(true);
 

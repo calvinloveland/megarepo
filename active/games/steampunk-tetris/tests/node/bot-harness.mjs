@@ -21,7 +21,7 @@ export const ACTION_INTERVAL_MS = 1000 / 30;
 export async function runBot(botFn, opts = {}) {
   const {
     seed = 'arena', sequence = null, maxVirtualMs = 15 * 60 * 1000, maxActions = 20000,
-    actionIntervalMs = ACTION_INTERVAL_MS,
+    actionIntervalMs = ACTION_INTERVAL_MS, searchCostMs = 0,
   } = opts;
 
   const engine = new TetrisEngine({ seed, sequence });
@@ -30,6 +30,7 @@ export async function runBot(botFn, opts = {}) {
 
   let actions = 0;
   let holds = 0;
+  const actionMix = { rotate: 0, move: 0, drop: 0, hold: 0 };
   let illegal = 0;
   let sleeps = 0;
   let virtualMs = 0;
@@ -37,6 +38,19 @@ export async function runBot(botFn, opts = {}) {
   const actionsPerPiece = [];
   let pieceStartActions = 0;
   let trackedPiece = engine.pieceCount;
+  let chargedPiece = -1;
+
+  /* A bot thinks between pieces, and that thinking happens on the game's clock:
+     the piece keeps falling while the search runs. `searchCostMs` charges that
+     time to the piece, which is the only way to model how a bot behaves on a
+     machine slower than the one it was tuned on. */
+  const chargeThinking = () => {
+    if (!searchCostMs || chargedPiece === engine.pieceCount) return;
+    chargedPiece = engine.pieceCount;
+    clock += searchCostMs;
+    virtualMs += searchCostMs;
+    engine.tick(clock);
+  };
 
   const game = {
     done: false,
@@ -49,6 +63,7 @@ export async function runBot(botFn, opts = {}) {
       if (clock > maxVirtualMs) game.done = true;
     },
     input: async (action) => {
+      chargeThinking();
       // The Arena delays anything over 30 actions/second; model that rather
       // than letting the bot pretend it can act instantly. Raising
       // actionIntervalMs lowers the effective rate — used to measure how much
@@ -58,7 +73,10 @@ export async function runBot(botFn, opts = {}) {
       engine.tick(clock);
       const legal = engine.applyAction(action);
       actions += 1;
-      if (action === 'hold') holds += 1;
+      if (action === 'hold') { holds += 1; actionMix.hold += 1; }
+      else if (action === 'hard_drop') actionMix.drop += 1;
+      else if (action === 'left' || action === 'right') actionMix.move += 1;
+      else actionMix.rotate += 1;
       if (!legal) illegal += 1;
       if (engine.pieceCount !== trackedPiece) {
         actionsPerPiece.push(actions - pieceStartActions);
@@ -79,6 +97,7 @@ export async function runBot(botFn, opts = {}) {
     error = String((err && err.stack) || err);
   }
   if (!engine.gameOver && !game.done) stalled = true;
+  void searchCostMs;
 
   const state = engine.toState();
   const lastActions = actionsPerPiece.slice(-25);
@@ -101,6 +120,7 @@ export async function runBot(botFn, opts = {}) {
     pieces: state.piece_count,
     actions,
     holds,
+    actionMix,
     illegal,
     sleeps,
     virtualMs: Math.round(virtualMs),

@@ -287,6 +287,9 @@ function evalScore(cfg, board, info) {
   let value = dellacherie(m, landing, info.eroded * info.cleared, cfg.dellacherie);
   value += cfg.clearWeight * LINE_SCORE[info.cleared];
   value += cfg.dropWeight * (2 * info.dropRows);
+  // "Keep the stack low" as an explicit term: it is what survival-first play
+  // trades against clearing aggressively. Off by default; swept by tune.mjs.
+  value -= (cfg.aggregate || 0) * m.aggregate;
   value += cfg.wellBuild * Math.min(4, m.wellDepth);
   value -= cfg.overDeep * Math.max(0, m.wellDepth - 6);
   if (m.maxHeight >= 16) value -= cfg.danger * (m.maxHeight - 15) ** 2;
@@ -428,14 +431,51 @@ function rankPlacements(cfg, board, state) {
   const piece = state.piece;
   if (!piece) return [];
 
+  /* Many candidates produce the *same* board — an O piece has four identical
+     rotations, an I's horizontal rotations land in the same cells, S/Z/T/J/L
+     often coincide on a flat surface. Keeping only the cheapest route to each
+     distinct board costs nothing in quality and saves real actions, which is the
+     scarcest resource in the endgame (the Arena allows 30 actions/second). */
   let scored = [];
-  const push = (cand, useHold, value, placed) => {
+  const signatures = new Map();
+  const boardKey = (board) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < board.length; i += 1) {
+      h ^= board[i];
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h;
+  };
+  const sameBoard = (a, b) => {
+    for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+    return true;
+  };
+  const push = (cand, useHold, value, placed, cost) => {
+    const key = boardKey(placed.board);
+    const bucket = signatures.get(key);
+    if (bucket) {
+      for (const index of bucket) {
+        const existing = scored[index];
+        if (!sameBoard(existing.board, placed.board)) continue;
+        if (cost < existing.cost) {
+          existing.rotation = cand.rotation;
+          existing.x = cand.x;
+          existing.useHold = useHold;
+          existing.cost = cost;
+        }
+        return;
+      }
+      bucket.push(scored.length);
+    } else {
+      signatures.set(key, [scored.length]);
+    }
     scored.push({
       rotation: cand.rotation,
       x: cand.x,
       y: cand.y,
       useHold,
       value,
+      cost,
       board: placed.board,
       cleared: placed.cleared,
       fillsWell: placed.fillsWell,
@@ -532,14 +572,36 @@ function makeBot(cfg) {
     let ranked = [];
     let actionsThisPiece = 0;
     let idleWaits = 0;
+    /* The most recent state we are confident in. Hosts differ in how fresh
+       `game.state()` is — the Arena re-pushes its last received update every
+       60ms, which can land *after* the reply to an action and roll the bot back
+       to what the board looked like before it. The reply to an action is always
+       for that action, so it wins. */
+    let known = null;
 
     while (!game.done) {
-      const state = game.state();
+      const reported = game.state();
+      if (reported) {
+        /* Accept a state only when it is genuinely newer: a later piece, a later
+           clock, or — when the counters tie — one that knows about a piece while
+           what we hold says there is none. A host that re-pushes old states must
+           never be able to mask the piece we are playing. */
+        const newer = !known
+          || reported.piece_count > known.piece_count
+          || reported.elapsed_ms > known.elapsed_ms
+          || (reported.piece_count === known.piece_count && reported.piece && !known.piece && !reported.game_over);
+        if (newer) known = reported;
+      }
+      const state = known;
       if (!state) { await game.sleep(10); continue; }
       if (state.game_over) break;
       if (!state.piece) {
-        // A game that animates its clears may blank `piece` for a moment.
-        if (++idleWaits > 250) break;
+        /* A game may blank `piece` while it animates a clear, and a host that
+           re-pushes an old state can hold it blank for a while. Never give up
+           on the match because of that: quitting early is scored as finishing,
+           which is how a bot can end a match at level 8 with the board half
+           empty. Wait for a piece, or for the host to end the match. */
+        if (++idleWaits > 5000) break; // ~45s of nothing at all: give up
         await game.sleep(8);
         continue;
       }
@@ -585,9 +647,11 @@ function makeBot(cfg) {
       const before = state.piece_count;
       const res = await game.input(action);
       actionsThisPiece++;
+      // The reply to *this* action is authoritative for it.
+      if (res && res.state && (!known || res.state.piece_count >= known.piece_count)) known = res.state;
       if (res && res.legal === false && action !== 'hard_drop' && !choice.useHold) {
         // Blocked: the board disagrees with the simulation, so think again.
-        const now = game.state();
+        const now = (res && res.state) || game.state();
         if (now.piece_count === before) ranked = rankPlacements(cfg, boardFromState(now), now);
       }
     }

@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tag Showdown</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#14161f; --panel:#1d2030; --line:#34384f; --text:#eceef5; --dim:#9aa0b8; --good:#4cd38a; --bad:#ff6b6b; --accent:#ffb454; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text);
+               font:14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #stage { position:fixed; inset:0; z-index:0; }
+  #stage canvas { display:block; width:100%; height:100%; }
+  .panel { position:fixed; z-index:2; background:rgba(29,32,48,.92); border:1px solid var(--line); border-radius:12px;
+           backdrop-filter: blur(6px); }
+  #setup { top:12px; left:12px; width:360px; max-height:calc(100vh - 24px); overflow:auto; padding:14px; }
+  #setup h1 { margin:0 0 2px; font-size:19px; letter-spacing:.2px; }
+  #setup .sub { color:var(--dim); font-size:12.5px; margin-bottom:10px; }
+  .slot { border:2px dashed var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px; min-height:62px; }
+  .slot.filled { border-style:solid; border-left-width:6px; }
+  .slot .role { font-size:11px; letter-spacing:1.4px; color:var(--dim); text-transform:uppercase; }
+  .slot .empty { color:var(--dim); margin-top:4px; }
+  .slot .name { font-size:16px; font-weight:700; }
+  .tag { display:inline-block; font-size:11px; font-weight:700; padding:1px 7px; border-radius:20px; margin-left:6px; vertical-align:2px; }
+  .tag.ok { background:rgba(76,211,138,.18); color:var(--good); } .tag.no { background:rgba(255,107,107,.18); color:var(--bad); }
+  pre { margin:6px 0 0; font:11.5px/1.45 ui-monospace, Menlo, Consolas, monospace; color:var(--dim); white-space:pre-wrap; word-break:break-word; }
+  ul.problems { margin:6px 0 0; padding-left:18px; color:var(--bad); font-size:12.5px; } ul.warn { color:var(--accent); }
+  button { font:inherit; background:#2a2e45; color:var(--text); border:1px solid #474c6b; border-radius:8px; padding:6px 12px; cursor:pointer; }
+  button:hover:not(:disabled) { background:#363b5a; } button:disabled { opacity:.45; cursor:default; }
+  button.primary { background:var(--accent); color:#251a05; border-color:var(--accent); font-weight:700; width:100%; padding:9px; font-size:15px; }
+  button.primary:hover:not(:disabled) { background:#ffc272; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #msg { margin-top:8px; font-size:12.5px; color:var(--bad); } #msg.info { color:var(--dim); }
+  #hud { top:12px; right:12px; padding:10px 12px; display:none; min-width:300px; }
+  #score { font-size:22px; font-weight:800; text-align:center; letter-spacing:.5px; }
+  #score small { display:block; font-size:11px; font-weight:600; color:var(--dim); letter-spacing:1.2px; text-transform:uppercase; }
+  #tabs { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; max-width:420px; }
+  .tab { flex:1 0 54px; text-align:center; padding:5px 2px; border-radius:8px; border:1px solid var(--line); cursor:pointer; font-size:12px; color:var(--dim); }
+  .tab b { display:block; font-size:14px; color:var(--text); } .tab.on { border-color:var(--accent); background:rgba(255,180,84,.1); }
+  .tab i { display:inline-block; width:9px; height:9px; border-radius:50%; background:#555; margin-right:4px; }
+  #controls { bottom:12px; left:50%; transform:translateX(-50%); width:min(760px, calc(100vw - 24px)); padding:8px 12px; display:none; gap:10px; align-items:center; }
+  #scrub { flex:1; accent-color:var(--accent); } #time { font-variant-numeric:tabular-nums; min-width:96px; text-align:right; color:var(--dim); font-size:12.5px; }
+  #data { top:12px; left:12px; width:236px; padding:10px 12px; display:none; font-variant-numeric:tabular-nums; }
+  #data .h { font-size:11px; letter-spacing:1.4px; color:var(--dim); text-transform:uppercase; margin-bottom:6px; }
+  #data .ag { border-left:5px solid #888; padding:2px 0 2px 9px; margin-bottom:8px; }
+  #data .nm { font-weight:700; font-size:14px; } #data .nm small { color:var(--dim); font-weight:600; font-size:11px; margin-left:4px; text-transform:uppercase; letter-spacing:1px; }
+  #data .kv { display:grid; grid-template-columns:auto 1fr; gap:1px 10px; font:12.5px/1.5 ui-monospace, Menlo, Consolas, monospace; margin-top:3px; }
+  #data .kv span:nth-child(odd) { color:var(--dim); } #data .kv span:nth-child(even) { text-align:right; }
+  #data .dist { border-top:1px solid var(--line); padding-top:8px; }
+  #data .dist b { font-size:24px; font-weight:800; } #data .dist small { color:var(--dim); font-size:11.5px; margin-left:6px; }
+  #data .bar { height:6px; border-radius:4px; background:#2a2e45; margin-top:6px; position:relative; overflow:hidden; }
+  #data .bar i { position:absolute; left:0; top:0; bottom:0; width:0; background:var(--accent); }
+  #data .legend { color:var(--dim); font-size:11px; margin-top:7px; line-height:1.35; }
+  #banner { position:fixed; z-index:3; top:16%; left:50%; transform:translateX(-50%); text-align:center; pointer-events:none;
+            font-size:clamp(24px,4.4vw,46px); font-weight:900; text-shadow:0 3px 18px #000; opacity:0; transition:opacity .25s; }
+  #banner.show { opacity:1; } #banner small { display:block; font-size:.4em; font-weight:600; letter-spacing:2px; color:#dde; }
+  #drophint { position:fixed; inset:0; z-index:4; display:none; align-items:center; justify-content:center; font-size:28px; font-weight:700;
+              background:rgba(20,22,31,.82); border:4px dashed var(--accent); margin:10px; border-radius:18px; pointer-events:none; }
+  body.dragging #drophint { display:flex; }
+  #note { position:fixed; z-index:2; bottom:64px; right:14px; font-size:11.5px; color:var(--dim); max-width:300px; text-align:right; }
+  @media (max-width: 820px) { #data { width:190px; padding:8px 10px; } #setup { width:calc(100vw - 24px); max-height:55vh; } #hud { top:auto; bottom:64px; right:12px; left:12px; } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<aside id="setup" class="panel">
+  <h1>Tag Showdown</h1>
+  <div class="sub">Drop in one chaser file and one evader file (.json). Each is checked before it can compete.<br>Or drop replay files saved by the trainer (replays/gen_*.json) to watch your agent improve.</div>
+  <div id="slot-chaser" class="slot"></div>
+  <div id="slot-evader" class="slot"></div>
+  <button id="run" class="primary" disabled>Run best of five</button>
+  <div class="row" style="margin-top:8px">
+    <button id="pick">Choose files…</button>
+    <button id="demo">Try the baselines</button>
+    <input id="file" type="file" accept=".json,application/json" multiple hidden>
+  </div>
+  <div id="msg" class="info"></div>
+</aside>
+
+<aside id="hud" class="panel">
+  <div id="score"></div>
+  <div id="tabs"></div>
+  <div class="row" style="margin-top:8px;justify-content:space-between">
+    <button id="again">Change agents</button><button id="viewmode" hidden>2D view</button>
+  </div>
+</aside>
+
+<div id="controls" class="panel row">
+  <button id="play">Pause</button>
+  <input id="scrub" type="range" min="0" max="1000" value="0">
+  <select id="speed" style="background:#2a2e45;color:#eceef5;border:1px solid #474c6b;border-radius:8px;padding:6px">
+    <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+  <label id="sensewrap" hidden title="Light up the cells each agent can read through its block sensors"><input type="checkbox" id="senses" checked> show sensed cells</label>
+  <label id="datawrap" title="Show the numbers behind the simulation"><input type="checkbox" id="datatoggle" checked> data</label>
+  <div id="time"></div>
+</div>
+<aside id="data" class="panel">
+  <div class="h">Live data</div>
+  <div id="data-agents"></div>
+  <div class="dist"><b id="d-dist">-</b><small id="d-note"></small><div class="bar"><i id="d-bar"></i></div></div>
+  <div class="legend">Positions in arena cells (x right, y down). Heading in degrees: 0 = right, 90 = down. Distance is centre to centre.</div>
+</aside>
+<div id="banner"></div>
+<div id="drophint">Drop agent files anywhere</div>
+<div id="note"></div>
+
+<script src="vendor/three.min.js"></script>
+<script>window.THREE || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const state = { agents: { chaser: null, evader: null }, series: null, match: 0, t: 0, playing: true, speed: 1,
+                revealed: [], holdUntil: 0, finished: false };
+
+/* ============================================================ agent files */
+async function postJSON(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+  let data; try { data = await r.json(); } catch (e) { data = { error: "The server sent something unexpected." }; }
+  return { status: r.status, data };
+}
+function say(text, info) { const m = $("msg"); m.textContent = text || ""; m.className = info ? "info" : ""; }
+
+async function addFile(name, text) {
+  let parsed = null;
+  try { parsed = JSON.parse(text); } catch (e) { /* the server explains what is wrong */ }
+  let res;
+  try { res = await postJSON("/api/validate", text); }
+  catch (e) { say("Cannot reach the tournament server. Is `python server.py` still running?"); return; }
+  const report = res.data;
+  const role = report.role || (parsed && ["chaser", "evader"].includes(parsed.role) ? parsed.role : null);
+  if (!role) { say(`${name}: ${report.problems ? report.problems[0] : report.error || "not an agent file"}`); return; }
+  state.agents[role] = { file: name, data: parsed, report };
+  say("");
+}
+async function handleFiles(files) {
+  const texts = await Promise.all([...files].filter(f => f.size < 20_000_000).map(async f => ({ name: f.name, text: await f.text() })));
+  const replays = [];
+  for (const t of texts) {                                         // replay files and saved series open straight away, no server needed
+    let d = null; try { d = JSON.parse(t.text); } catch (e) { /* not JSON: the agent check will say so */ }
+    if (d && d.replay_version) replays.push({ name: t.name, replay: d });
+    else if (d && Array.isArray(d.matches) && d.matches.length && d.matches[0].replay) { beginSeries(Object.assign({ kind: "series" }, d)); return; }
+  }
+  if (replays.length) { startReplays(replays); return; }
+  if (texts.length > 2) say("Only two files at a time, please: one chaser and one evader.", true);
+  for (const t of texts.slice(0, 2)) await addFile(t.name, t.text);
+  renderSlots();
+}
+function startReplays(list) {                                      // e.g. the gen_0001.json ... files the trainer saves
+  list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const first = list[0].replay;
+  beginSeries({ kind: "replays", chaser: first.agents[0].name, evader: first.agents[1].name, matches: list.map(r => ({
+    arena: r.replay.arena.name, winner: r.replay.winner || "evader", replay: r.replay,
+    label: r.name.replace(/\.json$/, "").replace(/^gen_0*(\d+)$/, "gen $1") })) });
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function summaryHtml(text) {                                       // first two lines always, the input lists on demand
+  const lines = text.split("\n"), head = lines.slice(0, 2).join("\n"), rest = lines.slice(2).join("\n");
+  return `<pre>${esc(head)}</pre>` + (rest ? `<details><summary style="color:var(--dim);font-size:12px;cursor:pointer;margin-top:4px">which inputs</summary><pre>${esc(rest)}</pre></details>` : "");
+}
+function renderSlots() {
+  for (const role of ["chaser", "evader"]) {
+    const el = $("slot-" + role), a = state.agents[role];
+    if (!a) { el.className = "slot"; el.style.borderLeftColor = ""; el.innerHTML = `<div class="role">${role}</div><div class="empty">Drop a ${role} file here</div>`; continue; }
+    const r = a.report;
+    el.className = "slot filled"; el.style.borderLeftColor = r.color || "#888";
+    el.innerHTML = `<div class="role">${role} · ${esc(a.file)}</div>
+      <div class="name">${esc(r.name || "(unnamed)")}<span class="tag ${r.ok ? "ok" : "no"}">${r.ok ? "READY" : "NEEDS FIXES"}</span></div>
+      ${r.summary ? summaryHtml(r.summary) : ""}
+      ${r.problems && r.problems.length ? `<ul class="problems">${r.problems.map(p => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}
+      ${r.warnings && r.warnings.length ? `<ul class="problems warn">${r.warnings.map(p => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}`;
+  }
+  const ready = ["chaser", "evader"].every(r => state.agents[r] && state.agents[r].report.ok);
+  $("run").disabled = !ready;
+}
+
+/* ============================================================ the series */
+async function runSeries() {
+  $("run").disabled = true; say("Playing five matches…", true);
+  const body = JSON.stringify({ chaser: state.agents.chaser.data, evader: state.agents.evader.data });
+  let res;
+  try { res = await postJSON("/api/series", body); } catch (e) { say("Cannot reach the tournament server."); renderSlots(); return; }
+  if (res.status !== 200) {
+    say((res.data.problems || [res.data.error || "Something went wrong."]).join("  "));
+    if (res.data.validation) for (const r of ["chaser", "evader"]) if (state.agents[r]) state.agents[r].report = res.data.validation[r];
+    renderSlots(); return;
+  }
+  say("");
+  beginSeries(Object.assign({ kind: "series" }, res.data));
+}
+function beginSeries(data) {
+  state.series = data; state.finished = false;
+  state.revealed = data.kind === "replays" ? data.matches.map(() => true) : [];
+  $("setup").style.display = "none"; $("hud").style.display = "block"; $("controls").style.display = "flex";
+  $("sensewrap").hidden = !(data.senses && data.senses.some(c => c && c.length));
+  selectMatch(0);
+}
+function colorOf(role) { return state.series.matches[0].replay.agents[role === "chaser" ? 0 : 1].color; }
+function selectMatch(i) {
+  state.match = i; state.t = 0; state.holdUntil = 0; state.playing = true; state.finished = false;
+  $("banner").classList.remove("show"); $("play").textContent = "Pause";
+  view.show(state.series.matches[i].replay);
+  buildData(state.series.matches[i].replay);
+  renderHud();
+}
+function renderHud() {
+  const s = state.series, got = state.revealed;
+  const cw = got.filter((v, i) => v && s.matches[i].winner === "chaser").length;
+  const ew = got.filter((v, i) => v && s.matches[i].winner === "evader").length;
+  $("score").innerHTML = `<small>${s.kind === "replays" ? "Training replays · " : ""}${esc(s.chaser)} (chaser) vs ${esc(s.evader)} (evader)</small>` +
+    (s.kind === "replays" ? "" : `<span style="color:${colorOf("chaser")}">${cw}</span> – <span style="color:${colorOf("evader")}">${ew}</span>`);
+  $("tabs").innerHTML = s.matches.map((m, i) => {
+    const done = got[i], c = done ? colorOf(m.winner) : "#555";
+    return `<div class="tab ${i === state.match ? "on" : ""}" data-i="${i}"><b>${m.label || i + 1}</b><i style="background:${c}"></i>${done ? (m.winner === "chaser" ? "tagged" : "escaped") : "—"}</div>`;
+  }).join("");
+  for (const el of document.querySelectorAll(".tab")) el.onclick = () => selectMatch(+el.dataset.i);
+}
+function matchLength() { const r = state.series.matches[state.match].replay; return (r.frames - 1) * r.dt; }
+function finishMatch() {
+  const m = state.series.matches[state.match], i = state.match;
+  state.revealed[i] = true; renderHud();
+  const last = state.series.kind !== "replays" && state.revealed.filter(Boolean).length === state.series.matches.length;
+  const who = m.winner === "chaser" ? state.series.chaser : state.series.evader;
+  const banner = $("banner");
+  banner.style.color = colorOf(m.winner);
+  if (last) {
+    const s = state.series, w = s.series_winner;
+    banner.innerHTML = `<small>SERIES WINNER</small>${esc(s.winner_name)}<small>${s.chaser_wins}–${s.evader_wins} as ${w}</small>`;
+    banner.classList.add("show"); state.finished = true;
+  } else {
+    banner.innerHTML = `<small>${m.label ? esc(m.label).toUpperCase() : "MATCH " + (i + 1)}</small>${m.winner === "chaser" ? "TAGGED" : "ESCAPED"}<small>${esc(who)} wins</small>`;
+    banner.classList.add("show");
+    state.holdUntil = performance.now() + 2200;
+  }
+}
+
+/* ============================================================ drawing helpers */
+function agentAt(rep, idx, f) {                                    // interpolated x, y, heading at fractional frame f
+  const a = rep.agents[idx], i = Math.min(Math.floor(f), rep.frames - 1), j = Math.min(i + 1, rep.frames - 1), k = f - i;
+  let dh = a.heading[j] - a.heading[i]; dh -= 2 * Math.PI * Math.round(dh / (2 * Math.PI));
+  return { x: a.x[i] + (a.x[j] - a.x[i]) * k, y: a.y[i] + (a.y[j] - a.y[i]) * k, h: a.heading[i] + dh * k };
+}
+const dataUI = { rows: [] };
+function buildData(rep) {                                         // one block per agent, built once per series
+  $("data-agents").innerHTML = ""; dataUI.rows = rep.agents.map(a => {
+    const box = document.createElement("div"); box.className = "ag"; box.style.borderLeftColor = a.color;
+    box.innerHTML = '<div class="nm"></div><div class="kv"><span>x, y</span><span></span><span>cell</span><span></span><span>heading</span><span></span><span>speed</span><span></span></div>';
+    box.querySelector(".nm").textContent = a.name; const role = document.createElement("small"); role.textContent = a.role; box.querySelector(".nm").appendChild(role);
+    $("data-agents").appendChild(box); const v = box.querySelectorAll(".kv span:nth-child(even)"); return { xy: v[0], cell: v[1], head: v[2], speed: v[3] };
+  });
+}
+function updateData(rep, f) {
+  const on = $("datatoggle").checked; $("data").style.display = on ? "block" : "none"; if (!on) return;
+  const ps = rep.agents.map((_, i) => agentAt(rep, i, f)), g = Math.max(0, f - 1), span = (f - g) * rep.dt;
+  rep.agents.forEach((_, i) => {
+    const p = ps[i], q = agentAt(rep, i, g), u = dataUI.rows[i]; if (!u) return;
+    const deg = ((p.h * 180 / Math.PI) % 360 + 360) % 360, sp = span > 0 ? Math.hypot(p.x - q.x, p.y - q.y) / span : 0;
+    u.xy.textContent = p.x.toFixed(2) + ", " + p.y.toFixed(2); u.cell.textContent = Math.floor(p.x) + ", " + Math.floor(p.y);
+    u.head.textContent = deg.toFixed(0) + "°"; u.speed.textContent = sp.toFixed(1) + " /s";
+  });
+  const d = Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y), el = $("d-dist");
+  el.textContent = d.toFixed(2); el.style.color = d <= rep.tag_radius ? "var(--bad)" : d < 3 ? "var(--accent)" : "";
+  $("d-note").textContent = "apart · tag at " + rep.tag_radius.toFixed(2);
+  $("d-bar").style.width = Math.min(100, 100 * d / 30) + "%";
+}
+function sensedFor(i) {                                           // block cells agent i reads, or null when this series carries none
+  const s = state.series && state.series.senses; return s && s[i] && s[i].length ? s[i] : null;
+}
+const senseOn = () => $("senses").checked;
+function nameTag(text, color) {
+  const c = document.createElement("canvas"), g = c.getContext("2d"), px = 56;
+  g.font = `700 ${px}px system-ui, sans-serif`;
+  const w = Math.ceil(g.measureText(text).width) + 48; c.width = w; c.height = px + 36;
+  g.font = `700 ${px}px system-ui, sans-serif`; g.textBaseline = "middle";
+  g.fillStyle = "rgba(12,13,20,.78)"; g.beginPath(); g.roundRect ? g.roundRect(0, 0, w, c.height, 22) : g.rect(0, 0, w, c.height); g.fill();
+  g.lineWidth = 6; g.strokeStyle = color; g.stroke();
+  g.fillStyle = "#fff"; g.fillText(text, 24, c.height / 2 + 3);
+  return c;
+}
+
+/* ============================================================ 2D view (always available) */
+class View2D {
+  constructor(host) { this.c = document.createElement("canvas"); host.appendChild(this.c); this.g = this.c.getContext("2d"); this.rep = null; this.tags = []; this.resize(); }
+  dispose() { this.c.remove(); }
+  resize() { const d = devicePixelRatio || 1; this.c.width = innerWidth * d; this.c.height = innerHeight * d; }
+  show(rep) { this.rep = rep; this.tags = rep.agents.map(a => nameTag(a.name, a.color)); }
+  render(f) {
+    const g = this.g, rep = this.rep, d = devicePixelRatio || 1; if (!rep) return;
+    const rows = rep.arena.rows, W = rows[0].length, H = rows.length;
+    const pad = innerWidth > 820 ? 0 : 0, avail = { w: innerWidth - (innerWidth > 820 ? 400 : 0) - 40, h: innerHeight - 130 };
+    const s = Math.min(avail.w / W, avail.h / H) * d, ox = (this.c.width - W * s) / 2 + (innerWidth > 820 ? 180 * d : 0), oy = 50 * d;
+    g.fillStyle = "#14161f"; g.fillRect(0, 0, this.c.width, this.c.height);
+    for (let r = 0; r < H; r++) for (let q = 0; q < W; q++) {
+      const ch = rows[r][q];
+      g.fillStyle = ch === "#" ? "#4a5070" : ch === "~" ? "#6b4a2b" : (r + q) % 2 ? "#232738" : "#262a3d";
+      g.fillRect(ox + q * s, oy + r * s, s + .5, s + .5);
+    }
+    if (senseOn()) rep.agents.forEach((a, i) => {
+      const cells = sensedFor(i); if (!cells) return; const p = agentAt(rep, i, f), c0 = Math.floor(p.x), r0 = Math.floor(p.y);
+      g.fillStyle = a.color; g.globalAlpha = .32;
+      cells.forEach(([dx, dy]) => { const q = c0 + dx, r = r0 + dy; if (q >= 0 && r >= 0 && q < W && r < H) g.fillRect(ox + q * s, oy + r * s, s, s); });
+      g.globalAlpha = 1;
+    });
+    const tick = rep.tag_tick;
+    rep.agents.forEach((a, i) => {
+      const p = agentAt(rep, i, f), cx = ox + p.x * s, cy = oy + p.y * s, R = .42 * s;
+      g.fillStyle = "rgba(0,0,0,.35)"; g.beginPath(); g.arc(cx + 2, cy + 3, R, 0, 7); g.fill();
+      g.fillStyle = a.color; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill();
+      g.strokeStyle = "#fff"; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(p.h) * R * 1.5, cy + Math.sin(p.h) * R * 1.5); g.stroke();
+      const t = this.tags[i], th = 18 * d, tw = t.width / t.height * th; g.drawImage(t, cx - tw / 2, cy - R - th - 6 * d, tw, th);
+    });
+    if (tick != null && f >= tick) {
+      const p = agentAt(rep, 1, tick), k = Math.min(1, (f - tick) * rep.dt / .6);
+      g.strokeStyle = `rgba(255,255,255,${1 - k})`; g.lineWidth = 4 * d; g.beginPath(); g.arc(ox + p.x * s, oy + p.y * s, (.5 + 2.5 * k) * s, 0, 7); g.stroke();
+    }
+  }
+}
+
+/* ============================================================ 3D view (three.js) */
+class View3D {
+  constructor(host) {
+    if (!window.THREE) throw new Error("three.js is not available");
+    const T = THREE;
+    this.T = T; this.renderer = new T.WebGLRenderer({ antialias: true }); this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    this.renderer.setClearColor(0x14161f); host.appendChild(this.renderer.domElement);
+    this.scene = new T.Scene(); this.camera = new T.PerspectiveCamera(45, 1, .1, 400);
+    this.scene.add(new T.HemisphereLight(0xdfe6ff, 0x30334a, .95));
+    const sun = new T.DirectionalLight(0xffffff, .8); sun.position.set(-20, 40, 15); this.scene.add(sun);
+    this.world = new T.Group(); this.scene.add(this.world);
+    this.orbit = { theta: -Math.PI / 2, phi: 1.0, dist: 40 };
+    const el = this.renderer.domElement; let drag = null;
+    el.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); });
+    el.addEventListener("pointerup", () => drag = null);
+    el.addEventListener("pointermove", e => { if (!drag) return; const o = this.orbit;
+      o.theta -= (e.clientX - drag.x) * .006; o.phi = Math.max(.15, Math.min(1.5, o.phi - (e.clientY - drag.y) * .006)); drag = { x: e.clientX, y: e.clientY }; });
+    el.addEventListener("wheel", e => { e.preventDefault(); this.orbit.dist = Math.max(8, Math.min(90, this.orbit.dist * (1 + Math.sign(e.deltaY) * .08))); }, { passive: false });
+    this.resize();
+  }
+  dispose() { this.renderer.dispose(); this.renderer.domElement.remove(); }
+  resize() { this.renderer.setSize(innerWidth, innerHeight); this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); }
+  show(rep) {
+    const T = this.T, rows = rep.arena.rows, W = rows[0].length, H = rows.length;
+    this.rep = rep; this.center = new T.Vector3(W / 2, 0, H / 2);
+    this.world.children.slice().forEach(c => { this.world.remove(c); if (c.geometry) c.geometry.dispose(); });
+    const floor = new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshStandardMaterial({ color: 0x262a3d, roughness: 1 }));
+    floor.rotation.x = -Math.PI / 2; floor.position.set(W / 2, 0, H / 2); this.world.add(floor);
+    const grid = new T.GridHelper(Math.max(W, H), Math.max(W, H), 0x30344b, 0x30344b); grid.position.set(W / 2, .01, H / 2); grid.scale.set(W / Math.max(W, H), 1, H / Math.max(W, H)); this.world.add(grid);
+    const walls = [], mud = [];
+    rows.forEach((row, r) => [...row].forEach((ch, q) => { if (ch === "#") walls.push([q, r]); else if (ch === "~") mud.push([q, r]); }));
+    const place = (list, geo, color, y) => {
+      const mesh = new T.InstancedMesh(geo, new T.MeshStandardMaterial({ color, roughness: .9 }), Math.max(1, list.length)), m = new T.Matrix4();
+      list.forEach(([q, r], i) => { m.makeTranslation(q + .5, y, r + .5); mesh.setMatrixAt(i, m); });
+      mesh.count = list.length; mesh.instanceMatrix.needsUpdate = true; this.world.add(mesh);
+    };
+    place(walls, new T.BoxGeometry(1, 1.3, 1), 0x59618a, .65);
+    place(mud, new T.BoxGeometry(1, .08, 1), 0x6b4a2b, .04);
+    this.actors = rep.agents.map(a => {
+      const g = new T.Group(), mat = new T.MeshStandardMaterial({ color: a.color, roughness: .45 });
+      const body = new T.Mesh(new T.CylinderGeometry(.3, .3, .6, 20), mat); body.position.y = .6;
+      const top = new T.Mesh(new T.SphereGeometry(.3, 20, 12), mat); top.position.y = .9;
+      const bot = new T.Mesh(new T.SphereGeometry(.3, 20, 12), mat); bot.position.y = .3;
+      const nose = new T.Mesh(new T.ConeGeometry(.12, .3, 10), new T.MeshStandardMaterial({ color: 0xffffff })); nose.rotation.z = -Math.PI / 2; nose.position.set(.36, .75, 0);
+      const shadow = new T.Mesh(new T.CircleGeometry(.4, 20), new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35 })); shadow.rotation.x = -Math.PI / 2; shadow.position.y = .02;
+      const cv = nameTag(a.name, a.color), label = new T.Sprite(new T.SpriteMaterial({ map: new T.CanvasTexture(cv), depthTest: false, transparent: true }));
+      label.scale.set(cv.width / cv.height * 0.62, .62, 1); label.position.y = 1.75; label.renderOrder = 10;
+      g.add(body, top, bot, nose, shadow, label); this.world.add(g); return g;
+    });
+    this.sense = rep.agents.map((a, i) => {                          // one translucent tile per sensed cell, moved as the agent moves
+      const cells = sensedFor(i); if (!cells) return null;
+      const geo = new T.PlaneGeometry(.94, .94); geo.rotateX(-Math.PI / 2);
+      const mesh = new T.InstancedMesh(geo, new T.MeshBasicMaterial({ color: a.color, transparent: true, opacity: .38, depthWrite: false }), cells.length);
+      mesh.frustumCulled = false; mesh.renderOrder = 5; this.world.add(mesh); return { mesh, cells, key: "" };
+    });
+    this.ring = new T.Mesh(new T.RingGeometry(.9, 1, 40), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, side: T.DoubleSide }));
+    this.ring.rotation.x = -Math.PI / 2; this.ring.position.y = .1; this.ring.visible = false; this.world.add(this.ring);
+    this.orbit.dist = Math.max(W, H) * 1.05;
+  }
+  render(f) {
+    const rep = this.rep; if (!rep) return;
+    rep.agents.forEach((_, i) => { const p = agentAt(rep, i, f); this.actors[i].position.set(p.x, 0, p.y); this.actors[i].rotation.y = -p.h; });
+    const rows = rep.arena.rows, m4 = new this.T.Matrix4();
+    (this.sense || []).forEach((sn, i) => {
+      if (!sn) return; sn.mesh.visible = senseOn(); if (!sn.mesh.visible) return;
+      const p = agentAt(rep, i, f), c0 = Math.floor(p.x), r0 = Math.floor(p.y), key = c0 + "," + r0;
+      if (key === sn.key) return; sn.key = key; let n = 0;
+      sn.cells.forEach(([dx, dy]) => {
+        const q = c0 + dx, r = r0 + dy, ch = rows[r] && rows[r][q]; if (!ch) return;                 // outside the arena: nothing to light
+        m4.makeTranslation(q + .5, ch === "#" ? 1.33 + .01 * i : ch === "~" ? .1 + .01 * i : .05 + .01 * i, r + .5); sn.mesh.setMatrixAt(n++, m4);
+      });
+      sn.mesh.count = n; sn.mesh.instanceMatrix.needsUpdate = true;
+    });
+    const tick = rep.tag_tick; this.ring.visible = false;
+    if (tick != null && f >= tick) {
+      const p = agentAt(rep, 1, tick), k = Math.min(1, (f - tick) * rep.dt / .6);
+      this.ring.visible = k < 1; this.ring.position.set(p.x, .1, p.y); this.ring.scale.setScalar(.5 + 2.5 * k); this.ring.material.opacity = 1 - k;
+    }
+    const o = this.orbit, c = this.center;
+    this.camera.position.set(c.x + o.dist * Math.sin(o.phi) * Math.cos(o.theta), o.dist * Math.cos(o.phi), c.z + o.dist * Math.sin(o.phi) * Math.sin(o.theta));
+    this.camera.lookAt(c); this.renderer.render(this.scene, this.camera);
+  }
+}
+
+/* ============================================================ wiring */
+let view, mode = "3d";
+function makeView(kind) {
+  const keep = view && view.rep; if (view) view.dispose();
+  if (kind === "3d") {
+    try { view = new View3D($("stage")); mode = "3d"; $("note").textContent = "Drag to orbit, scroll to zoom."; }
+    catch (e) { view = new View2D($("stage")); mode = "2d"; $("note").textContent = "Flat 2D view (3D unavailable: " + e.message + ")"; }
+  } else { view = new View2D($("stage")); mode = "2d"; $("note").textContent = ""; }
+  $("viewmode").hidden = !window.THREE; $("viewmode").textContent = mode === "3d" ? "2D view" : "3D view";
+  if (keep) view.show(keep);
+}
+makeView(window.THREE ? "3d" : "2d");
+if (!window.THREE) $("note").textContent = "Flat 2D view (three.js could not be loaded, so 3D is off).";
+$("viewmode").onclick = () => makeView(mode === "3d" ? "2d" : "3d");
+addEventListener("resize", () => view.resize());
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  if (state.series) {
+    const len = matchLength(), m = state.series.matches[state.match];
+    if (state.playing && !state.finished && now >= state.holdUntil) {
+      if (state.t < len) { state.t = Math.min(len, state.t + dt * state.speed); if (state.t >= len) finishMatch(); }
+      else if (state.holdUntil && now >= state.holdUntil && state.match < state.series.matches.length - 1) { selectMatch(state.match + 1); }
+    }
+    const fr = Math.min(m.replay.frames - 1, state.t / m.replay.dt); view.render(fr); updateData(m.replay, fr);
+    $("scrub").value = len ? Math.round(1000 * state.t / len) : 0;
+    $("time").textContent = `${state.t.toFixed(1)} / ${len.toFixed(1)} s`;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+$("play").onclick = () => { state.playing = !state.playing; $("play").textContent = state.playing ? "Pause" : "Play"; };
+$("speed").onchange = e => state.speed = +e.target.value;
+$("scrub").oninput = e => {
+  state.t = matchLength() * e.target.value / 1000; state.playing = false; $("play").textContent = "Play"; $("banner").classList.remove("show"); state.holdUntil = 0;
+  if (e.target.value >= 1000) { finishMatch(); state.holdUntil = 0; }
+};
+$("again").onclick = () => { $("data").style.display = "none"; $("hud").style.display = $("controls").style.display = "none"; $("setup").style.display = "block"; $("banner").classList.remove("show"); state.series = null; renderSlots(); };
+$("run").onclick = runSeries;
+$("pick").onclick = () => $("file").click();
+$("file").onchange = async e => { await handleFiles(e.target.files); e.target.value = ""; };
+$("demo").onclick = async () => {
+  try {
+    for (const f of ["baseline_chaser.json", "baseline_evader.json"]) { const r = await fetch("baselines/" + f); await addFile(f, await r.text()); }
+    renderSlots();
+  } catch (e) { say("Could not load the baseline agents."); }
+};
+let depth = 0;
+addEventListener("dragenter", e => { e.preventDefault(); depth++; document.body.classList.add("dragging"); });
+addEventListener("dragleave", e => { depth = Math.max(0, depth - 1); if (!depth) document.body.classList.remove("dragging"); });
+addEventListener("dragover", e => e.preventDefault());
+addEventListener("drop", async e => { e.preventDefault(); depth = 0; document.body.classList.remove("dragging"); if (state.series) $("again").click(); await handleFiles(e.dataTransfer.files); });
+renderSlots();
+</script>
+</body>
+</html>
