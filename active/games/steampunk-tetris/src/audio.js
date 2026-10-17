@@ -13,6 +13,8 @@ export class SteamAudio {
     this.master = null;
     this.enabled = true;
     this.noiseBuffer = null;
+    this.drone = null;
+    this.heat = 0;
   }
 
   /** Safe to call from any event handler; only builds the graph once. */
@@ -29,6 +31,7 @@ export class SteamAudio {
       this.master.gain.value = 0.5;
       this.master.connect(this.ctx.destination);
       this.noiseBuffer = this.makeNoise();
+      this.buildDrone();
     } catch (err) {
       this.ctx = null;
     }
@@ -37,6 +40,61 @@ export class SteamAudio {
   setEnabled(on) {
     this.enabled = !!on;
     if (this.master) this.master.gain.value = this.enabled ? 0.5 : 0;
+  }
+
+  /**
+   * Boiler drone: two detuned saws through a lowpass, plus a rumble of filtered
+   * noise. Silent at pressure 0 and louder, higher and rougher as the level
+   * climbs, so the room gets more tense as the stack gets taller.
+   */
+  buildDrone() {
+    const ctx = this.ctx;
+    this.drone = { gain: ctx.createGain(), oscs: [], filter: ctx.createBiquadFilter(), noise: null, noiseGain: null };
+    this.drone.gain.gain.value = 0;
+    this.drone.filter.type = 'lowpass';
+    this.drone.filter.frequency.value = 300;
+    this.drone.filter.Q.value = 6;
+    for (const detune of [-7, 0, 9]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = 55;
+      osc.detune.value = detune;
+      osc.connect(this.drone.filter);
+      osc.start();
+      this.drone.oscs.push(osc);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = this.noiseBuffer;
+    noise.loop = true;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0;
+    noise.connect(noiseGain);
+    noiseGain.connect(this.drone.filter);
+    this.drone.filter.connect(this.drone.gain);
+    this.drone.gain.connect(this.master);
+    noise.start();
+    this.drone.noise = noise;
+    this.drone.noiseGain = noiseGain;
+  }
+
+  /** heat: 0 (idle) .. 1 (blowing the doors off). */
+  setHeat(heat) {
+    this.heat = Math.max(0, Math.min(1, heat || 0));
+    if (!this.ready || !this.drone) return;
+    const t = this.ctx.currentTime;
+    const h = this.heat;
+    this.drone.gain.gain.setTargetAtTime(h * h * 0.2, t, 0.5);
+    this.drone.noiseGain.gain.setTargetAtTime(h * 0.06, t, 0.5);
+    this.drone.filter.frequency.setTargetAtTime(240 + h * 1500, t, 0.5);
+    const base = 55 * (1 + h * 0.55);
+    for (const osc of this.drone.oscs) osc.frequency.setTargetAtTime(base, t, 0.5);
+  }
+
+  /** A pressure-relief burst: the loudest thing in the game. */
+  pressureBurst(strength = 1) {
+    this.hiss({ dur: 1.1 * strength, gain: 0.4 * strength, from: 2200, to: 240 });
+    this.tone({ freq: 220, dur: 0.9 * strength, type: 'sawtooth', gain: 0.16, slideTo: 44 });
+    this.tone({ freq: 110, dur: 1.2 * strength, type: 'sine', gain: 0.2, slideTo: 33 });
   }
 
   makeNoise() {
