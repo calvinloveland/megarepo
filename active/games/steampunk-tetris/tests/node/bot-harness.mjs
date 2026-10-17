@@ -21,6 +21,7 @@ export const ACTION_INTERVAL_MS = 1000 / 30;
 export async function runBot(botFn, opts = {}) {
   const {
     seed = 'arena', sequence = null, maxVirtualMs = 15 * 60 * 1000, maxActions = 20000,
+    actionIntervalMs = ACTION_INTERVAL_MS,
   } = opts;
 
   const engine = new TetrisEngine({ seed, sequence });
@@ -48,9 +49,11 @@ export async function runBot(botFn, opts = {}) {
     },
     input: async (action) => {
       // The Arena delays anything over 30 actions/second; model that rather
-      // than letting the bot pretend it can act instantly.
-      clock += ACTION_INTERVAL_MS;
-      virtualMs += ACTION_INTERVAL_MS;
+      // than letting the bot pretend it can act instantly. Raising
+      // actionIntervalMs lowers the effective rate — used to measure how much
+      // of a bot's limit is the clock rather than the strategy.
+      clock += actionIntervalMs;
+      virtualMs += actionIntervalMs;
       engine.tick(clock);
       const legal = engine.applyAction(action);
       actions += 1;
