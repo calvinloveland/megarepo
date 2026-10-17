@@ -323,3 +323,15 @@ apps:
     env:
       PORT: "5120"
 
+  - id: brass-and-boiler
+    name: Brass & Boiler
+    description: Steampunk Tetris for the AI Tetris Challenge — Protocol v2 conformant, with a Tetris-hunting bot and a score-maximising bot.
+    icon: ⚙️
+    subdomain: tetris
+    path: ../../games/steampunk-tetris
+    type: node
+    port: 5122
+    start_cmd: "node server.mjs 2>&1"
+    env:
+      PORT: "5122"
+

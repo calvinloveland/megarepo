@@ -42,6 +42,10 @@ KNOWN_APPS = {
         "server_script": None,
         "browser": "google-chrome-stable",
     },
+    "steampunk-tetris": {
+        "dir": REPO_ROOT / "active" / "games" / "steampunk-tetris",
+        "server_script": "server.mjs",
+    },
 }
 
 
@@ -96,6 +100,33 @@ def check_node_sim(app: dict, args: argparse.Namespace) -> int:
         exit_code |= run(["node", "--check", path], app_dir, f"node --check {path}")
 
     exit_code |= run(["npm", "test"], app_dir, "unit tests")
+    return exit_code
+
+
+def check_steampunk_tetris(app: dict, args: argparse.Namespace) -> int:
+    """Static Protocol v2 game + single-file bots: install, syntax, unit suite,
+    and on request the Playwright suites (conformance, game, bots) plus the
+    packaged-archive conformance re-run."""
+    app_dir: Path = app["dir"]
+    exit_code = 0
+
+    install_cmd = ["npm", "ci"] if (app_dir / "package-lock.json").exists() else ["npm", "install"]
+    exit_code |= run(install_cmd, app_dir, "npm install")
+
+    targets = ["server.mjs"]
+    targets += sorted(f"src/{p.name}" for p in (app_dir / "src").glob("*.js"))
+    targets += sorted(f"bots/dist/{p.name}" for p in (app_dir / "bots" / "dist").glob("*.js"))
+    for target in targets:
+        exit_code |= run(["node", "--check", target], app_dir, f"node --check {target}")
+
+    exit_code |= run(["npm", "run", "test:unit"], app_dir, "engine + bot unit tests")
+    exit_code |= run(["npm", "run", "bots:check"], app_dir, "bot bundles are current")
+    exit_code |= run(["node", "scripts/package.mjs"], app_dir, "package submission zip")
+
+    if args.e2e:
+        exit_code |= run(["npx", "playwright", "test"], app_dir, "playwright suites")
+        exit_code |= run(["node", "scripts/verify-archive.mjs"], app_dir, "conformance on the packaged zip")
+
     return exit_code
 
 
@@ -181,6 +212,7 @@ def check() -> int:
         "esp-array-sim": check_node_sim,
         "watch-forge": check_node_sim,
         "vroomon": check_vroomon,
+        "steampunk-tetris": check_steampunk_tetris,
     }
     exit_code = checkers[args.app_name](app, args)
 

@@ -26,7 +26,3 @@ export const INK = {
   steam: 'rgba(233,226,214,',
   ember: '#ff9a3c',
 };
-
-export const PIECE_GLYPH = {
-  I: '\u2016', O: '\u25cb', T: '\u03c8', S: '\u224b', Z: '\u2262', J: '\u2699', L: '\u2692',
-};

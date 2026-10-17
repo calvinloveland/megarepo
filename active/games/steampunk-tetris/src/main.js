@@ -16,7 +16,7 @@
 import { TetrisEngine } from './engine.js';
 import { Renderer } from './render.js';
 import { SteamAudio } from './audio.js';
-import { PIECE_PALETTE, PIECE_GLYPH } from './theme.js';
+import { PIECE_PALETTE } from './theme.js';
 import { PIECE_TYPES } from './constants.js';
 
 const GAME_NAME = 'Brass & Boiler';
@@ -75,7 +75,10 @@ function setOverlay(mode, title, body, keys) {
   ui.overlay.dataset.mode = mode;
   if (title) ui.overlayTitle.textContent = title;
   if (body) ui.overlayBody.textContent = body;
-  if (ui.overlayKeys) ui.overlayKeys.hidden = !keys;
+  if (ui.overlayKeys) {
+    ui.overlayKeys.hidden = !keys;
+    if (keys) ui.overlayKeys.textContent = keys;
+  }
 }
 
 function clockText(ms) {
@@ -242,7 +245,7 @@ function buildTally() {
     chip.className = 'chip';
     chip.style.background = PIECE_PALETTE[type].face;
     const name = document.createElement('span');
-    name.textContent = `${PIECE_GLYPH[type]} ${type}`;
+    name.textContent = type;
     const count = document.createElement('span');
     count.className = 'count';
     count.dataset.type = type;
@@ -270,10 +273,14 @@ const KEYMAP = {
   KeyC: 'hold', ShiftLeft: 'hold', ShiftRight: 'hold',
 };
 
+/** Apply a human action and immediately service its side effects (sound,
+    particles, the game-over card) so the UI never lags a frame behind. */
 function pressAction(action) {
   audio.unlock();
   if (overlayMode === 'over') setOverlay('hidden');
-  return engine.applyAction(action);
+  const legal = engine.applyAction(action);
+  handleEvents();
+  return legal;
 }
 
 window.addEventListener('keydown', (e) => {
@@ -385,6 +392,7 @@ window.__tetris = {
     /** Deterministic time travel for tests: freezes the page clock first. */
     advance: (ms, step = 8) => {
       frozen = true;
+      if (engine.lastNow === null) engine.tick(now()); // prime the frame delta
       for (let acc = 0; acc < ms; acc += step) {
         clockOffset += step;
         engine.tick(now());
@@ -393,7 +401,7 @@ window.__tetris = {
       adapter.notify();
       return engine.toState();
     },
-    press: (action) => engine.applyAction(action),
+    press: (action) => pressAction(action),
     tally: () => ({ ...engine.pieceStats }),
   },
 };

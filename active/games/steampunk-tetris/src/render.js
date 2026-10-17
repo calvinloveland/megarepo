@@ -135,8 +135,8 @@ export class Renderer {
     this.cssW = cssW;
     this.cssH = cssH;
 
-    const padX = 10;
-    const padY = 10;
+    const padX = 8;
+    const padY = 8;
     this.cell = Math.floor(Math.min((cssW - padX * 2) / BOARD_W, (cssH - padY * 2) / BOARD_H));
     this.originX = (cssW - this.cell * BOARD_W) / 2;
     this.originY = (cssH - this.cell * BOARD_H) / 2;
@@ -246,7 +246,7 @@ export class Renderer {
       for (let x = 0; x < BOARD_W; x++) {
         const ch = state.board[y][x];
         if (ch === '.') continue;
-        drawTile(ctx, x * cell, y * cell, cell, PIECE_PALETTE[ch], { aged: 0.42 });
+        drawTile(ctx, x * cell, y * cell, cell, PIECE_PALETTE[ch], { aged: 0.18 });
       }
     }
 
@@ -270,8 +270,8 @@ export class Renderer {
       const gy = engine.ghostY();
       if (gy !== null && gy !== state.piece.y) {
         ctx.save();
-        ctx.globalAlpha = 0.3;
-        ctx.setLineDash([cell * 0.16, cell * 0.16]);
+        ctx.globalAlpha = 0.34;
+        ctx.setLineDash([cell * 0.12, cell * 0.12]);
         ctx.lineWidth = Math.max(1, cell * 0.06);
         ctx.strokeStyle = PIECE_PALETTE[state.piece.type].light;
         for (const [dx, dy] of state.piece.cells) {
@@ -314,7 +314,7 @@ export class Renderer {
     // Engraved ledger grid
     ctx.save();
     ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(200,162,74,.16)';
+    ctx.strokeStyle = 'rgba(200,162,74,.24)';
     ctx.beginPath();
     for (let x = 1; x < BOARD_W; x++) {
       ctx.moveTo(x * cell, 0);
