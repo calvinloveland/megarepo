@@ -149,6 +149,33 @@ node scripts/verify-archive.mjs
 weight over a seed set. Every bot run is deterministic for a given seed, so the
 tests assert real thresholds instead of "it ran".
 
+## Results in the Arena
+
+Snapshot from the live leaderboard (`GET /api/leaderboard`) after the first
+matches, 2026-10-16:
+
+| Board | Place | Entry | Number |
+|---|---|---|---|
+| Games | **2 of 12** | Brass & Boiler | best 373,128 over 5 plays |
+| Bots | **3 of 6** | Four-Line Fanatic | mean 51,206 over 3 games, best 82,556 |
+| Bots | queued | Boiler Stoker | not yet scheduled |
+
+The game's 373,128 sits above the Arena Reference (228,608) and every other
+submitted game except scowley's *Tonight's gonna be a good night* (1,194,382 —
+that game has also produced 1.19M for two different bots, so it is unusually
+generous rather than the bot being unusually good).
+
+Two caveats worth remembering:
+
+- **Resubmitting replaces the active version and resets that entry's
+  accumulated stats.** The hunter held 2nd place on a single 228,608 game before
+  the improved bundle was uploaded; the number went back to `None` and started
+  over. Batch submissions rather than pushing every tweak.
+- The hunter's mean is dominated by variance, not by weakness: it refuses every
+  clear that is not four rows, so a game where the well never fills in time ends
+  early. That is the strategy the brief asked for, and its best game (228,608 on
+  the reference game) beat the score bot on the same seed.
+
 ## Submitting
 
 The Arena account is registered as **Calvin Loveland**, participant id
