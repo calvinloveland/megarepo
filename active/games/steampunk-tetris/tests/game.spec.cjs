@@ -149,8 +149,13 @@ test.describe('Brass & Boiler', () => {
   test('the HUD agrees with the engine', async ({ page }) => {
     await page.goto('/');
     await waitForGame(page);
-    await page.evaluate(() => window.__tetris.api.reset({ seed: 'arena' }));
-    await page.evaluate(() => window.__tetris.api.press('hard_drop'));
+    // Freeze the clock so the HUD and the engine cannot drift apart between
+    // the DOM assertion and the state read.
+    await page.evaluate(() => {
+      window.__tetris.api.freeze();
+      window.__tetris.api.reset({ seed: 'arena' });
+      window.__tetris.api.press('hard_drop');
+    });
     await page.waitForTimeout(150);
 
     const s = await state(page);

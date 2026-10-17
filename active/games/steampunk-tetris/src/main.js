@@ -48,7 +48,6 @@ let dasTimer = 0;
 let arrTimer = 0;
 let softDas = 0;
 let softArr = 0;
-let humanPlaying = false;
 let overlayMode = 'intro';
 let introUntil = 0;
 
@@ -59,7 +58,7 @@ const ui = {
   pressure: el('pressure-readout'), gravity: el('gravity-readout'),
   feat: el('feat-readout'), tally: el('tally'), overlay: el('overlay'),
   overlayTitle: el('overlay-title'), overlayBody: el('overlay-body'),
-  overlayKeys: el('overlay-keys'), holdHint: el('hold-hint'),
+  overlayKeys: el('overlay-keys'),
 };
 
 const last = {};
@@ -94,7 +93,6 @@ const adapter = window.installTetrisAdapter({
   getState: () => engine.toState(),
   onNew: ({ seed, sequence }) => {
     engine.reset({ seed, sequence });
-    humanPlaying = true;
     setOverlay('hidden');
     renderer.particles.length = 0;
     renderer.steam.length = 0;
@@ -119,8 +117,7 @@ function frame(ts) {
   }
   if (!engine.paused && !engine.gameOver) humanRepeat(dtMs);
   renderer.update(dtMs / 1000);
-  const state = renderer.draw(engine);
-  paint(state, dtMs);
+  paint(renderer.draw(engine));
 
   if (overlayMode === 'intro' && now() > introUntil) setOverlay('hidden');
   requestAnimationFrame(frame);
@@ -181,7 +178,7 @@ function humanRepeat(dt) {
       let guard = 0;
       while (arrTimer >= ARR_MS && guard++ < 6) {
         arrTimer -= ARR_MS;
-        engine.applyAction(moveDir < 0 ? 'left' : 'right');
+        pressAction(moveDir < 0 ? 'left' : 'right');
       }
     }
   }
@@ -194,7 +191,7 @@ function humanRepeat(dt) {
       let guard = 0;
       while (softArr >= SOFT_ARR_MS && guard++ < 8) {
         softArr -= SOFT_ARR_MS;
-        engine.applyAction('soft_drop');
+        pressAction('soft_drop');
       }
     }
   }
@@ -205,7 +202,7 @@ function humanRepeat(dt) {
 let lastPieceCells = [];
 let lastLevel = 1;
 
-function paint(state, dtMs) {
+function paint(state) {
   if (state.piece) lastPieceCells = state.piece.cells;
 
   setText(ui.score, state.score.toLocaleString('en-US'));
@@ -234,7 +231,6 @@ function paint(state, dtMs) {
     if (state.level > lastLevel) audio.levelUp();
     lastLevel = state.level;
   }
-  void dtMs;
 }
 
 function buildTally() {
