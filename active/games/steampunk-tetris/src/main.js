@@ -58,7 +58,7 @@ const ui = {
   pressure: el('pressure-readout'), gravity: el('gravity-readout'),
   feat: el('feat-readout'), tally: el('tally'), overlay: el('overlay'),
   overlayTitle: el('overlay-title'), overlayBody: el('overlay-body'),
-  overlayKeys: el('overlay-keys'),
+  overlayKeys: el('overlay-keys'), alarm: el('alarm'),
 };
 
 const last = {};
@@ -138,11 +138,12 @@ function handleEvents() {
       case 'lock':
         audio.lock();
         renderer.burst(lastPieceCells, { count: 8, spread: 0.6 });
+        renderer.kick(1.6);
         break;
       case 'harddrop':
         audio.hardDrop();
         renderer.burst(lastPieceCells, { count: 16, spread: 1.2 });
-        renderer.kick(2 + Math.min(4, ev.detail * 0.6));
+        renderer.kick(3 + Math.min(6, ev.detail * 0.8));
         break;
       case 'hold':
         audio.hold();
@@ -153,8 +154,20 @@ function handleEvents() {
         renderer.flash(rows);
         renderer.vent(lines);
         renderer.kick(lines * 4);
-        if (lines >= 4) renderer.kick(9);
-        if (perfect) renderer.kick(6);
+        // Every clear is a pressure spike; a Tetris is a relief valve letting go.
+        heatSurge = Math.min(0.45, heatSurge + 0.06 + lines * 0.035);
+        if (lines >= 4) {
+          renderer.kick(12);
+          renderer.erupt(1.15);
+          audio.pressureBurst(0.9);
+          heatSurge = Math.min(0.6, heatSurge + 0.2);
+        }
+        if (perfect) {
+          renderer.kick(10);
+          renderer.erupt(1.6);
+          audio.pressureBurst(1.3);
+          heatSurge = 0.6;
+        }
         break;
       }
       case 'gameover':
@@ -201,6 +214,12 @@ function humanRepeat(dt) {
 
 let lastPieceCells = [];
 let lastLevel = 1;
+/* Pressure, 0..1. Level drives the floor, clears push it up, and it decays back
+   down — the whole presentation (steam, embers, rumble, drone, CSS glow) reads
+   from this one number. */
+let heat = 0;
+let heatSurge = 0;
+let lastHeatCss = -1;
 
 function paint(state) {
   if (state.piece) lastPieceCells = state.piece.cells;
@@ -228,8 +247,32 @@ function paint(state) {
       : `${GAME_NAME} · ${state.piece_count} pieces fed`);
 
   if (state.level !== lastLevel) {
-    if (state.level > lastLevel) audio.levelUp();
+    if (state.level > lastLevel) {
+      // Level up: the boiler surges and vents everything it has.
+      audio.levelUp();
+      audio.pressureBurst(0.55 + Math.min(0.6, state.level / 30));
+      renderer.erupt(0.55 + Math.min(0.8, state.level / 24));
+      heatSurge = Math.min(0.5, heatSurge + 0.18);
+    }
     lastLevel = state.level;
+  }
+
+  /* One animated scalar for the entire presentation. */
+  const baseHeat = Math.min(1, Math.max(0, (state.level - 1) / 18));
+  heatSurge = Math.max(0, heatSurge - 0.012);
+  heat = Math.min(1, baseHeat + heatSurge);
+  renderer.heat = heat;
+  audio.setHeat(heat);
+  const cssHeat = Math.round(heat * 50) / 50;
+  if (cssHeat !== lastHeatCss) {
+    lastHeatCss = cssHeat;
+    document.documentElement.style.setProperty('--heat', cssHeat.toFixed(2));
+    if (ui.alarm) {
+      ui.alarm.dataset.heat = heat > 0.82 ? 'critical' : heat > 0.45 ? 'rising' : 'calm';
+      ui.alarm.textContent = heat > 0.82 ? 'PRESSURE CRITICAL'
+        : heat > 0.45 ? 'PRESSURE RISING'
+          : heat > 0.2 ? 'BOILER WARM' : 'BOILER IDLE';
+    }
   }
   paintTally();
 }

@@ -4,6 +4,8 @@
  */
 
 :root {
+  /* Pressure, 0..1, set from JS every frame. Everything below leans on it. */
+  --heat: 0;
   --soot: #0d0a07;
   --iron: #1a1512;
   --iron-2: #241c15;
@@ -42,13 +44,15 @@ body {
 }
 
 .forge-glow {
+  will-change: opacity;
   position: fixed;
   inset: auto 0 -30vh 0;
   height: 60vh;
   background: radial-gradient(ellipse at 50% 100%, rgba(255, 138, 40, .22), transparent 70%);
   pointer-events: none;
   z-index: 0;
-  animation: forge 5.5s ease-in-out infinite;
+  opacity: calc(0.75 + var(--heat) * 0.75);
+  animation: forge calc(5.5s - var(--heat) * 3.6s) ease-in-out infinite;
 }
 
 @keyframes forge {
@@ -61,12 +65,84 @@ body {
   fill: rgba(200, 162, 74, .07);
   z-index: 0;
   pointer-events: none;
+  will-change: transform;
 }
 
 .gear-a { top: -70px; left: -60px; width: 240px; animation: spin 34s linear infinite; }
 .gear-b { bottom: -90px; right: -70px; width: 320px; animation: spin 52s linear infinite reverse; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* The second pair of gears only exists once the boiler is working, and the whole
+   set speeds up as the pressure climbs. */
+.gear-c {
+  top: 12%;
+  right: -80px;
+  width: 190px;
+  opacity: calc((var(--heat) - 0.3) * 1.6);
+  animation: spin calc(22s - var(--heat) * 17s) linear infinite;
+}
+
+.gear-d {
+  bottom: 6%;
+  left: -70px;
+  width: 210px;
+  opacity: calc((var(--heat) - 0.45) * 1.8);
+  animation: spin calc(30s - var(--heat) * 24s) linear infinite reverse;
+}
+
+.gear-a { animation-duration: calc(34s - var(--heat) * 27s); opacity: calc(0.55 + var(--heat) * 2.2); }
+.gear-b { animation-duration: calc(52s - var(--heat) * 40s); opacity: calc(0.55 + var(--heat) * 2.2); }
+
+/* Steam veil over the whole cabinet, thickening with heat. */
+.heat-veil {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background:
+    radial-gradient(ellipse at 8% 112%, rgba(255, 138, 40, .34), transparent 46%),
+    radial-gradient(ellipse at 94% 112%, rgba(255, 138, 40, .34), transparent 46%),
+    radial-gradient(ellipse at 50% -14%, rgba(255, 96, 32, .18), transparent 45%);
+  /* Animate opacity only: a blurred, transformed full-screen layer costs tens of
+     milliseconds a frame in software rendering (measured 25 fps at heat 1). */
+  will-change: opacity;
+  animation: veil-breathe calc(7s - var(--heat) * 4.4s) ease-in-out infinite;
+}
+
+@keyframes veil-breathe {
+  0%, 100% { opacity: calc(var(--heat) * 0.42); }
+  50% { opacity: calc(var(--heat) * 0.62); }
+}
+
+/* CRT scanlines, only worth seeing when the thing is screaming. */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  opacity: calc(var(--heat) * 0.3);
+  background: repeating-linear-gradient(180deg, rgba(255, 236, 200, .10) 0 1px, transparent 1px 3px);
+}
+
+.critical-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0;
+  /* A static inset glow, pulsing only in opacity — an animated 200px box-shadow
+     on a full-screen element repaints the whole viewport every frame. */
+  box-shadow: inset 0 0 180px rgba(180, 40, 16, .85);
+  will-change: opacity;
+  animation: critical-pulse calc(2.4s - var(--heat) * 1.5s) ease-in-out infinite;
+}
+
+@keyframes critical-pulse {
+  0%, 100% { opacity: calc((var(--heat) - 0.62) * 1.7); }
+  50% { opacity: calc((var(--heat) - 0.62) * 2.6); }
+}
 
 .boiler {
   position: relative;
@@ -247,7 +323,9 @@ body {
   box-shadow:
     inset 0 0 0 6px rgba(0, 0, 0, .45),
     inset 0 2px 0 rgba(255, 244, 214, .25),
-    0 14px 34px rgba(0, 0, 0, .65);
+    0 14px 34px rgba(0, 0, 0, .65),
+    0 0 calc(var(--heat) * 46px) rgba(255, 132, 34, .75),
+    0 0 calc(var(--heat) * 110px) rgba(255, 96, 24, .35);
   display: flex;
   justify-content: center;
 }
@@ -405,6 +483,67 @@ body {
 }
 
 .keylist span { margin-left: auto; color: var(--ink); font-size: 12px; }
+
+/* Pressure alarm: the HUD tells you the boiler is about to let go. */
+.alarm {
+  margin: 8px 0 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  text-align: center;
+  border: 1px solid rgba(200, 162, 74, .3);
+  color: var(--dim);
+  background: rgba(0, 0, 0, .25);
+  transition: color .3s ease, border-color .3s ease, background .3s ease;
+}
+
+.alarm[data-heat="rising"] {
+  color: #ffd08a;
+  border-color: rgba(255, 172, 74, .7);
+  background: rgba(120, 60, 10, .35);
+  animation: alarm-throb 1.6s ease-in-out infinite;
+}
+
+.alarm[data-heat="critical"] {
+  color: #ffb0a0;
+  border-color: rgba(255, 96, 60, .9);
+  background: rgba(120, 24, 10, .5);
+  text-shadow: 0 0 12px rgba(255, 90, 40, .9);
+  animation: alarm-critical .5s steps(2, end) infinite;
+}
+
+@keyframes alarm-throb {
+  0%, 100% { opacity: .78; }
+  50% { opacity: 1; }
+}
+
+@keyframes alarm-critical {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
+/* Everything metal picks up the fire. */
+.panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, .16),
+    0 6px 18px rgba(0, 0, 0, .5),
+    0 0 calc(var(--heat) * 26px) rgba(255, 120, 30, .22);
+}
+
+.nameplate h1 {
+  filter: drop-shadow(0 0 calc(6px + var(--heat) * 26px) rgba(255, 170, 70, .75));
+}
+
+.ledger-grid dd {
+  filter: drop-shadow(0 0 calc(2px + var(--heat) * 14px) rgba(255, 190, 90, .8));
+}
+
+#tally .chip {
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .5), 0 0 calc(var(--heat) * 12px) rgba(255, 150, 60, .8);
+}
 
 kbd {
   font-family: var(--mono);

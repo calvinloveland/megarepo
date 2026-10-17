@@ -222,6 +222,68 @@ test.describe('Brass & Boiler', () => {
     await expect(page.locator('#overlay-title')).toHaveText(/boiler blown/i);
   });
 
+  test('the boiler goes berserk as the level climbs', async ({ page }) => {
+    await page.goto('/');
+    await waitForGame(page);
+
+    const sample = async (level, waitMs) => page.evaluate(([lv, ms]) => new Promise((resolve) => {
+      const t = window.__tetris;
+      t.engine.level = lv;
+      setTimeout(() => resolve({
+        heat: t.renderer.heat,
+        particles: t.renderer.particles.length,
+        steam: t.renderer.steam.length,
+        css: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--heat')),
+        alarm: document.getElementById('alarm').dataset.heat,
+        level: t.renderer.level,
+      }), ms);
+    }), [level, waitMs]);
+
+    await page.evaluate(() => {
+      window.__tetris.api.freeze();
+      window.__tetris.api.reset({ seed: 'arena' });
+    });
+
+    const calm = await sample(1, 1200);
+    const critical = await sample(22, 2600);
+
+    expect(calm.heat).toBeLessThan(0.15);
+    expect(critical.heat).toBeGreaterThan(0.9);
+    expect(critical.css).toBeGreaterThanOrEqual(0.9);
+    expect(critical.particles).toBeGreaterThan(calm.particles + 60);
+    expect(critical.steam).toBeGreaterThan(calm.steam);
+    expect(critical.alarm).toBe('critical');
+    expect(calm.alarm).not.toBe('critical');
+
+    // The cabinet is genuinely moving: two frames of the same board differ.
+    const animating = await page.evaluate(async () => {
+      const canvas = document.querySelector('#board');
+      const first = canvas.toDataURL();
+      await new Promise((r) => setTimeout(r, 140));
+      return canvas.toDataURL() !== first;
+    });
+    expect(animating).toBe(true);
+  });
+
+  test('stays interactive with the boiler at critical pressure', async ({ page }) => {
+    await page.goto('/');
+    await waitForGame(page);
+    const fps = await page.evaluate(() => new Promise((resolve) => {
+      const t = window.__tetris;
+      t.api.freeze();
+      t.engine.level = 24;
+      let frames = 0;
+      const started = performance.now();
+      const tick = () => {
+        frames += 1;
+        if (performance.now() - started < 2000) requestAnimationFrame(tick);
+        else resolve((frames / (performance.now() - started)) * 1000);
+      };
+      setTimeout(() => requestAnimationFrame(tick), 1500); // let the blaze build up
+    }));
+    expect(fps).toBeGreaterThan(24);
+  });
+
   test('the deterministic test surface is stable', async ({ page }) => {
     await page.goto('/');
     await waitForGame(page);

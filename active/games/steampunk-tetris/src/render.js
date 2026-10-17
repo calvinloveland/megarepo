@@ -12,6 +12,12 @@ import { BOARD_H, BOARD_W, PIECE_CELLS } from './constants.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+/* Hard caps: the whole point is to look like the boiler is coming apart, and it
+   still has to hold 60 fps on the Arena's projector. */
+const MAX_PARTICLES = 700;
+const MAX_STEAM = 260;
+const MAX_SHOCKWAVES = 6;
+
 function roundRect(ctx, x, y, w, h, r) {
   const rr = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
@@ -24,7 +30,7 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 /** One riveted metal tile. `aged` dulls it (locked pieces), `glow` lights it (active). */
-export function drawTile(ctx, px, py, size, palette, { aged = 0, glow = 0, alpha = 1 } = {}) {
+export function paintTile(ctx, px, py, size, palette, { aged = 0, glow = 0, alpha = 1 } = {}) {
   const inset = Math.max(1, size * 0.06);
   const x = px + inset;
   const y = py + inset;
@@ -106,6 +112,26 @@ export function drawTile(ctx, px, py, size, palette, { aged = 0, glow = 0, alpha
   ctx.restore();
 }
 
+/**
+ * Sprite cache.
+ *
+ * Every tile used to be rebuilt from gradients and arcs on every frame — up to
+ * 200 of them, plus a radial gradient per steam puff. Measured at critical
+ * pressure that cost more than 100 ms a frame in a software-rendered browser.
+ * Each tile variant and the steam puff are drawn once into an offscreen canvas
+ * at the current cell size and then blitted, which is visually identical and
+ * roughly an order of magnitude cheaper.
+ */
+function makeSprite(size, dpr, paint) {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.ceil(size * dpr));
+  canvas.height = Math.max(1, Math.ceil(size * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  paint(ctx, size);
+  return canvas;
+}
+
 export class Renderer {
   constructor(canvas, { nextCanvas = null, holdCanvas = null } = {}) {
     this.canvas = canvas;
@@ -119,9 +145,17 @@ export class Renderer {
     this.particles = [];
     this.steam = [];
     this.flashes = [];
+    this.shockwaves = [];
+    this.heat = 0;
+    this.level = 1;
     this.shake = 0;
     this.shakeSeed = 0;
     this.time = 0;
+    this.sprites = new Map();
+    this.emberAcc = 0;
+    this.steamAcc = 0;
+    this.flameAcc = 0;
+    this.reliefTimer = 0;
     this.resize();
   }
 
@@ -142,6 +176,40 @@ export class Renderer {
     this.originY = (cssH - this.cell * BOARD_H) / 2;
     if (this.nextCanvas) this.fitPreview(this.nextCanvas);
     if (this.holdCanvas) this.fitPreview(this.holdCanvas);
+    this.sprites.clear(); // sizes changed, every cached sprite is stale
+  }
+
+  /** One tile variant, drawn once per size: aged stack, live piece, hot piece. */
+  tileSprite(type, variant) {
+    const key = `tile|${type}|${variant}|${this.cell}|${this.dpr}`;
+    let sprite = this.sprites.get(key);
+    if (sprite) return sprite;
+    const palette = PIECE_PALETTE[type];
+    sprite = makeSprite(this.cell, this.dpr, (ctx, size) => {
+      paintTile(ctx, 0, 0, size, palette, {
+        aged: variant === 'aged' ? 0.18 : 0,
+        glow: variant === 'hot' ? 0.8 : 0,
+      });
+    });
+    this.sprites.set(key, sprite);
+    return sprite;
+  }
+
+  /** A soft radial puff, scaled at draw time instead of rebuilt per particle. */
+  puffSprite() {
+    const key = `puff|${this.dpr}`;
+    let sprite = this.sprites.get(key);
+    if (sprite) return sprite;
+    sprite = makeSprite(64, this.dpr, (ctx, size) => {
+      const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+      grad.addColorStop(0, 'rgba(238,231,218,0.95)');
+      grad.addColorStop(0.5, 'rgba(238,231,218,0.35)');
+      grad.addColorStop(1, 'rgba(238,231,218,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+    });
+    this.sprites.set(key, sprite);
+    return sprite;
   }
 
   fitPreview(canvas) {
@@ -188,8 +256,136 @@ export class Renderer {
     for (const row of rows) this.flashes.push({ row, life: 0, max: 0.42 });
   }
 
+  /** A ring of pressure racing out of a clear. */
+  shockwave({ x = null, y = null, strength = 1, color = '255,196,110' } = {}) {
+    this.shockwaves.push({
+      x: x === null ? (this.cell * BOARD_W) / 2 : x,
+      y: y === null ? (this.cell * BOARD_H) / 2 : y,
+      life: 0,
+      max: 0.55 + strength * 0.25,
+      radius: this.cell * (1 + strength),
+      strength,
+      color,
+    });
+    if (this.shockwaves.length > MAX_SHOCKWAVES) this.shockwaves.shift();
+  }
+
+  /**
+   * Ambient chaos. The higher the pressure, the more the boiler leaks: embers
+   * drift up out of the grate, steam hisses out of the seams, and the cabinet
+   * gets a permanent rumble. Rate scales with heat squared so the early levels
+   * stay calm and the late ones do not.
+   */
+  spawnAmbient(dt) {
+    const h = this.heat;
+    if (h <= 0.02) return;
+    const panic = h * h;
+
+    this.emberAcc += dt * (4 + panic * 110);
+    while (this.emberAcc >= 1 && this.particles.length < MAX_PARTICLES) {
+      this.emberAcc -= 1;
+      const fromLeft = Math.random() < 0.5;
+      this.particles.push({
+        x: (fromLeft ? 0.06 : 0.94) * this.cell * BOARD_W + (Math.random() - 0.5) * this.cell * 2,
+        y: this.cell * BOARD_H * (0.7 + Math.random() * 0.32),
+        vx: (fromLeft ? 1 : -1) * (10 + Math.random() * 50 * panic),
+        vy: -(30 + Math.random() * 110 * (0.4 + h)),
+        life: 0,
+        max: 0.8 + Math.random() * 1.8,
+        size: this.cell * (0.06 + Math.random() * 0.13),
+        kind: 'ember',
+        behind: true,
+        color: Math.random() < 0.3 ? '255,226,160' : '255,140,60',
+      });
+    }
+
+    /* Flame licks off the grate under the well: short-lived, fast, bright. */
+    this.flameAcc += dt * (panic * 46);
+    while (this.flameAcc >= 1 && this.particles.length < MAX_PARTICLES) {
+      this.flameAcc -= 1;
+      this.particles.push({
+        x: Math.random() * this.cell * BOARD_W,
+        y: this.cell * BOARD_H - Math.random() * this.cell * 0.5,
+        vx: (Math.random() - 0.5) * 30,
+        vy: -(90 + Math.random() * 260 * h),
+        life: 0,
+        max: 0.35 + Math.random() * 0.5,
+        size: this.cell * (0.1 + Math.random() * 0.2),
+        kind: 'flame',
+        behind: true,
+        color: Math.random() < 0.4 ? '255,236,170' : '255,146,44',
+      });
+    }
+
+    this.steamAcc += dt * (2 + panic * 26);
+    while (this.steamAcc >= 1 && this.steam.length < MAX_STEAM) {
+      this.steamAcc -= 1;
+      const fromTop = Math.random() < 0.35;
+      this.steam.push({
+        x: Math.random() * this.cell * BOARD_W,
+        y: fromTop ? this.cell * BOARD_H * 0.1 : this.cell * BOARD_H * (0.82 + Math.random() * 0.18),
+        vx: (Math.random() - 0.5) * (20 + 40 * panic),
+        vy: (fromTop ? 1 : -1) * (20 + Math.random() * 70 * (0.3 + h)),
+        life: 0,
+        max: 1 + Math.random() * 1.4,
+        size: this.cell * (0.25 + Math.random() * 0.5),
+      });
+    }
+  }
+
+  /** Full-width eruption: level ups, Tetrises, and the top of the dial. */
+  erupt(strength = 1) {
+    const h = this.heat;
+    this.shockwave({ strength });
+    for (let i = 0; i < 26 * strength; i++) {
+      const x = Math.random() * this.cell * BOARD_W;
+      this.steam.push({
+        x,
+        y: this.cell * BOARD_H * (0.55 + Math.random() * 0.45),
+        vx: (Math.random() - 0.5) * 90,
+        vy: -(80 + Math.random() * 190),
+        life: 0,
+        max: 0.9 + Math.random() * 1.2,
+        size: this.cell * (0.4 + Math.random() * 0.8),
+      });
+    }
+    if (this.steam.length > MAX_STEAM) this.steam.splice(0, this.steam.length - MAX_STEAM);
+    this.burst([[0, BOARD_H - 1], [BOARD_W - 1, BOARD_H - 1]], { count: 30 * strength, spread: 1.4 });
+    this.kick(6 + strength * 10 + h * 8);
+  }
+
+  /** How violently the cabinet is allowed to move right now. */
+  get violence() {
+    return 1 + this.level * 0.09;
+  }
+
   kick(amount) {
-    this.shake = Math.min(18, this.shake + amount);
+    this.shake = Math.min(46, this.shake + amount * this.violence);
+  }
+
+  /**
+   * Per-tile vibration. Every locked block gets its own phase and frequency pair
+   * from its board coordinates, so the stack rattles itself apart instead of
+   * sliding around as one piece. Amplitude is multiplied by the level.
+   */
+  cellShake(x, y, cell) {
+    const amp = cell * Math.min(0.18, 0.008 + this.level * 0.0065) * (0.3 + this.heat * 1.05);
+    if (amp < 0.2) return null;
+    const phase = ((x * 12.9898 + y * 78.233) * 43758.5453) % 6.283;
+    return [
+      Math.sin(this.time * (17 + ((x * 7 + y * 13) % 11)) + phase) * amp,
+      Math.cos(this.time * (19 + ((x * 5 + y * 11) % 9)) + phase * 1.7) * amp,
+    ];
+  }
+
+  /** The live piece shakes as one body, and harder than the settled stack. */
+  pieceShake(cell) {
+    const amp = cell * Math.min(0.3, 0.012 + this.level * 0.01) * (0.4 + this.heat * 1.1);
+    if (amp < 0.25) return [0, 0];
+    return [
+      Math.sin(this.time * 31) * amp + Math.sin(this.time * 47.3) * amp * 0.4,
+      Math.cos(this.time * 37.7) * amp + Math.cos(this.time * 53.1) * amp * 0.4,
+    ];
   }
 
   update(dt) {
@@ -199,8 +395,10 @@ export class Renderer {
       p.life += dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vy += 420 * dt;
-      p.vx *= Math.pow(0.2, dt);
+      // Embers are buoyant; sparks from a slam fall.
+      const buoyant = p.kind === 'ember' || p.kind === 'flame';
+      p.vy += (buoyant ? -26 : 420) * dt;
+      p.vx *= Math.pow(buoyant ? 0.6 : 0.2, dt);
     }
     this.particles = this.particles.filter((p) => p.life < p.max);
     for (const s of this.steam) {
@@ -213,9 +411,23 @@ export class Renderer {
     this.steam = this.steam.filter((s) => s.life < s.max);
     for (const f of this.flashes) f.life += dt;
     this.flashes = this.flashes.filter((f) => f.life < f.max);
+    for (const w of this.shockwaves) w.life += dt;
+    this.shockwaves = this.shockwaves.filter((w) => w.life < w.max);
+
+    /* Past critical the boiler lets go on its own every few seconds. */
+    if (this.heat > 0.78) {
+      this.reliefTimer -= dt;
+      if (this.reliefTimer <= 0) {
+        this.reliefTimer = 3.4 - (this.heat - 0.78) * 6;
+        this.erupt(0.5 + this.heat * 0.5);
+      }
+    } else {
+      this.reliefTimer = 1.5;
+    }
     this.shake *= decay;
     if (this.shake < 0.2) this.shake = 0;
     this.shakeSeed += dt * 60;
+    this.spawnAmbient(dt);
   }
 
   /* -------------------------------------------------------------- drawing */
@@ -227,12 +439,20 @@ export class Renderer {
     const h = this.cssH;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
+    this.level = engine.level || 1;
 
     let sx = 0;
     let sy = 0;
     if (this.shake > 0) {
       sx = Math.sin(this.shakeSeed * 1.7) * this.shake;
       sy = Math.cos(this.shakeSeed * 2.3) * this.shake;
+    }
+    // The cabinet itself starts to rattle once the pressure is up, and the level
+    // multiplies it — a level 20 board is genuinely hard to look at.
+    const rumble = this.heat > 0.2 ? (this.heat - 0.2) * 3.4 * this.violence : 0;
+    if (rumble > 0) {
+      sx += Math.sin(this.time * 41) * rumble;
+      sy += Math.cos(this.time * 53) * rumble * 0.7;
     }
 
     ctx.save();
@@ -241,12 +461,23 @@ export class Renderer {
 
     const state = engine.toState();
 
+    // Ambient fire and embers read as *behind* the stack, so a level 20 board is
+    // still legible through the blaze.
+    this.drawParticles(ctx, true);
+
     // Locked cells
     for (let y = 0; y < BOARD_H; y++) {
       for (let x = 0; x < BOARD_W; x++) {
         const ch = state.board[y][x];
         if (ch === '.') continue;
-        drawTile(ctx, x * cell, y * cell, cell, PIECE_PALETTE[ch], { aged: 0.18 });
+        const jitter = this.cellShake(x, y, cell);
+        ctx.drawImage(
+          this.tileSprite(ch, 'aged'),
+          x * cell + (jitter ? jitter[0] : 0),
+          y * cell + (jitter ? jitter[1] : 0),
+          cell,
+          cell,
+        );
       }
     }
 
@@ -266,6 +497,8 @@ export class Renderer {
     }
 
     if (!state.game_over && state.piece) {
+      const [pjx, pjy] = this.pieceShake(cell);
+
       // Ghost: where the piece lands (FEATURES.md core polish)
       const gy = engine.ghostY();
       if (gy !== null && gy !== state.piece.y) {
@@ -276,7 +509,7 @@ export class Renderer {
         ctx.strokeStyle = PIECE_PALETTE[state.piece.type].light;
         for (const [dx, dy] of state.piece.cells) {
           const yy = gy + dy - state.piece.y;
-          roundRect(ctx, dx * cell + cell * 0.14, yy * cell + cell * 0.14, cell * 0.72, cell * 0.72, cell * 0.12);
+          roundRect(ctx, dx * cell + cell * 0.14 + pjx, yy * cell + cell * 0.14 + pjy, cell * 0.72, cell * 0.72, cell * 0.12);
           ctx.stroke();
         }
         ctx.restore();
@@ -284,13 +517,17 @@ export class Renderer {
 
       // Active piece, lifted slightly for a pressure-plate feel
       const lift = clamp(1 - (state.lock_timer_ms === null ? 1 : state.lock_timer_ms / 500), 0, 1);
+      const sprite = this.tileSprite(state.piece.type, 'hot');
       for (const [dx, dy] of state.piece.cells) {
-        drawTile(ctx, dx * cell, dy * cell - lift * cell * 0.06, cell, PIECE_PALETTE[state.piece.type], { glow: 0.8 });
+        ctx.drawImage(sprite, dx * cell + pjx, dy * cell - lift * cell * 0.06 + pjy, cell, cell);
       }
     }
 
-    this.drawParticles(ctx);
+    this.drawGrate(ctx);
+    this.drawShockwaves(ctx);
+    this.drawParticles(ctx, false);
     this.drawSteam(ctx);
+    this.drawHaze(ctx);
     ctx.restore();
 
     this.drawPreview(this.holdCanvas, state.hold ? [state.hold] : [], { big: true });
@@ -339,15 +576,79 @@ export class Renderer {
     void w; void h;
   }
 
-  drawParticles(ctx) {
+  /** The fire under the floor: a hot bar of light along the bottom of the well. */
+  drawGrate(ctx) {
+    if (this.heat < 0.2) return;
+    const bw = this.cell * BOARD_W;
+    const bh = this.cell * BOARD_H;
+    const flicker = 0.75 + Math.sin(this.time * 9.3) * 0.15 + Math.sin(this.time * 23.7) * 0.1;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const grad = ctx.createLinearGradient(0, bh, 0, bh - this.cell * (1.6 + this.heat * 3));
+    grad.addColorStop(0, `rgba(255,168,60,${(0.28 + this.heat * 0.5) * flicker})`);
+    grad.addColorStop(0.4, `rgba(255,104,32,${(0.12 + this.heat * 0.3) * flicker})`);
+    grad.addColorStop(1, 'rgba(255,80,20,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, bh - this.cell * (1.6 + this.heat * 3), bw, this.cell * (1.6 + this.heat * 3));
+    ctx.restore();
+  }
+
+  drawShockwaves(ctx) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const w of this.shockwaves) {
+      const t = w.life / w.max;
+      const r = w.radius + t * this.cell * (6 + w.strength * 8);
+      ctx.globalAlpha = (1 - t) * 0.5;
+      ctx.strokeStyle = `rgba(${w.color},${0.9 - t * 0.7})`;
+      ctx.lineWidth = Math.max(1, this.cell * 0.16 * (1 - t) * w.strength);
+      ctx.beginPath();
+      ctx.ellipse(w.x, w.y, r, r * 0.62, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Heat shimmer: a warm gradient over the top of the well, thicker with heat. */
+  drawHaze(ctx) {
+    if (this.heat < 0.15) return;
+    const h = this.heat;
+    const bw = this.cell * BOARD_W;
+    const bh = this.cell * BOARD_H;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.05 + h * 0.13;
+    const wobble = Math.sin(this.time * 3.1) * 0.5 + 0.5;
+    const grad = ctx.createLinearGradient(0, bh * (0.55 - wobble * 0.1), 0, bh);
+    grad.addColorStop(0, 'rgba(255,120,40,0)');
+    grad.addColorStop(0.55, `rgba(255,${110 + h * 60},40,0.5)`);
+    grad.addColorStop(1, 'rgba(255,190,90,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, bh * 0.5, bw, bh * 0.5);
+    ctx.restore();
+  }
+
+  drawParticles(ctx, behind) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (const p of this.particles) {
+      if (!!p.behind !== !!behind) continue;
       const t = 1 - p.life / p.max;
       ctx.globalAlpha = clamp(t, 0, 1);
       ctx.fillStyle = p.color;
+      const colour = p.kind === 'spark' ? INK.ember : `rgba(${p.color},1)`;
+      ctx.fillStyle = colour;
       if (p.kind === 'spark') {
         ctx.fillRect(p.x, p.y, p.size, p.size * 1.6);
+      } else if (p.kind === 'flame') {
+        ctx.globalAlpha = clamp(t, 0, 1) * 0.9;
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, p.size * 0.7, p.size * (1.4 + t), 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.kind === 'ember') {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (0.6 + t * 0.6), 0, Math.PI * 2);
+        ctx.fill();
       } else {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -359,16 +660,11 @@ export class Renderer {
 
   drawSteam(ctx) {
     ctx.save();
+    const puff = this.puffSprite();
     for (const s of this.steam) {
       const t = 1 - s.life / s.max;
-      ctx.globalAlpha = clamp(t, 0, 1) * 0.22;
-      const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size);
-      g.addColorStop(0, 'rgba(238,231,218,.9)');
-      g.addColorStop(1, 'rgba(238,231,218,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.globalAlpha = clamp(t, 0, 1) * (0.2 + this.heat * 0.22);
+      ctx.drawImage(puff, s.x - s.size, s.y - s.size, s.size * 2, s.size * 2);
     }
     ctx.restore();
   }
@@ -413,7 +709,7 @@ export class Renderer {
       const ox = (w - pw) / 2 - minX * cell;
       const oy = boxY + (slotH - ph) / 2 - minY * cell;
       for (const [cx, cy] of cellsOfPiece) {
-        drawTile(ctx, ox + cx * cell, oy + cy * cell, cell, PIECE_PALETTE[type], { glow: big ? 0.6 : 0.25 });
+        paintTile(ctx, ox + cx * cell, oy + cy * cell, cell, PIECE_PALETTE[type], { glow: big ? 0.6 : 0.25 });
       }
     }
   }
