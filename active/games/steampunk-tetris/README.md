@@ -9,7 +9,7 @@ a Protocol v2-compliant game plus two submitted bots.
 
 | Path | What it is |
 |---|---|
-| `index.html`, `style.css`, `src/` | The game — riveted brass cabinet, canvas 2D, no build step |
+| `index.html`, `style.css`, `src/` | The game — riveted brass cabinet that escalates from calm to outright bonkers as the level climbs, canvas 2D, no build step |
 | `game-adapter.js` | The challenge's official `postMessage` adapter, unmodified |
 | `bots/src/` | Bot brains (shared `core.js` + two strategies) |
 | `bots/dist/` | The single-file bot bundles that get submitted |

@@ -219,6 +219,7 @@ let lastLevel = 1;
    from this one number. */
 let heat = 0;
 let heatSurge = 0;
+let lastNeedle = -999;
 let lastHeatCss = -1;
 
 function paint(state) {
@@ -235,7 +236,13 @@ function paint(state) {
 
   if (ui.needle) {
     const pct = Math.min(1, (state.level - 1) / 19);
-    ui.needle.style.transform = `rotate(${-120 + pct * 240}deg)`;
+    // Past halfway up the dial the needle starts deflecting on its own.
+    const twitch = heat > 0.45 ? (Math.random() - 0.5) * (heat - 0.45) * 46 : 0;
+    const target = -120 + pct * 240 + twitch;
+    if (Math.abs(target - lastNeedle) > 0.4) {
+      lastNeedle = target;
+      ui.needle.style.transform = `rotate(${target.toFixed(1)}deg)`;
+    }
   }
 
   const lc = engine.lastClear;

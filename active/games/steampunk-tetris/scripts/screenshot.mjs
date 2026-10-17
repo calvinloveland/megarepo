@@ -82,6 +82,34 @@ try {
   await desktop.waitForTimeout(400);
   await desktop.locator('.boiler').screenshot({ path: path.join(OUT_DIR, 'desktop.png') });
 
+  // The boiler at critical pressure: embers, flames, rivets, rattling panels.
+  const ablaze = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
+  await ablaze.goto(`http://127.0.0.1:${PORT}/index.html`);
+  await ablaze.waitForFunction(() => window.__tetris);
+  await ablaze.evaluate(() => {
+    const t = window.__tetris;
+    t.api.freeze();
+    t.api.press('KeyM'); // no audio in a headless capture
+    t.api.reset({ seed: 'arena' });
+    t.api.advance(6000, 16); // retire the intro card
+    const plan = [0, 2, 4, 6, 8, 1, 3, 5, 7, 0, 4, 8, 2, 6, 3, 5, 1, 7, 2, 5, 8, 1];
+    for (let i = 0; i < plan.length; i += 1) {
+      if (!t.engine.piece) break;
+      if (i % 3 === 1) t.api.press('rotate_cw');
+      let guard = 0;
+      while (t.engine.piece && guard++ < 12) {
+        const left = Math.min(...t.engine.cellsOf(t.engine.piece).map((c) => c[0]));
+        if (left === plan[i]) break;
+        if (!t.api.press(left > plan[i] ? 'left' : 'right')) break;
+      }
+      if (!t.engine.piece) break;
+      if (i < plan.length - 1) t.api.press('hard_drop');
+    }
+    t.engine.level = 23; // the boiler at full chat
+  });
+  await ablaze.waitForTimeout(4200);
+  await ablaze.locator('.boiler').screenshot({ path: path.join(OUT_DIR, 'critical.png') });
+
   const over = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
   await over.goto(`http://127.0.0.1:${PORT}/index.html`);
   await over.waitForFunction(() => window.__tetris);
@@ -107,7 +135,7 @@ try {
   await phone.waitForTimeout(400);
   await phone.screenshot({ path: path.join(OUT_DIR, 'mobile.png'), fullPage: true });
 
-  for (const file of ['desktop.png', 'gameover.png', 'mobile.png']) {
+  for (const file of ['desktop.png', 'critical.png', 'gameover.png', 'mobile.png']) {
     const size = fs.statSync(path.join(OUT_DIR, file)).size;
     console.log(`docs/images/${file} — ${(size / 1024).toFixed(0)} KiB`);
   }

@@ -265,23 +265,35 @@ test.describe('Brass & Boiler', () => {
     expect(animating).toBe(true);
   });
 
-  test('stays interactive with the boiler at critical pressure', async ({ page }) => {
+  test('the effects do not cost the frame budget', async ({ page }) => {
     await page.goto('/');
     await waitForGame(page);
-    const fps = await page.evaluate(() => new Promise((resolve) => {
+
+    /* Compare the calm board against the full blaze in the same browser rather
+       than asserting an absolute frame rate: the test runner's tracing makes the
+       absolute number meaningless, but a *ratio* catches the regression that
+       matters. An animated full-screen blur once cost 4x here. */
+    const fpsAt = async (level) => page.evaluate(async (lv) => {
       const t = window.__tetris;
       t.api.freeze();
-      t.engine.level = 24;
-      let frames = 0;
-      const started = performance.now();
-      const tick = () => {
-        frames += 1;
-        if (performance.now() - started < 2000) requestAnimationFrame(tick);
-        else resolve((frames / (performance.now() - started)) * 1000);
-      };
-      setTimeout(() => requestAnimationFrame(tick), 1500); // let the blaze build up
-    }));
-    expect(fps).toBeGreaterThan(24);
+      t.engine.level = lv;
+      await new Promise((r) => setTimeout(r, lv > 5 ? 1800 : 400));
+      return new Promise((resolve) => {
+        let frames = 0;
+        const started = performance.now();
+        const tick = () => {
+          frames += 1;
+          if (performance.now() - started < 1500) requestAnimationFrame(tick);
+          else resolve((frames / (performance.now() - started)) * 1000);
+        };
+        requestAnimationFrame(tick);
+      });
+    }, level);
+
+    const calm = await fpsAt(1);
+    const ablaze = await fpsAt(24);
+    expect(ablaze).toBeGreaterThan(8);
+    expect(ablaze).toBeGreaterThan(calm * 0.5);
   });
 
   test('the deterministic test surface is stable', async ({ page }) => {

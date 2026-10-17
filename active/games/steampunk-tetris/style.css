@@ -211,6 +211,8 @@ body {
 }
 
 .panel {
+  will-change: transform;
+  animation: panel-rattle calc(0.5s - var(--heat) * 0.34s) linear infinite;
   position: relative;
   border-radius: 10px;
   padding: 10px 12px 12px;
@@ -519,6 +521,19 @@ body {
   0%, 100% { opacity: .78; }
   50% { opacity: 1; }
 }
+
+/* Each panel shakes on its own phase so the cabinet looks like it is coming
+   apart rather than sliding as one board. */
+@keyframes panel-rattle {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(calc(var(--heat) * -1px), calc(var(--heat) * 1px)) rotate(calc(var(--heat) * -0.14deg)); }
+  50% { transform: translate(calc(var(--heat) * 1px), calc(var(--heat) * -1px)) rotate(calc(var(--heat) * 0.1deg)); }
+  75% { transform: translate(calc(var(--heat) * 0.6px), calc(var(--heat) * 0.8px)) rotate(calc(var(--heat) * 0.16deg)); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.panel:nth-child(2n) { animation-direction: reverse; }
+.panel:nth-child(3n) { animation-duration: calc(0.44s - var(--heat) * 0.28s); }
 
 @keyframes alarm-critical {
   0%, 100% { opacity: 1; }

@@ -155,6 +155,7 @@ export class Renderer {
     this.emberAcc = 0;
     this.steamAcc = 0;
     this.flameAcc = 0;
+    this.rivetAcc = 0;
     this.reliefTimer = 0;
     this.resize();
   }
@@ -299,6 +300,28 @@ export class Renderer {
       });
     }
 
+    /* Rivets working themselves loose off the frame, faster the hotter it gets. */
+    this.rivetAcc += dt * panic * 9;
+    while (this.rivetAcc >= 1 && this.particles.length < MAX_PARTICLES) {
+      this.rivetAcc -= 1;
+      const edge = Math.floor(Math.random() * 4);
+      const w = this.cell * BOARD_W;
+      const h2 = this.cell * BOARD_H;
+      const x = edge === 0 || edge === 1 ? Math.random() * w : (edge === 2 ? 0 : w);
+      const y = edge === 0 ? 0 : edge === 1 ? h2 : Math.random() * h2;
+      this.particles.push({
+        x, y,
+        vx: (x < w / 2 ? 1 : -1) * (40 + Math.random() * 120),
+        vy: -(60 + Math.random() * 140),
+        life: 0,
+        max: 0.9 + Math.random() * 1.2,
+        size: this.cell * (0.05 + Math.random() * 0.06),
+        kind: 'rivet',
+        behind: true,
+        color: '240,214,139',
+      });
+    }
+
     /* Flame licks off the grate under the well: short-lived, fast, bright. */
     this.flameAcc += dt * (panic * 46);
     while (this.flameAcc >= 1 && this.particles.length < MAX_PARTICLES) {
@@ -397,6 +420,7 @@ export class Renderer {
       p.y += p.vy * dt;
       // Embers are buoyant; sparks from a slam fall.
       const buoyant = p.kind === 'ember' || p.kind === 'flame';
+      if (p.kind === 'rivet') p.spin = (p.spin || 0) + dt * 14;
       p.vy += (buoyant ? -26 : 420) * dt;
       p.vx *= Math.pow(buoyant ? 0.6 : 0.2, dt);
     }
@@ -413,6 +437,24 @@ export class Renderer {
     this.flashes = this.flashes.filter((f) => f.life < f.max);
     for (const w of this.shockwaves) w.life += dt;
     this.shockwaves = this.shockwaves.filter((w) => w.life < w.max);
+
+    /* Steam screaming out of the frame's side seams. */
+    if (this.heat > 0.35) {
+      this.sideAcc = (this.sideAcc || 0) + dt * (this.heat - 0.3) * 34;
+      while (this.sideAcc >= 1 && this.steam.length < MAX_STEAM) {
+        this.sideAcc -= 1;
+        const left = Math.random() < 0.5;
+        this.steam.push({
+          x: left ? 0 : this.cell * BOARD_W,
+          y: this.cell * BOARD_H * Math.random(),
+          vx: (left ? -1 : 1) * (60 + Math.random() * 130),
+          vy: -(20 + Math.random() * 60),
+          life: 0,
+          max: 0.7 + Math.random() * 0.9,
+          size: this.cell * (0.2 + Math.random() * 0.35),
+        });
+      }
+    }
 
     /* Past critical the boiler lets go on its own every few seconds. */
     if (this.heat > 0.78) {
@@ -640,6 +682,19 @@ export class Renderer {
       ctx.fillStyle = colour;
       if (p.kind === 'spark') {
         ctx.fillRect(p.x, p.y, p.size, p.size * 1.6);
+      } else if (p.kind === 'rivet') {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.spin || 0);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(60,40,10,.7)';
+        ctx.beginPath();
+        ctx.arc(p.size * 0.3, p.size * 0.3, p.size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       } else if (p.kind === 'flame') {
         ctx.globalAlpha = clamp(t, 0, 1) * 0.9;
         ctx.beginPath();

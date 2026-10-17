@@ -9,6 +9,10 @@ for the highest possible score.
 
 ![Brass & Boiler mid-game](images/desktop.png)
 
+At critical pressure the cabinet comes apart:
+
+![Brass & Boiler at critical pressure](images/critical.png)
+
 ## What the challenge asks for
 
 Stage 1 is a static web page that plays Tetris and follows `PROTOCOL.md` exactly:
@@ -40,6 +44,39 @@ subdirectory, so anything else would break.
 Keyboard: arrows, `X`/`Z` to rotate, space to hard drop, `C` to hold, `P` pause,
 `R` new game, `M` mute. On a touch device an on-screen pad appears. DAS is 150 ms
 and ARR 38 ms, so holding a direction slides instead of stuttering.
+
+### The boiler escalates
+
+One number, `heat` (0..1), drives the whole show. The level sets the floor —
+`(level - 1) / 18` — and every clear pushes it up for a moment before it decays,
+so a Tetris visibly spikes the room. Everything below reads from it:
+
+| Heat | What happens |
+|---|---|
+| 0.0+ | embers drift out of the grate, steam seeps from the seams, the grate glows |
+| 0.2+ | the cabinet starts to rumble; **every locked tile vibrates on its own phase and frequency**, so the stack rattles apart instead of sliding as one block |
+| 0.45+ | the pressure dial's needle deflects on its own, the alarm reads **PRESSURE RISING**, the gears speed up, HUD panels rattle on their own phases |
+| 0.62+ | a red vignette pulses in from the edges, scanlines crawl over the cabinet |
+| 0.78+ | the boiler **vents by itself every few seconds** (steam column, shockwave ring, shake), rivets pop off the frame |
+| 1.0 | flames lick off the grate, embers everywhere, the frame glows like a forge |
+
+The global shake is `(1 + level * 0.09)` times every kick, and the continuous
+rumble scales with heat *and* level, so a level 21 board is genuinely hard to
+look at while a level 3 board is calm. The per-tile shake amplitude is
+`cell * min(0.18, 0.008 + level * 0.0065)` — the level multiplies it, and the
+ceiling keeps the board legible.
+
+Ambient fire draws *behind* the stack and event sparks draw in front, which is
+what keeps a fully ablaze board readable.
+
+**Performance is part of the feature.** The first version of this ran at 25 fps
+at heat 1 and 6 fps under the test runner, because `.heat-veil` animated a
+full-screen `filter: blur()` and `.critical-vignette` animated a 200px inset
+`box-shadow`. Both now animate *opacity only* on their own compositor layer, and
+tiles/steam puffs are pre-rendered sprites instead of per-frame gradients: 60 fps
+at critical pressure, verified by `tests/game.spec.cjs` ("the effects do not cost
+the frame budget"), which compares the calm board against the blaze in the same
+browser rather than trusting an absolute number.
 
 ## The bots
 

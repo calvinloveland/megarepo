@@ -58,6 +58,16 @@ vendor/conformance/   # Challenge's conformance.js + PROTOCOL.md, copied verbati
   `--check`).
 - **The engine is DOM-free** so the same code runs the page and the Node
   bot harness. Keep DOM access in `main.js`/`render.js`/`audio.js`.
+- **One scalar drives the presentation.** `main.js` computes `heat` (0..1) from
+  the level plus a decaying clear surge; `render.js` and `style.css` (`--heat`)
+  read it. Adding an effect means hanging it off that number, not inventing a
+  second notion of "how far along is this game".
+- **Full-screen animated effects must be compositor-friendly.** Animating
+  `filter: blur()` or a huge inset `box-shadow` on a fixed, full-viewport layer
+  cost 4x the frame budget (25 fps at heat 1, 6 fps under the Playwright runner).
+  Animate `opacity`/`transform` only, put `will-change` on the layer, and cache
+  sprites instead of rebuilding gradients per frame. `tests/game.spec.cjs` guards
+  this by comparing calm vs critical frame rates in the same browser.
 
 ## Test surface
 
