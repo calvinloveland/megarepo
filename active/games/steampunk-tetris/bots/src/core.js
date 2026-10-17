@@ -125,6 +125,9 @@ function searchRung(cfg, state) {
   return { plies: 2, beam: 1, width: Math.min(width, 6) };
 }
 
+const gravityMs = (level) => (level >= 26 ? 1 : GRAVITY_MS[level - 1]);
+const lockDelayMs = (level) => (level >= 26 ? 5 : LOCK_DELAY_MS[level - 1]);
+
 /* --------------------------------------------------------------- board ops */
 
 function boardFromState(state) {
