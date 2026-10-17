@@ -231,6 +231,7 @@ function paint(state) {
     if (state.level > lastLevel) audio.levelUp();
     lastLevel = state.level;
   }
+  paintTally();
 }
 
 function buildTally() {
@@ -253,7 +254,8 @@ function buildTally() {
 
 function paintTally() {
   for (const node of ui.tally.querySelectorAll('.count')) {
-    node.textContent = String(engine.pieceStats[node.dataset.type] || 0);
+    const next = String(engine.pieceStats[node.dataset.type] || 0);
+    if (node.textContent !== next) node.textContent = next;
   }
 }
 
@@ -363,7 +365,6 @@ window.addEventListener('resize', () => renderer.resize());
 /* ----------------------------------------------------------------- boot */
 
 buildTally();
-setInterval(paintTally, 250);
 
 /* The page is live from the first frame: the protocol requires the game to run
    without any input, so a human gets a running demo and presses R when ready. */

@@ -117,7 +117,7 @@ function dropRow(board, cells, x) {
 }
 
 /** Place, then clear full rows. Returns the new board plus what happened. */
-function applyPlacement(board, cells, x, y, pieceType) {
+function applyPlacement(board, cells, x, y) {
   const nb = new Uint8Array(BW * BH);
   nb.set(board);
   let fillsWell = false;
@@ -151,7 +151,7 @@ function applyPlacement(board, cells, x, y, pieceType) {
     for (let r = write; r >= 0; r--) nb.fill(0, r * BW, r * BW + BW);
   }
 
-  return { board: nb, cleared: full.length, fillsWell, eroded, type: pieceType };
+  return { board: nb, cleared: full.length, fillsWell, eroded };
 }
 
 /** Everything the heuristics want to know about a stack, in one pass. */
@@ -335,12 +335,11 @@ const rotateCost = (from, to) => {
 };
 
 function scorePlacement(cfg, board, type, cand, state) {
-  const placed = applyPlacement(board, cand.cells, cand.x, cand.y, type);
+  const placed = applyPlacement(board, cand.cells, cand.x, cand.y);
   const info = {
     y: cand.y, cleared: placed.cleared, fillsWell: placed.fillsWell, eroded: placed.eroded,
     dropRows: cand.y, minDy: cand.minDy, maxDy: cand.maxDy,
   };
-  placed.fillsWell = placed.fillsWell;
   const value = cfg.mode === 'hunter'
     ? evalHunter(cfg, placed.board, info, state)
     : evalScore(cfg, placed.board, info, state);
@@ -357,7 +356,7 @@ function revalue(list, cfg, board, state) {
   const piece = state.piece;
   return list.map((c) => {
     const type = c.useHold ? (state.hold || (state.next && state.next[0])) : piece.type;
-    const placed = applyPlacement(board, SHAPES[type][c.rotation], c.x, c.y, type);
+    const placed = applyPlacement(board, SHAPES[type][c.rotation], c.x, c.y);
     const info = {
       y: c.y, cleared: placed.cleared, fillsWell: placed.fillsWell, eroded: placed.eroded,
       dropRows: c.y, minDy: c.minDy ?? 0, maxDy: c.maxDy ?? 0,
@@ -369,37 +368,34 @@ function revalue(list, cfg, board, state) {
 function rankPlacements(cfg, board, state) {
   const piece = state.piece;
   if (!piece) return [];
-  let list = candidatesFor(board, piece.type);
-
 
   let scored = [];
-  const push = (cand, type, useHold, value, cost, placed) => {
+  const push = (cand, useHold, value, placed) => {
     scored.push({
       rotation: cand.rotation,
       x: cand.x,
       y: cand.y,
       useHold,
       value,
-      cost,
       board: placed.board,
       cleared: placed.cleared,
       fillsWell: placed.fillsWell,
     });
   };
 
-  for (const cand of list) {
-    const cost = rotateCost(piece.rotation, cand.rotation) + Math.abs(cand.x - piece.x) + 1;
+  for (const cand of candidatesFor(board, piece.type)) {
     const res = scorePlacement(cfg, board, piece.type, cand, state);
-    push(cand, piece.type, false, res.value, cost, res.placed);
+    push(cand, false, res.value, res.placed);
   }
 
+  /* The hold slot is a second free option on every piece, so it is ranked in
+     the same list: swap in the stashed piece (or the next one) and play that. */
   if (state.can_hold) {
     const incoming = state.hold || (state.next && state.next[0]);
     if (incoming && SHAPES[incoming]) {
       for (const cand of candidatesFor(board, incoming)) {
-        const cost = 1 + rotateCost(0, cand.rotation) + Math.abs(cand.x - 3) + 1;
         const res = scorePlacement(cfg, board, incoming, cand, state);
-        push(cand, incoming, true, res.value, cost, res.placed);
+        push(cand, true, res.value, res.placed);
       }
     }
   }
@@ -461,11 +457,11 @@ function budgetMs(state) {
 }
 
 function makeBot(cfg) {
-  return async function bot(game, info) {
-    void info;
+  /* `info` carries { seed, gameName, deadlineMs }; the bot budgets from the
+     live state instead, which is the only thing that is true mid-match. */
+  return async function bot(game) {
     let pieceId = -1;
     let ranked = [];
-    let plan = null;
     let actionsThisPiece = 0;
     let idleWaits = 0;
 
@@ -485,7 +481,6 @@ function makeBot(cfg) {
         pieceId = state.piece_count;
         actionsThisPiece = 0;
         ranked = rankPlacements(cfg, boardFromState(state), state);
-        plan = null;
       }
 
       // How many more actions fit before this piece locks?
@@ -507,30 +502,25 @@ function makeBot(cfg) {
         actionsThisPiece++;
         continue;
       }
-      plan = choice;
-
       let action;
-      if (plan.useHold && state.can_hold) {
+      if (choice.useHold && state.can_hold) {
         action = 'hold';
       } else {
-        const diff = (plan.rotation - state.piece.rotation + 4) % 4;
+        const diff = (choice.rotation - state.piece.rotation + 4) % 4;
         if (diff === 1 || diff === 2) action = 'rotate_cw';
         else if (diff === 3) action = 'rotate_ccw';
-        else if (state.piece.x < plan.x) action = 'right';
-        else if (state.piece.x > plan.x) action = 'left';
+        else if (state.piece.x < choice.x) action = 'right';
+        else if (state.piece.x > choice.x) action = 'left';
         else action = 'hard_drop';
       }
 
       const before = state.piece_count;
       const res = await game.input(action);
       actionsThisPiece++;
-      if (res && res.legal === false && action !== 'hard_drop' && !plan.useHold) {
+      if (res && res.legal === false && action !== 'hard_drop' && !choice.useHold) {
         // Blocked: the board disagrees with the simulation, so think again.
         const now = game.state();
-        if (now.piece_count === before) {
-          ranked = rankPlacements(cfg, boardFromState(now), now);
-          plan = null;
-        }
+        if (now.piece_count === before) ranked = rankPlacements(cfg, boardFromState(now), now);
       }
     }
   };
