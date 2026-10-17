@@ -133,8 +133,22 @@ tests assert real thresholds instead of "it ran".
 
 ## Submitting
 
+The Arena account is registered as **Calvin Loveland**, participant id
+`p_af4fad48081f4b95`, status *pending* — the organizer approves it at the table
+and then `GET /api/register/p_af4fad48081f4b95` starts returning the token.
+
+The token never goes in the repo or in chat. Drop it on disk once (`.secrets/`
+is gitignored), then:
+
 ```bash
-node scripts/package.mjs                 # -> dist-zip/brass-and-boiler.zip
+mkdir -p .secrets && printf '%s' "$TOKEN" > .secrets/tetris-arena.token
+node scripts/submit.mjs --dry-run   # show the three requests
+node scripts/submit.mjs             # game + both bots
+```
+
+Under the hood that is three `multipart/form-data` uploads:
+
+```bash
 curl -s -X POST "$ARENA/api/submit/game" -H "authorization: Bearer $TOKEN" \
      -F "name=Brass & Boiler" -F "file=@dist-zip/brass-and-boiler.zip"
 curl -s -X POST "$ARENA/api/submit/bot"  -H "authorization: Bearer $TOKEN" \
@@ -143,6 +157,5 @@ curl -s -X POST "$ARENA/api/submit/bot"  -H "authorization: Bearer $TOKEN" \
      -F "name=Four-Line Fanatic" -F "file=@bots/dist/four-line-fanatic.js"
 ```
 
-The token comes from the Arena's registration flow, which needs organizer
-approval. Keep it in `~/.secrets/` or the deploy guide — never in the repo, and
-never in chat.
+Resubmitting is free and replaces the previous version, so `node scripts/package.mjs`
+→ `node scripts/verify-archive.mjs` → `node scripts/submit.mjs` is the whole loop.

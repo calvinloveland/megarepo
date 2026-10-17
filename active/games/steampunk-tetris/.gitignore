@@ -3,6 +3,11 @@ node_modules/
 dist-zip/
 *.zip
 
+# The repo root ignores every dist/ folder; these two bundles are the actual
+# submission artefacts, so they are committed and reviewed like source.
+!bots/dist/
+!bots/dist/*.js
+
 # Test output
 test-results/
 playwright-report/
