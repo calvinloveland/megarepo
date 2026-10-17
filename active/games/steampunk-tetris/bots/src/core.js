@@ -347,16 +347,55 @@ const rotateCost = (from, to) => {
   return Math.min(diff, 4 - diff);
 };
 
-function scorePlacement(cfg, board, type, cand, state) {
-  const placed = applyPlacement(board, cand.cells, cand.x, cand.y);
-  const info = {
+function placementInfo(cand, placed) {
+  return {
     y: cand.y, cleared: placed.cleared, fillsWell: placed.fillsWell, eroded: placed.eroded,
     dropRows: cand.y, minDy: cand.minDy, maxDy: cand.maxDy,
   };
+}
+
+function scorePlacement(cfg, board, type, cand, state) {
+  const placed = applyPlacement(board, cand.cells, cand.x, cand.y);
+  const info = placementInfo(cand, placed);
   const value = cfg.mode === 'hunter'
     ? evalHunter(cfg, placed.board, info, state)
-    : evalScore(cfg, placed.board, info, state);
+    : evalScore(cfg, placed.board, info);
   return { value, board: placed.board, cleared: placed.cleared, placed };
+}
+
+/**
+ * Best total value of playing out `queue` from `board`, searching `plies` deep.
+ * Each ply's worth decays by the lookahead weight so the placement in hand stays
+ * dominant, and every level is pruned to its `beam` best placements — the tree
+ * is wide (four rotations x ten columns) and only the top of it matters.
+ */
+function lookaheadBest(cfg, board, queue, state, plies, beam) {
+  if (plies < 1 || !queue.length) return 0;
+  const weight = cfg.lookaheadWeight ?? LOOKAHEAD_WEIGHT;
+  const type = queue[0];
+  const scored = [];
+  for (const cand of candidatesFor(board, type)) {
+    const placed = applyPlacement(board, cand.cells, cand.x, cand.y);
+    scored.push({
+      value: cfg.mode === 'hunter'
+        ? evalHunter(cfg, placed.board, placementInfo(cand, placed), state)
+        : evalScore(cfg, placed.board, placementInfo(cand, placed)),
+      board: placed.board,
+    });
+  }
+  if (!scored.length) return -Infinity;
+  if (plies === 1 || queue.length === 1) {
+    let best = -Infinity;
+    for (const s of scored) if (s.value > best) best = s.value;
+    return best;
+  }
+  scored.sort((a, b) => b.value - a.value);
+  let best = -Infinity;
+  for (const s of scored.slice(0, beam)) {
+    const total = s.value + weight * lookaheadBest(cfg, s.board, queue.slice(1), state, plies - 1, beam);
+    if (total > best) best = total;
+  }
+  return best;
 }
 
 /**
@@ -374,7 +413,7 @@ function revalue(list, cfg, board, state) {
       y: c.y, cleared: placed.cleared, fillsWell: placed.fillsWell, eroded: placed.eroded,
       dropRows: c.y, minDy: c.minDy ?? 0, maxDy: c.maxDy ?? 0,
     };
-    return { ...c, value: evalScore(cfg, placed.board, info, state) };
+    return { ...c, value: evalScore(cfg, placed.board, info) };
   });
 }
 
@@ -443,15 +482,13 @@ function rankPlacements(cfg, board, state) {
 
   if (cfg.mode === 'score' && cfg.lookahead && state.next && state.next[0]) {
     const width = cfg.lookaheadCandidates ?? LOOKAHEAD_CANDIDATES;
+    const plies = cfg.lookaheadPlies ?? 2;
+    const beam = cfg.lookaheadBeam ?? 5;
+    const weight = cfg.lookaheadWeight ?? LOOKAHEAD_WEIGHT;
     const head = scored.slice(0, width);
     for (const cand of head) {
-      let best = -Infinity;
-      const nextCands = candidatesFor(cand.board, state.next[0]);
-      for (const nc of nextCands) {
-        const res = scorePlacement(cfg, cand.board, state.next[0], nc, state);
-        if (res.value > best) best = res.value;
-      }
-      if (best > -Infinity) cand.value += (cfg.lookaheadWeight ?? LOOKAHEAD_WEIGHT) * best;
+      const reply = lookaheadBest(cfg, cand.board, state.next.slice(), state, plies - 1, beam);
+      if (reply > -Infinity) cand.value += weight * reply;
     }
     head.sort((a, b) => b.value - a.value);
     return [...head, ...scored.slice(width)];
@@ -546,15 +583,17 @@ function makeBot(cfg) {
 const SCORE_CFG = {
   mode: 'score',
   lookahead: true,
-  clearWeight: 1.0,
-  dropWeight: 1.0,
-  lookaheadCandidates: 12,
+  lookaheadPlies: 4,
+  lookaheadCandidates: 8,
+  lookaheadBeam: 3,
   lookaheadWeight: 0.85,
   danger: 12,
   tetrisBonus: 120,
   holeClearPenalty: 6,
   wellBuild: 40,
   overDeep: 8,
+  clearWeight: 1.0,
+  dropWeight: 1.0,
   // Column transitions matter more than Dellacherie's original ratio once the
   // bot is also being paid for line clears: -16 measured best over the seed set
   // (scripts/tune.mjs), ahead of the published -9.35.

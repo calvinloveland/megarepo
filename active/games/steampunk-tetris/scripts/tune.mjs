@@ -27,7 +27,11 @@ const flag = (name, fallback) => {
 
 const mode = flag('mode', 'hunter');
 const runs = parseInt(flag('runs', '6'), 10);
-const seeds = flag('seeds', 'arena,deepseek,calvin,brass,boiler,fanatic,stoker,gauge,valve,piston').split(',');
+const seeds = flag('seeds', [
+  'arena', 'deepseek', 'calvin', 'brass', 'boiler', 'fanatic', 'stoker', 'gauge',
+  'valve', 'piston', 'cog', 'rivet', 'flywheel', 'condenser', 'governor', 'lantern',
+  'aether', 'boilerplate', 'pressure', 'steam',
+].join(',')).split(',');
 const overrides = JSON.parse(flag('set', '{}'));
 const cfg = { ...(mode === 'hunter' ? mod.HUNTER_CFG : mod.SCORE_CFG), ...overrides };
 const botFn = mod.makeBot(cfg);

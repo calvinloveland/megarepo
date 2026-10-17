@@ -29,6 +29,7 @@ export async function runBot(botFn, opts = {}) {
   engine.tick(clock);
 
   let actions = 0;
+  let holds = 0;
   let illegal = 0;
   let sleeps = 0;
   let virtualMs = 0;
@@ -57,6 +58,7 @@ export async function runBot(botFn, opts = {}) {
       engine.tick(clock);
       const legal = engine.applyAction(action);
       actions += 1;
+      if (action === 'hold') holds += 1;
       if (!legal) illegal += 1;
       if (engine.pieceCount !== trackedPiece) {
         actionsPerPiece.push(actions - pieceStartActions);
@@ -98,6 +100,7 @@ export async function runBot(botFn, opts = {}) {
     clears: { ...engine.lineClears },
     pieces: state.piece_count,
     actions,
+    holds,
     illegal,
     sleeps,
     virtualMs: Math.round(virtualMs),
