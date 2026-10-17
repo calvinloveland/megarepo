@@ -58,6 +58,11 @@ vendor/conformance/   # Challenge's conformance.js + PROTOCOL.md, copied verbati
   `--check`).
 - **The engine is DOM-free** so the same code runs the page and the Node
   bot harness. Keep DOM access in `main.js`/`render.js`/`audio.js`.
+- **A skin is a renderer, never a rule change.** `src/doom.js` reads the protocol
+  state and draws a raycast corridor from it; it must not touch `engine`, the
+  adapter, or the clock. `main.js` wraps its update/draw in try/catch and falls
+  back to steampunk, because a cosmetic mode must never be able to break a match.
+  Conformance runs with the skin on *and* off.
 - **One scalar drives the presentation.** `main.js` computes `heat` (0..1) from
   the level plus a decaying clear surge; `render.js` and `style.css` (`--heat`)
   read it. Adding an effect means hanging it off that number, not inventing a

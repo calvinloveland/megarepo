@@ -45,6 +45,40 @@ Keyboard: arrows, `X`/`Z` to rotate, space to hard drop, `C` to hold, `P` pause,
 `R` new game, `M` mute. On a touch device an on-screen pad appears. DAS is 150 ms
 and ARR 38 ms, so holding a direction slides instead of stuttering.
 
+### The DOOM skin
+
+The same game wears a second face: `?skin=doom`, or the button in the plaque.
+
+![DOOM skin](images/doom.png)
+
+It is a real raycast — a 320x200 buffer (DOOM's resolution) with textured walls,
+depth-sorted billboard sprites and a per-column z-buffer, upscaled with
+nearest-neighbour so it stays pixelated. Enemies are **tetromino demons**, and
+your Tetris play is the weapon:
+
+| Tetris | DOOM |
+|---|---|
+| lines cleared | hits: one kill per line, nearest demon first |
+| a Tetris | shotgun blast: four kills, blood burst, **MULTI KILL!** and a screen jolt |
+| stack height | how fast the demons close in and how often they spawn |
+| level | the depth you are on (`E1M9`), a door opening, +25% armour |
+| a demon reaching you | health drains, the face gets bloodier, the screen flashes red |
+| health reaching zero | **YOU DIED** — and the marathon picks you back up |
+| game over | the run ends with the score on the status bar |
+
+The status bar is DOOM's: ammo, health, the little face (its mood follows your
+health and it collects blood as you get hit), arms, armour, kills, depth and
+score. There is a plasma rifle bobbing in the lower centre that recoils and
+flashes when a clear fires.
+
+It is a renderer bolted onto the same engine — it never touches the rules, so a
+submission can wear either face. If you want DOOM on the Arena's screen by
+default, make it the default skin in `src/main.js` (`let skin = 'doom'`); the
+steampunk cabinet stays the shipped default because that is what the brief asked
+for. `tests/conformance.spec.cjs` runs the whole official suite with the skin
+*on* as well as off, because a cosmetic mode has no business changing the
+protocol.
+
 ### The boiler escalates
 
 One number, `heat` (0..1), drives the whole show. The level sets the floor —

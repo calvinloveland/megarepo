@@ -17,6 +17,9 @@ a Protocol v2-compliant game plus two submitted bots.
 | `vendor/conformance/` | The challenge's conformance suite, copied verbatim |
 | `docs/index.md` | Full project documentation |
 
+Two faces, one game: the brass cabinet, and a DOOM skin (`?skin=doom`) where the
+enemies are tetrominoes and your clears fire the shotgun.
+
 ## Bots
 
 - **Boiler Stoker** (`bots/dist/boiler-stoker.js`) — plays for the highest mean score:

@@ -666,8 +666,16 @@ body[data-skin="doom"] .gear,
 body[data-skin="doom"] .heat-veil,
 body[data-skin="doom"] .scanlines,
 body[data-skin="doom"] .critical-vignette,
-body[data-skin="doom"] .nameplate,
-body[data-skin="doom"] .plaque { display: none; }
+body[data-skin="doom"] .nameplate { display: none; }
+
+/* Keep the plaque so the skin switch stays reachable, but strip its brass. */
+body[data-skin="doom"] .plaque {
+  background: none;
+  border: 0;
+  justify-content: flex-end;
+  padding: 6px 4px 0;
+  color: #7d7364;
+}
 
 body[data-skin="doom"] .doom-stage {
   display: block;
