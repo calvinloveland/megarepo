@@ -641,3 +641,169 @@ kbd {
   .nameplate { flex-wrap: wrap; }
   .maker { flex: 0 0 100%; text-align: left; }
 }
+
+
+/* ==========================================================================
+   DOOM SKIN
+   A second face for the same game: raycast corridor, tetromino demons, and
+   DOOM's status bar. Enabled with ?skin=doom or the button in the plaque.
+   Everything here is cosmetic; the protocol game underneath is untouched.
+   ========================================================================== */
+
+.doom-stage { display: none; }
+
+body[data-skin="doom"] {
+  background: #0b0908;
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(120, 26, 16, .22), transparent 55%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .012) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #12100e, #060505);
+  font-family: "Courier New", Courier, monospace;
+}
+
+body[data-skin="doom"] .forge-glow,
+body[data-skin="doom"] .gear,
+body[data-skin="doom"] .heat-veil,
+body[data-skin="doom"] .scanlines,
+body[data-skin="doom"] .critical-vignette,
+body[data-skin="doom"] .nameplate,
+body[data-skin="doom"] .plaque { display: none; }
+
+body[data-skin="doom"] .doom-stage {
+  display: block;
+  width: min(100%, 980px);
+  margin: 0 auto;
+  border: 4px solid #4a3f34;
+  border-style: ridge;
+  background: #0a0807;
+  box-shadow: 0 0 0 2px #14100c, 0 18px 50px rgba(0, 0, 0, .8);
+}
+
+body[data-skin="doom"] .doom-view { position: relative; line-height: 0; }
+
+body[data-skin="doom"] #doom-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 320 / 200;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: saturate(1.05) contrast(1.06);
+}
+
+body[data-skin="doom"] .doom-marquee {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  padding: 5px 10px;
+  font-size: 10px;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: #c8b48a;
+  background: linear-gradient(180deg, rgba(8, 6, 5, .85), transparent);
+  line-height: 1.4;
+}
+
+body[data-skin="doom"] .doom-marquee em { color: #8c2a1c; font-style: normal; }
+
+/* DOOM status bar: beveled segments, chunky numbers. */
+body[data-skin="doom"] .doom-hud {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(64px, 0.8fr)) 88px repeat(3, minmax(64px, 0.8fr)) minmax(120px, 1.4fr);
+  gap: 3px;
+  padding: 5px;
+  background: linear-gradient(180deg, #544a3e, #332c24 55%, #1d1813);
+  border-top: 3px solid #1a1511;
+  border-style: solid;
+}
+
+body[data-skin="doom"] .doom-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2px;
+  padding: 5px 7px;
+  background: #1b1713;
+  border: 2px solid #635646;
+  border-style: ridge;
+  text-align: right;
+  line-height: 1.1;
+}
+
+body[data-skin="doom"] .doom-cell span {
+  font-size: 9px;
+  letter-spacing: .2em;
+  color: #a2957f;
+}
+
+body[data-skin="doom"] .doom-cell b {
+  font-size: 20px;
+  letter-spacing: .06em;
+  color: #d8a13a;
+  text-shadow: 0 0 8px rgba(216, 120, 40, .55);
+}
+
+body[data-skin="doom"] .doom-cell.bad b { color: #ff3b24; text-shadow: 0 0 12px rgba(255, 40, 20, .8); }
+body[data-skin="doom"] .doom-cell.wide b { font-size: 16px; color: #c9b58c; }
+
+body[data-skin="doom"] .doom-face {
+  width: 100%;
+  height: 100%;
+  min-height: 56px;
+  display: block;
+  background: #3a2f26;
+  border: 2px solid #635646;
+  border-style: ridge;
+  image-rendering: pixelated;
+  padding: 2px;
+}
+
+/* The tetris side of things shrinks to a command console under the viewport. */
+body[data-skin="doom"] .deck {
+  width: min(100%, 980px);
+  margin: 14px auto 0;
+  grid-template-columns: minmax(110px, 150px) auto minmax(170px, 220px);
+}
+
+body[data-skin="doom"] #board { height: min(42vh, 400px); border-radius: 0; }
+
+body[data-skin="doom"] .panel {
+  border-radius: 0;
+  border: 2px solid #4a3f34;
+  border-style: ridge;
+  background: linear-gradient(180deg, #241f19, #14100d);
+  box-shadow: inset 0 1px 0 rgba(200, 170, 120, .12);
+  animation: none;
+}
+
+body[data-skin="doom"] .panel h2 { color: #c8a24a; letter-spacing: .3em; }
+body[data-skin="doom"] .chamber-frame {
+  border-radius: 0;
+  border: 4px solid #4a3f34;
+  border-style: ridge;
+  background: #0d0a08;
+  box-shadow: none;
+}
+body[data-skin="doom"] .chamber-bolts { display: none; }
+
+.skin-toggle {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .18em;
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: #e8d9a8;
+  background: linear-gradient(180deg, #3a2c1c, #1d1610);
+  border: 1px solid rgba(200, 162, 74, .6);
+  cursor: pointer;
+}
+
+.skin-toggle:hover { color: #fff3cf; border-color: #ffcf6a; }
+body[data-skin="doom"] .skin-toggle { color: #ffd34d; border-color: #a8452c; }
+
+@media (max-width: 780px) {
+  body[data-skin="doom"] .doom-hud { grid-template-columns: repeat(3, 1fr); }
+  body[data-skin="doom"] .doom-cell.wide { grid-column: span 3; }
+  body[data-skin="doom"] .deck { grid-template-columns: 1fr; }
+  body[data-skin="doom"] #board { height: min(38vh, 340px); }
+}

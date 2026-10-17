@@ -296,6 +296,53 @@ test.describe('Brass & Boiler', () => {
     expect(ablaze).toBeGreaterThan(calm * 0.5);
   });
 
+  test('the DOOM skin renders, fights and gives way again', async ({ page }) => {
+    const errors = attachErrorCollector(page);
+    await page.goto('/?skin=doom');
+    await waitForGame(page);
+
+    const start = await page.evaluate(() => {
+      const t = window.__tetris;
+      t.api.freeze();
+      return { skin: t.api.skin(), body: document.body.dataset.skin, demons: t.api.doom().state.demons.length };
+    });
+    expect(start.skin).toBe('doom');
+    expect(start.body).toBe('doom');
+    expect(start.demons).toBeGreaterThan(0);
+
+    // The viewport is actually painted: plenty of non-black pixels.
+    const lit = await page.evaluate(() => {
+      const canvas = document.getElementById('doom-canvas');
+      const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      let count = 0;
+      for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] > 30) count += 1;
+      return count;
+    });
+    expect(lit).toBeGreaterThan(2000);
+
+    // A Tetris is a shotgun blast: it kills, and the HUD says so.
+    const killed = await page.evaluate(async () => {
+      const t = window.__tetris;
+      const before = t.api.doom().state.kills;
+      t.api.doom().debugSpawnAt(2.5);
+      t.api.doom().debugSpawnAt(3.0);
+      t.engine.lines += 4;
+      await new Promise((r) => setTimeout(r, 250));
+      return { before, after: t.api.doom().state.kills, ammo: t.api.doom().state.ammo };
+    });
+    expect(killed.after).toBeGreaterThan(killed.before + 1);
+
+    // The status bar shows the DOOM numbers.
+    await expect(page.locator('#doom-hud')).toContainText('KILLS');
+    await expect(page.locator('#doom-hud')).toContainText('HEALTH');
+
+    // And the button puts the brass back.
+    await page.click('#skin-toggle');
+    expect(await page.evaluate(() => ({ skin: window.__tetris.api.skin(), body: document.body.dataset.skin })))
+      .toEqual({ skin: 'steampunk', body: 'steampunk' });
+    errors.assertClean();
+  });
+
   test('the deterministic test surface is stable', async ({ page }) => {
     await page.goto('/');
     await waitForGame(page);

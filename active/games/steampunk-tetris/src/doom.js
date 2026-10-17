@@ -22,17 +22,17 @@ const BAR_H = 44; // status bar, drawn in DOM below the viewport
 const MAP_ROWS = [
   '1111111111111111',
   '1..............1',
-  '1.2222...3333..1',
-  '1.2..........3.1',
-  '1.2.44444444.3.1',
-  '1.2.4......4.3.1',
-  '1.2.4.1111.4.3.1',
-  '1...4.1..1.4...1',
-  '1.2.4.1..1.4.3.1',
-  '1.2.4......4.3.1',
-  '1.2.44444444.3.1',
-  '1.2..........3.1',
-  '1.2222...3333..1',
+  '1.444444444444.1',
+  '1.4..........4.1',
+  '1.4..22..22..4.1',
+  '1.4..........4.1',
+  '1.4..........4.1',
+  '1.4..33..33..4.1',
+  '1.4..........4.1',
+  '1.4..........4.1',
+  '1.4..22..22..4.1',
+  '1.4..........4.1',
+  '1..............1',
   '1..............1',
   '1111111111111111',
   '1111111111111111',
@@ -209,7 +209,7 @@ export function createDoomSkin({ canvas, hud, body = document.body }) {
   const bloodSprite = makeBloodSprite();
 
   const state = {
-    player: { x: 8, y: 12.5, angle: -Math.PI / 2 },
+    player: { x: 8, y: 13.2, angle: -Math.PI / 2 },
     demons: [],
     blood: [],
     muzzle: 0,
@@ -241,8 +241,8 @@ export function createDoomSkin({ canvas, hud, body = document.body }) {
     const kinds = type ? [type] : Object.keys(SKIN.demon);
     const sprite = kinds[Math.floor(Math.random() * kinds.length)];
     // Spawn down the corridor (north), at a distance that shrinks with the stack.
-    const distance = rand(5.5, 9);
-    const angle = rand(-0.45, 0.45);
+    const distance = rand(4.5, 8.5);
+    const angle = rand(-0.34, 0.34);
     state.demons.push({
       type: sprite,
       x: state.player.x + Math.cos(state.player.angle + angle) * distance,
@@ -316,7 +316,7 @@ export function createDoomSkin({ canvas, hud, body = document.body }) {
     if (lines > state.lastLines) {
       const gained = lines - state.lastLines;
       const killed = killNearest(gained >= 4 ? 4 : gained);
-      state.ammo = Math.max(0, state.ammo - gained);
+      state.ammo = Math.max(0, state.ammo - gained * 2);
       if (gained >= 4) {
         state.message = 'MULTI KILL!';
         state.messageTimer = 1.8;
@@ -348,6 +348,9 @@ export function createDoomSkin({ canvas, hud, body = document.body }) {
     }
 
     state.score = protocolState ? protocolState.score : 0;
+    // One round per piece placed, two spent per kill: you are always a little short.
+    const pieces = protocolState ? protocolState.piece_count : 0;
+    state.ammo = Math.max(0, Math.min(999, pieces - state.kills * 2 + 6));
     state.doorOpen = Math.max(0, state.doorOpen - dt * 0.7);
 
     /* Demons close in. A tall stack is a losing position, so they move faster. */
@@ -465,6 +468,34 @@ export function createDoomSkin({ canvas, hud, body = document.body }) {
     ctx.fillStyle = floor;
     ctx.fillRect(0, horizon, VIEW_W, VIEW_H - horizon);
 
+    // Floor and ceiling perspective: a few converging seams, cheap but effective.
+    ctx.strokeStyle = 'rgba(120,96,70,.18)';
+    ctx.lineWidth = 1;
+    for (let i = -6; i <= 6; i++) {
+      const x = VIEW_W / 2 + i * (VIEW_W / 6.5);
+      ctx.beginPath();
+      ctx.moveTo(VIEW_W / 2 + i * 3, horizon);
+      ctx.lineTo(x, VIEW_H);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(VIEW_W / 2 + i * 3, horizon);
+      ctx.lineTo(x, 0);
+      ctx.stroke();
+    }
+    for (let i = 1; i < 9; i++) {
+      const y = horizon + Math.pow(i / 9, 2.1) * (VIEW_H - horizon);
+      ctx.strokeStyle = `rgba(120,96,70,${0.2 - i * 0.02})`;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(VIEW_W, y);
+      ctx.stroke();
+      const yc = horizon - Math.pow(i / 9, 2.1) * horizon;
+      ctx.beginPath();
+      ctx.moveTo(0, yc);
+      ctx.lineTo(VIEW_W, yc);
+      ctx.stroke();
+    }
+
     const depth = new Float32Array(VIEW_W);
     const fov = Math.PI / 3;
     for (let x = 0; x < VIEW_W; x++) {
@@ -511,9 +542,13 @@ export function createDoomSkin({ canvas, hud, body = document.body }) {
       if (Math.abs(angle) > fov * 0.72) continue;
       const corrected = sprite.dist;
       const screenX = VIEW_W / 2 + Math.tan(angle) * (VIEW_W / 2) / Math.tan(fov / 2);
-      const size = Math.min(VIEW_H * 1.6, (VIEW_H / corrected) * 0.62);
-      const hover = Math.sin(state.time * 3 + sprite.bob) * size * 0.04;
-      const top = VIEW_H / 2 - size / 2 + hover + (sprite.blood ? size * 0.2 : 0);
+      // One world unit of height at this distance, then anchor the demon's feet
+      // to the floor line so it stands in the corridor instead of hovering.
+      const unit = (VIEW_H / corrected) * 0.9;
+      const size = Math.min(VIEW_H * 1.8, unit * (sprite.blood ? 0.3 : 0.66));
+      const floorY = VIEW_H / 2 + unit / 2;
+      const hover = Math.sin(state.time * 3 + sprite.bob) * size * 0.03;
+      const top = sprite.blood ? floorY - size : floorY - size + hover;
       const left = screenX - size / 2;
       const x0 = Math.max(0, Math.floor(left));
       const x1 = Math.min(VIEW_W, Math.ceil(left + size));
@@ -533,6 +568,41 @@ export function createDoomSkin({ canvas, hud, body = document.body }) {
       }
       ctx.globalAlpha = 1;
     }
+  }
+
+  /** The plasma rifle, bottom centre, bobbing and recoiling. */
+  function drawWeapon() {
+    const recoil = state.muzzle * 9;
+    const bob = Math.sin(state.time * 3.4) * 3 + Math.sin(state.time * 1.7) * 2;
+    const cx = VIEW_W / 2;
+    const base = VIEW_H + bob + recoil;
+    ctx.save();
+    // Barrel and heat shield
+    ctx.fillStyle = '#22201d';
+    ctx.fillRect(cx - 6, base - 66, 12, 54);
+    ctx.fillStyle = '#3d372f';
+    ctx.fillRect(cx - 4, base - 64, 3, 50);
+    ctx.fillStyle = '#2a2622';
+    for (let i = 0; i < 5; i++) ctx.fillRect(cx - 8, base - 62 + i * 9, 16, 3);
+    // Receiver and hands
+    ctx.fillStyle = '#4a4136';
+    ctx.fillRect(cx - 24, base - 36, 48, 12);
+    ctx.fillStyle = '#5a4a3a';
+    ctx.fillRect(cx - 26, base - 24, 52, 24);
+    ctx.fillStyle = '#6f5c46';
+    ctx.fillRect(cx - 26, base - 24, 52, 5);
+    ctx.fillStyle = '#2f2a24';
+    ctx.fillRect(cx - 3, base - 40, 6, 8);
+    // Muzzle glow
+    if (state.muzzle > 0.02) {
+      const g = ctx.createRadialGradient(cx, base - 60, 1, cx, base - 60, 34);
+      g.addColorStop(0, `rgba(190,255,170,${0.9 * state.muzzle})`);
+      g.addColorStop(0.4, `rgba(90,255,120,${0.45 * state.muzzle})`);
+      g.addColorStop(1, 'rgba(40,160,60,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(cx - 40, base - 100, 80, 80);
+    }
+    ctx.restore();
   }
 
   function drawOverlay() {
@@ -582,7 +652,7 @@ export function createDoomSkin({ canvas, hud, body = document.body }) {
     const fctx = face.getContext('2d');
     fctx.fillStyle = '#3a2f26';
     fctx.fillRect(0, 0, 64, 64);
-    drawFace(fctx, 18, 6, 2, state.morale, state.hurt + (state.dead ? 1 : 0));
+    drawFace(fctx, 20, 4, 2.3, state.morale, state.hurt + (state.dead ? 1 : 0));
     if (state.dead) {
       fctx.fillStyle = 'rgba(120,10,8,.75)';
       fctx.fillRect(0, 0, 64, 64);
@@ -616,6 +686,7 @@ export function createDoomSkin({ canvas, hud, body = document.body }) {
     ctx.translate(shakeX, shakeY);
     const depth = drawWorld();
     drawSprites(depth);
+    drawWeapon();
     drawOverlay();
     ctx.restore();
     paintHud();

@@ -18,9 +18,13 @@ import { Renderer } from './render.js';
 import { SteamAudio } from './audio.js';
 import { PIECE_PALETTE } from './theme.js';
 import { PIECE_TYPES } from './constants.js';
+import { createDoomSkin } from './doom.js';
 
 const GAME_NAME = 'Brass & Boiler';
 const GAME_AUTHOR = 'Calvin Loveland (agent: deepseek)';
+
+const SKIN_PARAM = new URLSearchParams(location.search).get('skin');
+let skin = SKIN_PARAM === 'doom' ? 'doom' : 'steampunk';
 
 const engine = new TetrisEngine({ seed: 'arena' });
 const audio = new SteamAudio();
@@ -102,6 +106,29 @@ const adapter = window.installTetrisAdapter({
   onPause: (paused) => engine.setPaused(paused),
 });
 
+/* ------------------------------------------------------------- doom skin */
+
+/* The DOOM skin is a renderer bolted onto the same game: the corridor is drawn
+   from the tetris state, and each clear fires a shot. It never touches the rules,
+   so a submission can wear either face. */
+const doom = createDoomSkin({
+  canvas: el('doom-canvas'),
+  hud: el('doom-hud'),
+});
+
+function applySkin() {
+  void doom;
+  document.body.dataset.skin = skin;
+  doom.setSkin(skin === 'doom');
+  el('skin-toggle').textContent = skin === 'doom' ? 'STEAMPUNK MODE' : 'DOOM MODE';
+  renderer.resize();
+}
+
+el('skin-toggle').addEventListener('click', () => {
+  skin = skin === 'doom' ? 'steampunk' : 'doom';
+  applySkin();
+});
+
 /* ------------------------------------------------------------------ loop */
 
 let lastFrame = 0;
@@ -117,7 +144,19 @@ function frame(ts) {
   }
   if (!engine.paused && !engine.gameOver) humanRepeat(dtMs);
   renderer.update(dtMs / 1000);
-  paint(renderer.draw(engine));
+  const state = renderer.draw(engine);
+  paint(state);
+  if (skin === 'doom') {
+    try {
+      doom.update(dtMs / 1000, state, []);
+      doom.draw();
+    } catch (err) {
+      /* A skin must never be able to break the game. */
+      skin = 'steampunk';
+      applySkin();
+      console.warn('doom skin disabled:', err && err.message);
+    }
+  }
 
   if (overlayMode === 'intro' && now() > introUntil) setOverlay('hidden');
   requestAnimationFrame(frame);
@@ -412,6 +451,8 @@ for (const button of document.querySelectorAll('.touch-pad button')) {
 
 window.addEventListener('resize', () => renderer.resize());
 
+if (skin === 'doom') applySkin();
+
 /* ----------------------------------------------------------------- boot */
 
 buildTally();
@@ -449,6 +490,9 @@ window.__tetris = {
       return engine.toState();
     },
     press: (action) => pressAction(action),
+    skin: () => skin,
+    setSkin: (next) => { skin = next === 'doom' ? 'doom' : 'steampunk'; applySkin(); return skin; },
+    doom: () => doom,
     tally: () => ({ ...engine.pieceStats }),
   },
 };
