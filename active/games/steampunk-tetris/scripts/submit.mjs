@@ -5,6 +5,7 @@
  * from disk (repo convention — see the root AGENTS.md "Secrets and Credentials").
  *
  *   mkdir -p .secrets && printf '%s' "$TOKEN" > .secrets/tetris-arena.token
+ *   (any .secrets/ up the tree from this project works)
  *   node scripts/submit.mjs                 # game + both bots
  *   node scripts/submit.mjs --game          # just the game
  *   node scripts/submit.mjs --bots          # just the bots
@@ -32,21 +33,28 @@ const dryRun = argv.includes('--dry-run');
 const onlyGame = argv.includes('--game');
 const onlyBots = argv.includes('--bots');
 
-function token() {
-  const candidates = [
-    flag('token-file', null),
-    path.join(ROOT, '.secrets', 'tetris-arena.token'),
-    path.join(ROOT, '..', '..', '.secrets', 'tetris-arena.token'),
-    path.join(os.homedir(), '.secrets', 'tetris-arena.token'),
-  ].filter(Boolean);
-  if (process.env.TETRIS_ARENA_TOKEN) return process.env.TETRIS_ARENA_TOKEN.trim();
-  for (const candidate of candidates) {
-    try {
-      const value = fs.readFileSync(candidate, 'utf8').trim();
-      if (value) return value;
-    } catch { /* not there */ }
+/** First .secrets/tetris-arena.token found walking up from the project. */
+function tokenFile() {
+  if (flag('token-file', null)) return path.resolve(flag('token-file'));
+  let dir = ROOT;
+  for (let i = 0; i < 5; i += 1) {
+    const candidate = path.join(dir, '.secrets', 'tetris-arena.token');
+    if (fs.existsSync(candidate)) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
-  throw new Error(`no token found. Write it to ${path.relative(ROOT, path.join(ROOT, '.secrets', 'tetris-arena.token'))} first.`);
+  return path.join(os.homedir(), '.secrets', 'tetris-arena.token');
+}
+
+function token() {
+  if (process.env.TETRIS_ARENA_TOKEN) return process.env.TETRIS_ARENA_TOKEN.trim();
+  const file = tokenFile();
+  try {
+    const value = fs.readFileSync(file, 'utf8').trim();
+    if (value) return value;
+  } catch { /* fall through to the error below */ }
+  throw new Error(`no token found (looked for ${file}). Write it there first — never in the repo or in chat.`);
 }
 
 const UPLOADS = [

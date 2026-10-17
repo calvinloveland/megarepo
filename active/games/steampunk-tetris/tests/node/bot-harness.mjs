@@ -76,10 +76,16 @@ export async function runBot(botFn, opts = {}) {
   if (!engine.gameOver && !game.done) stalled = true;
 
   const state = engine.toState();
+  const lastActions = actionsPerPiece.slice(-25);
   return {
     seed,
     error,
     stalled,
+    board: state.board,
+    tailActionsPerPiece: lastActions,
+    tailMeanActions: lastActions.length
+      ? lastActions.reduce((a, b) => a + b, 0) / lastActions.length
+      : 0,
     gameOver: engine.gameOver,
     score: state.score,
     lines: state.lines,

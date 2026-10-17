@@ -75,8 +75,13 @@ const LINE_SCORE = [0, 100, 300, 500, 800];
 
 /** The Arena rate-limits to 30 actions/second (§8) — budget against that. */
 const ACTION_MS = 1000 / 30;
-/** Leave headroom: a plan that only just fits is a plan that will not fit. */
-const SAFETY = 0.8;
+/**
+ * Multiplier on the estimated time a piece has left. The estimate itself is
+ * already pessimistic (it measures to the floor, not to the stack), and
+ * measured survival bottoms out around 1.5: below that the bot abandons
+ * placements it could comfortably have made, above it nothing changes.
+ */
+const SAFETY = 1.5;
 const LOOKAHEAD_CANDIDATES = 6;
 const LOOKAHEAD_WEIGHT = 0.55;
 
@@ -245,13 +250,29 @@ function measure(board) {
   };
 }
 
-const dellacherie = (m, landing, eroded) =>
-  -4.500158825082766 * landing
-  + 3.4181268101392694 * eroded
-  - 3.2178882868487753 * m.rowTransitions
-  - 9.348695305445199 * m.colTransitions
-  - 7.899265427351652 * m.holes
-  - 3.3855972247263626 * m.wellSums;
+/**
+ * Dellacherie's shape evaluation, weights as published by Fahey's survey of
+ * Tetris heuristics. `w` overrides any term so the set can be swept against the
+ * seed list in scripts/tune.mjs.
+ */
+const DELLACHERIE = {
+  landing: -4.500158825082766,
+  eroded: 3.4181268101392694,
+  rowTransitions: -3.2178882868487753,
+  colTransitions: -9.348695305445199,
+  holes: -7.899265427351652,
+  wellSums: -3.3855972247263626,
+};
+
+const dellacherie = (m, landing, eroded, w = DELLACHERIE) => {
+  const weight = (key) => (w[key] === undefined ? DELLACHERIE[key] : w[key]);
+  return weight('landing') * landing
+    + weight('eroded') * eroded
+    + weight('rowTransitions') * m.rowTransitions
+    + weight('colTransitions') * m.colTransitions
+    + weight('holes') * m.holes
+    + weight('wellSums') * m.wellSums;
+};
 
 /* -------------------------------------------------------------- heuristics */
 
@@ -260,10 +281,10 @@ const dellacherie = (m, landing, eroded) =>
  * (the weights from Fahey's survey of strong Tetris heuristics) to stay alive,
  * plus the §6 drop points that are easy to forget the bot is also earning.
  */
-function evalScore(cfg, board, info, state) {
+function evalScore(cfg, board, info) {
   const m = measure(board);
   const landing = BH - (info.y + (info.minDy + info.maxDy + 1) / 2);
-  let value = dellacherie(m, landing, info.eroded * info.cleared);
+  let value = dellacherie(m, landing, info.eroded * info.cleared, cfg.dellacherie);
   value += cfg.clearWeight * LINE_SCORE[info.cleared];
   value += cfg.dropWeight * (2 * info.dropRows);
   value += cfg.wellBuild * Math.min(4, m.wellDepth);
@@ -271,7 +292,6 @@ function evalScore(cfg, board, info, state) {
   if (m.maxHeight >= 16) value -= cfg.danger * (m.maxHeight - 15) ** 2;
   if (info.cleared === 4) value += cfg.tetrisBonus;
   if (m.holes > 0 && info.cleared > 0) value -= cfg.holeClearPenalty * m.holes;
-  void state;
   return value;
 }
 
@@ -323,7 +343,7 @@ function candidatesFor(board, type) {
         if (cells[i][1] < minDy) minDy = cells[i][1];
         if (cells[i][1] > maxDy) maxDy = cells[i][1];
       }
-      list.push({ rotation, x, y, cells, minDy, maxDy });
+      list.push({ rotation, x, y, cells, minDy, maxDy, cost: 0 });
     }
   }
   return list;
@@ -384,6 +404,7 @@ function rankPlacements(cfg, board, state) {
   };
 
   for (const cand of candidatesFor(board, piece.type)) {
+    cand.cost = rotateCost(piece.rotation, cand.rotation) + Math.abs(cand.x - piece.x) + 1;
     const res = scorePlacement(cfg, board, piece.type, cand, state);
     push(cand, false, res.value, res.placed);
   }
@@ -394,6 +415,7 @@ function rankPlacements(cfg, board, state) {
     const incoming = state.hold || (state.next && state.next[0]);
     if (incoming && SHAPES[incoming]) {
       for (const cand of candidatesFor(board, incoming)) {
+        cand.cost = 1 + rotateCost(0, cand.rotation) + Math.abs(cand.x - 3) + 1;
         const res = scorePlacement(cfg, board, incoming, cand, state);
         push(cand, true, res.value, res.placed);
       }
@@ -427,7 +449,8 @@ function rankPlacements(cfg, board, state) {
   scored.sort((a, b) => b.value - a.value);
 
   if (cfg.mode === 'score' && cfg.lookahead && state.next && state.next[0]) {
-    const head = scored.slice(0, LOOKAHEAD_CANDIDATES);
+    const width = cfg.lookaheadCandidates ?? LOOKAHEAD_CANDIDATES;
+    const head = scored.slice(0, width);
     for (const cand of head) {
       let best = -Infinity;
       const nextCands = candidatesFor(cand.board, state.next[0]);
@@ -435,10 +458,10 @@ function rankPlacements(cfg, board, state) {
         const res = scorePlacement(cfg, cand.board, state.next[0], nc, state);
         if (res.value > best) best = res.value;
       }
-      if (best > -Infinity) cand.value += LOOKAHEAD_WEIGHT * best;
+      if (best > -Infinity) cand.value += (cfg.lookaheadWeight ?? LOOKAHEAD_WEIGHT) * best;
     }
     head.sort((a, b) => b.value - a.value);
-    return [...head, ...scored.slice(LOOKAHEAD_CANDIDATES)];
+    return [...head, ...scored.slice(width)];
   }
 
   return scored;
@@ -484,7 +507,7 @@ function makeBot(cfg) {
       }
 
       // How many more actions fit before this piece locks?
-      const slack = Math.floor((budgetMs(state) * SAFETY) / ACTION_MS) - actionsThisPiece;
+      const slack = Math.floor((budgetMs(state) * (cfg.safety ?? SAFETY)) / ACTION_MS) - actionsThisPiece;
 
       let choice = null;
       for (const cand of ranked) {
@@ -532,11 +555,17 @@ const SCORE_CFG = {
   lookahead: true,
   clearWeight: 1.0,
   dropWeight: 1.0,
+  lookaheadCandidates: 12,
+  lookaheadWeight: 0.85,
   danger: 12,
   tetrisBonus: 120,
   holeClearPenalty: 6,
   wellBuild: 40,
   overDeep: 8,
+  // Column transitions matter more than Dellacherie's original ratio once the
+  // bot is also being paid for line clears: -16 measured best over the seed set
+  // (scripts/tune.mjs), ahead of the published -9.35.
+  dellacherie: { colTransitions: -16 },
 };
 
 const HUNTER_CFG = {

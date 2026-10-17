@@ -57,7 +57,21 @@ cells, row/column transitions, holes, well sums) so it survives long enough to
 collect them. It looks one piece ahead, swaps to the hold piece when that is the
 better placement, and always commits with `hard_drop`.
 
-Mean over ten seeds: **167,837 points · 145 lines · level 15.2 · 521 pieces**.
+Mean over ten fixed seeds: **213,996 points · 165 lines · level 17.3 · 564 pieces**
+(seed-by-seed: 214k–233k; every run tops out cleanly at level 17–18).
+
+What moved the needle, measured with `node scripts/tune.mjs --mode score --runs 10`:
+
+| Change | Mean score |
+|---|---|
+| Dellacherie defaults, 2-ply over 6 candidates, 0.8x time budget | 167,837 |
+| + time budget 1.5x (the estimate was abandoning placements it could make) | 202,569 |
+| + 2-ply over 12 candidates, second ply weighted 0.85 | 208,722 |
+| + column transitions at −16 instead of Dellacherie's −9.35 | **213,996** |
+
+An explicit penalty for action count was also tried and removed: at this level it
+costs more in placement quality than it buys in time, and the budget filter below
+already refuses placements that will not fit.
 
 ### Four-Line Fanatic — Tetris hunter
 
@@ -72,7 +86,8 @@ to have filled the well.
 When a gap in the four rows a Tetris needs makes one impossible, it stops
 hunting, digs the rows out with score play, and goes straight back to hunting.
 
-Mean over ten seeds: **59,512 points · 60 lines · 13.9 Tetrises · level 6.6**.
+Mean over ten fixed seeds: **59,507 points · 60 lines · 13.9 Tetrises · level 6.6**
+(228 pieces).
 On a good seed it beats the score bot outright (228,626 points, 36 Tetrises, 0
 non-Tetris clears); on a bad one the well never fills in time and it tops out
 early. That variance is the honest cost of the strategy.
@@ -82,10 +97,13 @@ early. That variance is the honest cost of the strategy.
 The Arena rate-limits bots to 30 actions/second, and the gravity table has no
 plateau — at level 20 there are 7 ms per row. Both bots budget against
 `gravity_ms` and `lock_timer_ms` from the state: every candidate placement is
-costed in actions, and anything that cannot be reached before the piece locks is
-not chosen. Measured at **3.3–3.4 actions per piece** on average, with a worst
-case of 7 (17 on one unlucky seed), well inside the budget. The hunter plays the
-same way at level 1 and level 20.
+costed in actions (rotate + move + hard drop, plus one if it uses hold), and
+anything that cannot be reached before the piece locks is not chosen. When
+nothing fits, the bot commits with `hard_drop` instead of freezing.
+
+Measured at **3.3–3.5 actions per piece** on average, worst case 7 (17 on one
+unlucky seed), i.e. roughly 60% of the rate limit and never a queue of delayed
+actions. The hunter plays the same way at level 1 and level 20.
 
 ## Protocol map
 
