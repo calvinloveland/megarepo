@@ -278,15 +278,24 @@ function evalScore(cfg, board, info) {
   const m = measure(board);
   const landing = BH - (info.y + (info.minDy + info.maxDy + 1) / 2);
   let value = dellacherie(m, landing, info.eroded * info.cleared, cfg.dellacherie);
+  /* Danger: how close the stack is to the ceiling. While there is headroom the
+     bot plays for points (keep a well, take the 800-point Tetris). Once the stack
+     gets tall that stops paying: surviving is what keeps the level multiplier
+     alive, so the well reward and the Tetris preference fade out and plain, flat,
+     low-risk play takes over. */
+  const danger = cfg.dangerFrom === undefined
+    ? 0
+    : Math.min(1, Math.max(0, (m.maxHeight - cfg.dangerFrom) / Math.max(1, 19 - cfg.dangerFrom)));
+
   value += cfg.clearWeight * LINE_SCORE[info.cleared];
   value += cfg.dropWeight * (2 * info.dropRows);
   // "Keep the stack low" as an explicit term: it is what survival-first play
   // trades against clearing aggressively. Off by default; swept by tune.mjs.
   value -= (cfg.aggregate || 0) * m.aggregate;
-  value += cfg.wellBuild * Math.min(4, m.wellDepth);
+  value += cfg.wellBuild * Math.min(4, m.wellDepth) * (1 - danger * (cfg.dangerWell ?? 1));
   value -= cfg.overDeep * Math.max(0, m.wellDepth - 6);
   if (m.maxHeight >= 16) value -= cfg.danger * (m.maxHeight - 15) ** 2;
-  if (info.cleared === 4) value += cfg.tetrisBonus;
+  if (info.cleared === 4) value += cfg.tetrisBonus * (1 - danger * (cfg.dangerTetris ?? 1));
   if (m.holes > 0 && info.cleared > 0) value -= cfg.holeClearPenalty * m.holes;
   return value;
 }
