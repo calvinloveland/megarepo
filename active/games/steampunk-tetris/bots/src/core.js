@@ -499,13 +499,21 @@ function rankPlacements(cfg, board, state) {
 
 /* -------------------------------------------------------------- the driver */
 
-/** Time, in ms, before the current piece locks if nothing more is done. */
-function budgetMs(state) {
+/**
+ * Time, in ms, before the current piece locks if nothing more is done.
+ *
+ * While a piece is still falling a game reports `lock_timer_ms: null`, so the
+ * protocol table is the only estimate available. `assumedLockMs` raises that
+ * estimate for games that do not follow the table (see the note in HUNTER_CFG /
+ * SCORE_CFG) — it never lowers it, so conformant games are unaffected.
+ */
+function budgetMs(state, cfg) {
   const cells = state.piece.cells;
   let lowest = 0;
   for (const [, y] of cells) if (y > lowest) lowest = y;
   const rows = BH - 1 - lowest;
-  const lock = state.lock_timer_ms === null ? lockDelayMs(state.level) : state.lock_timer_ms;
+  const spec = Math.max(lockDelayMs(state.level), cfg && cfg.assumedLockMs ? cfg.assumedLockMs : 0);
+  const lock = state.lock_timer_ms === null ? spec : state.lock_timer_ms;
   return rows * (state.gravity_ms || gravityMs(state.level)) + lock;
 }
 
@@ -537,7 +545,7 @@ function makeBot(cfg) {
       }
 
       // How many more actions fit before this piece locks?
-      const slack = Math.floor((budgetMs(state) * (cfg.safety ?? SAFETY)) / ACTION_MS) - actionsThisPiece;
+      const slack = Math.floor((budgetMs(state, cfg) * (cfg.safety ?? SAFETY)) / ACTION_MS) - actionsThisPiece;
 
       let choice = null;
       for (const cand of ranked) {
@@ -594,6 +602,7 @@ const SCORE_CFG = {
   overDeep: 8,
   clearWeight: 1.0,
   dropWeight: 1.0,
+  assumedLockMs: 500,
   // Column transitions matter more than Dellacherie's original ratio once the
   // bot is also being paid for line clears: -16 measured best over the seed set
   // (scripts/tune.mjs), ahead of the published -9.35.
