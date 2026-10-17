@@ -93,9 +93,10 @@ const LOOKAHEAD_WEIGHT = 0.55;
  * rung is [minimum budget in ms, plies, beam].
  */
 const SEARCH_LADDER = [
-  [1500, 6, 3],
-  [700, 5, 3],
-  [320, 4, 3],
+  [2500, 7, 3],
+  [1200, 6, 4],
+  [600, 5, 3],
+  [300, 4, 3],
   [150, 3, 2],
   [0, 2, 2],
 ];
