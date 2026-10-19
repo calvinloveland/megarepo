@@ -54,6 +54,20 @@ documents the layered secret-defense installed around that auto-committer.
   example manifests, the lift manifest) live in `.gitleaks.toml`.
 - `gitleaks` and `age` are not required to be on `PATH`; the hooks fall back to
   `nix run nixpkgs#gitleaks` / `nix run nixpkgs#age`.
+- Upstream rules only cover secrets that appear in a `key = value`-ish
+  assignment. Two repo-local rules close the remaining hole, because a secret
+  pasted alone on its own line carries no context for `generic-api-key` to key
+  off:
+  - `opencode-api-key` — any `oc_sk_…` token, wherever it appears.
+  - `bare-token-in-credential-file` — a whole-file token (OpenCode, OpenRouter,
+    GitHub, Slack, GCP) inside a file whose *name* says it is a credential dump
+    (`*apikey*.txt`, `*credentials*.env`, `*token*.json`, …).
+
+  Why: `opencodekey.txt` at the repo root held a live OpenCode Go key, matched
+  no upstream rule, and was auto-committed to the public repo by the k33p
+  daemon (the key had to be rotated). `.gitignore` also now ignores
+  credential-shaped `*key*.txt` / `token*.txt` filenames outright, so such a
+  paste is never a `git add` candidate in the first place.
 
 ## Age key management
 
