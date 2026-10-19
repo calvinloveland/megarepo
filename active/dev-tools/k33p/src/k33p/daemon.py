@@ -738,7 +738,20 @@ class Daemon:
                         cwd=str(self._project_root),
                     )
                     if rebase.returncode != 0:
-                        print(f"    ⚠ git rebase failed: {rebase.stderr.strip()}")
+                        # A conflicting rebase leaves the tree mid-rebase; abort it and
+                        # report what a human needs to fix. Silent one-line failures
+                        # here are how two hosts stay diverged for days unnoticed.
+                        conflicts = self._conflicted_files()
+                        print(f"    ⚠ git rebase onto {remote}/{branch} hit conflicts -- manual reconcile needed")
+                        if conflicts:
+                            print(f"      conflicted: {', '.join(conflicts)}")
+                        print(
+                            f"      resolve with: git -C {self._project_root} pull --rebase "
+                            f"{remote} {branch}"
+                        )
+                        first_line = rebase.stderr.strip().splitlines()[:1]
+                        if first_line:
+                            print(f"      git said: {first_line[0]}")
                         try:
                             subprocess.run(
                                 ["git", "rebase", "--abort"],
@@ -761,6 +774,20 @@ class Daemon:
             print(f"  ⚠ git push failed: {e}")
 
         return len(changed)
+
+    def _conflicted_files(self) -> list[str]:
+        """Return the paths git reports as unmerged, or an empty list."""
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only", "--diff-filter=U"],
+                capture_output=True, text=True, timeout=30,
+                cwd=str(self._project_root),
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return []
+        if result.returncode != 0:
+            return []
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
     def stop(self) -> None:
         """Signal the daemon to stop."""
