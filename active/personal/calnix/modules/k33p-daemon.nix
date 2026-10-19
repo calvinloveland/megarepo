@@ -30,7 +30,7 @@ let
   # visible in the journal instead of looping every 5 minutes.
   k33pPullWrapper = pkgs.writeShellScript "k33p-pull" ''
     set -euo pipefail
-    repo="${cfg.projectPath}"
+    repo="''${1:-${cfg.projectPath}}"
     cd "$repo"
 
     if [ -n "$(${pkgs.git}/bin/git status --porcelain)" ]; then
