@@ -1108,7 +1108,7 @@ function drawAccessoryLayer(
   } else if (accessory === "flatcap-glasses") {
     palette = { A: "#4a4452", a: "#33303a", G: "#2a2630" };
   } else if (accessory === "beanie-wrench") {
-    palette = { A: "#7d6a52", a: "#5f5140", W: "#cfcfcf" };
+    palette = { A: "#7d6a52", a: "#5f5140" };
   } else if (accessory === "bandana-ponytail") {
     palette = { A: "#2a6b4f", h: "#7a4a1e" };
   } else {

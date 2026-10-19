@@ -21,7 +21,7 @@ export const OUTFIT_KEYS = "BbTPFSs" as const;
 export const ACCESSORY_KEYS: Record<string, string> = {
   stetson: "Aa",
   "flatcap-glasses": "AaG",
-  "beanie-wrench": "AaW",
+  "beanie-wrench": "Aa",
   "bandana-ponytail": "Ah",
   "sign-post": "P",
 };
@@ -225,16 +225,17 @@ export const ACCESSORY_ROWS: Record<string, readonly string[]> = {
     "................",
     "................",
     "................",
-    "...........WW...",
-    "...........WW...",
-    "...........WW...",
-    "...........WW...",
-    "..........WWWW..",
-    "...........WW...",
-    "..........WWWW..",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
     "................",
     "................",
   ],
+
   "bandana-ponytail": [
     "................",
     "................",
