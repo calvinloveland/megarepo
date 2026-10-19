@@ -4295,9 +4295,17 @@ function renderViewportMarkup(
     <defs>
       ${renderTerrainPatternDefs(terrain)}
     </defs>
-    <rect x="0" y="0" width="${SVG_WIDTH}" height="${SVG_HEIGHT}" fill="#15314f"></rect>
-    <rect x="0" y="${groundY}" width="${SVG_WIDTH}" height="${groundHeight}" fill="${terrain.colorGround ?? "#6c5233"}"></rect>
-    <rect x="0" y="${groundY}" width="${SVG_WIDTH}" height="${groundHeight}" fill="url(#${patternId})" opacity="0.6"></rect>
+    <defs>
+      <radialGradient id="viewport-vignette" cx="50%" cy="45%" r="72%">
+        <stop offset="60%" stop-color="rgba(0,0,0,0)"></stop>
+        <stop offset="100%" stop-color="rgba(4,5,9,0.72)"></stop>
+      </radialGradient>
+    </defs>
+    <rect x="0" y="0" width="${SVG_WIDTH}" height="${SVG_HEIGHT}" fill="#141a28"></rect>
+    <rect x="0" y="${groundY}" width="${SVG_WIDTH}" height="${groundHeight}" fill="${terrain.colorGround ?? "#4a3a26"}"></rect>
+    <rect x="0" y="${groundY}" width="${SVG_WIDTH}" height="${groundHeight}" fill="url(#${patternId})" opacity="0.35"></rect>
+    <rect x="0" y="${groundY}" width="${SVG_WIDTH}" height="6" fill="rgba(0,0,0,0.35)"></rect>
+    <rect x="0" y="0" width="${SVG_WIDTH}" height="${SVG_HEIGHT}" fill="url(#viewport-vignette)" pointer-events="none"></rect>
     ${renderTerrainObstacles(terrain, view)}
     <line x1="${toSvgX(view, 220)}" y1="0" x2="${toSvgX(view, 220)}" y2="${SVG_HEIGHT}" stroke="rgba(255,255,255,0.2)" stroke-width="4" stroke-dasharray="10 10"></line>
     <line x1="${toSvgX(view, terrain.groundLength - 200)}" y1="0" x2="${toSvgX(view, terrain.groundLength - 200)}" y2="${SVG_HEIGHT}" stroke="rgba(255,215,0,0.35)" stroke-width="6" stroke-dasharray="8 8"></line>
@@ -7257,6 +7265,9 @@ function renderPocketRanch(): void {
     }
   }
   barnOverlay.hidden = !rendererState.barnOpen;
+  // The hub's own bar sits where the chip column used to start, so the chips
+  // step down for as long as the hub is open rather than hiding behind it.
+  document.body.classList.toggle("hub-open", rendererState.barnOpen);
   for (const pill of Array.from(
     document.querySelectorAll<HTMLButtonElement>("[data-barn-pill]"),
   )) {

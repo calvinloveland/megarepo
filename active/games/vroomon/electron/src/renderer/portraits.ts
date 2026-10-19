@@ -87,39 +87,173 @@ const NPC_ARCHETYPES: Record<string, ArchetypeKey> = {
   "keeper-of-the-long-light": "courier",
 };
 
-function bustFor(archetype: Archetype, name: string): string {
-  const beard =
-    archetype.beard === "grey"
-      ? `<path d="M60 82 Q60 100 74 102 Q88 100 88 82 Z" fill="#e8e0d0"/>`
-      : archetype.beard === "brown"
-        ? `<path d="M60 82 Q60 100 74 102 Q88 100 88 82 Z" fill="#8a5a28"/>`
-        : "";
-  const glasses = archetype.glasses ? `
-    <rect x="56" y="66" width="10" height="8" rx="2" fill="${archetype.markerColor}" opacity="0.85"/>
-    <rect x="72" y="66" width="10" height="8" rx="2" fill="${archetype.markerColor}" opacity="0.85"/>
-    <line x1="66" y1="70" x2="72" y2="70" stroke="#4a4a55" stroke-width="2"/>` : "";
-  const patch = archetype.patch ? `
-    <path d="M56 64 L66 70 L56 76 Z" fill="#2a2a33"/>` : "";
-  const bandana = archetype.bandana
-    ? `<path d="M52 84 L86 84 L84 94 L54 94 Z" fill="${archetype.bandana}"/>`
-    : "";
-  const cap = `<path d="M50 58 Q66 46 88 58 L88 66 L50 66 Z" fill="${archetype.cap}"/><rect x="50" y="58" width="38" height="6" rx="3" fill="${archetype.cap}" opacity="0.7"/>`;
-  const marker = `<text x="74" y="112" font-size="12" text-anchor="middle" fill="${archetype.markerColor}" font-family="monospace" font-weight="bold">${archetype.marker === "crown" ? "♛" : archetype.marker === "staff" ? "𝍏" : archetype.marker === "goggles" ? "⌐" : archetype.marker === "lamp" ? "◉" : archetype.marker === "wrap" ? "◠" : archetype.marker === "quill" ? "✎" : archetype.marker === "fluff" ? "☁" : archetype.marker === "earmuffs" ? "☁" : archetype.marker === "coin" ? "●" : archetype.marker === "star" ? "★" : archetype.marker === "badge" ? "▣" : archetype.marker === "stripe" ? "▲" : archetype.marker === "band" ? "▭" : "•"}</text>`;
+// ---- The bust ----
+// A portrait is the same pixel grid as the overworld sprites, blown up: the
+// face a player talks to should look like the person they walked up to, not
+// like a smooth vector illustration standing next to a pixel-art town. Cells
+// are emitted as SVG rects so the picture stays crisp at any size and there is
+// still no image asset to ship.
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="30 30 80 120" width="120" height="150" role="img" aria-label="Portrait of ${name.replace(/&/g, "&amp;")}">
-  <rect x="30" y="30" width="80" height="120" rx="6" fill="#2a1d12"/>
-  <circle cx="70" cy="86" r="34" fill="${archetype.cap}" opacity="0.18"/>
-  <circle cx="70" cy="86" r="14" fill="${archetype.skin}"/>
-  <path d="M44 100 Q70 88 96 100 L96 150 L44 150 Z" fill="${archetype.cap}" opacity="0.35"/>
-  <path d="M44 96 Q70 84 96 96 L96 150 L44 150 Z" fill="${archetype.cap}" opacity="0.5"/>
-  ${cap}
-  ${beard}
-  ${glasses}
-  ${patch}
-  ${bandana}
-  <circle cx="62" cy="74" r="2.4" fill="#2a2320"/>
-  <circle cx="78" cy="74" r="2.4" fill="#2a2320"/>
-  <path d="M64 82 Q70 86 76 82" stroke="#2a2320" stroke-width="2" fill="none" stroke-linecap="round"/>
+const CELL = 5;
+const GRID_COLS = 26;
+const GRID_ROWS = 30;
+const OUTLINE = "#1b1109";
+
+interface Cell {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  fill: string;
+}
+
+function shade(hex: string, amount: number): string {
+  const clean = hex.replace("#", "");
+  const parse = (offset: number): number => parseInt(clean.slice(offset, offset + 2), 16);
+  const channel = (value: number): string => {
+    const next = amount < 0 ? value * (1 + amount) : value + (255 - value) * amount;
+    return Math.round(next).toString(16).padStart(2, "0");
+  };
+  return `#${channel(parse(0))}${channel(parse(2))}${channel(parse(4))}`;
+}
+
+/** Fill a rectangle of cells, clipped to the grid so a bad number cannot paint
+ * outside the portrait frame. */
+function block(
+  cells: Cell[],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  fill: string,
+): void {
+  const x0 = Math.max(0, x);
+  const y0 = Math.max(0, y);
+  const x1 = Math.min(GRID_COLS, x + w);
+  const y1 = Math.min(GRID_ROWS, y + h);
+  if (x1 <= x0 || y1 <= y0) {
+    return;
+  }
+  cells.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, fill });
+}
+
+const MARKER_GLYPHS: Record<string, string> = {
+  crown: "♛",
+  staff: "𝍏",
+  goggles: "⌐",
+  lamp: "◉",
+  wrap: "◠",
+  quill: "✎",
+  fluff: "☁",
+  earmuffs: "☁",
+  coin: "●",
+  star: "★",
+  badge: "▣",
+  stripe: "▲",
+  band: "▭",
+  lens: "•",
+};
+
+function bustCells(archetype: Archetype): Cell[] {
+  const cells: Cell[] = [];
+  const skin = archetype.skin;
+  const skinShade = shade(skin, -0.2);
+  const cap = archetype.cap;
+  const capShade = shade(cap, -0.32);
+  const cloth = shade(cap, 0.1);
+
+  // Frame and a dithered backdrop, so the bust sits inside a window.
+  block(cells, 0, 0, GRID_COLS, GRID_ROWS, "#171019");
+  block(cells, 1, 1, GRID_COLS - 2, GRID_ROWS - 2, "#241a1b");
+  for (let y = 3; y < GRID_ROWS - 3; y += 2) {
+    for (let x = 3 + ((y / 2) % 2) * 2; x < GRID_COLS - 3; x += 4) {
+      block(cells, x, y, 1, 1, "#2c2020");
+    }
+  }
+
+  // Shoulders, chest and collar.
+  block(cells, 3, 22, 20, 9, OUTLINE);
+  block(cells, 4, 23, 18, 8, cloth);
+  block(cells, 4, 23, 18, 2, shade(cap, 0.24));
+  block(cells, 12, 23, 2, 8, capShade);
+  block(cells, 8, 23, 2, 5, shade(cloth, 0.34));
+  block(cells, 16, 23, 2, 5, shade(cloth, 0.34));
+
+  // Neck.
+  block(cells, 11, 19, 4, 4, OUTLINE);
+  block(cells, 12, 19, 2, 4, skinShade);
+
+  // Head.
+  block(cells, 7, 5, 12, 15, OUTLINE);
+  block(cells, 8, 6, 10, 13, skin);
+  // A lit temple and a shaded jaw: two tones, no full-height stripes.
+  block(cells, 9, 7, 3, 2, shade(skin, 0.14));
+  block(cells, 8, 15, 10, 4, shade(skin, -0.06));
+  block(cells, 15, 8, 3, 10, skinShade);
+
+  // Hair under the cap.
+  block(cells, 8, 5, 10, 2, shade(cap, -0.6));
+
+  // Brows, eyes, nose, mouth.
+  block(cells, 9, 10, 3, 1, OUTLINE);
+  block(cells, 14, 10, 3, 1, OUTLINE);
+  block(cells, 9, 11, 2, 2, OUTLINE);
+  block(cells, 14, 11, 2, 2, OUTLINE);
+  block(cells, 9, 11, 1, 1, "#f4f1e8");
+  block(cells, 14, 11, 1, 1, "#f4f1e8");
+  block(cells, 12, 12, 1, 2, skinShade);
+  block(cells, 12, 15, 1, 1, skinShade);
+  block(cells, 11, 17, 4, 1, "#8a5340");
+
+  // The cap: crown, band, then a brim a cell wider than the head.
+  block(cells, 7, 1, 12, 5, OUTLINE);
+  block(cells, 8, 2, 10, 3, cap);
+  block(cells, 8, 2, 10, 1, shade(cap, 0.26));
+  block(cells, 8, 5, 10, 1, capShade);
+  block(cells, 5, 6, 16, 1, OUTLINE);
+  block(cells, 5, 6, 16, 1, shade(cap, -0.1));
+
+  if (archetype.beard) {
+    const hair = archetype.beard === "grey" ? "#ded7c6" : "#7a4a1e";
+    block(cells, 8, 15, 10, 2, hair);
+    block(cells, 9, 17, 8, 4, hair);
+    block(cells, 11, 17, 4, 1, "#8a5340");
+    block(cells, 12, 21, 2, 1, hair);
+    block(cells, 9, 15, 8, 1, shade(hair, -0.3));
+  }
+  if (archetype.bandana) {
+    block(cells, 9, 20, 8, 3, archetype.bandana);
+    block(cells, 9, 20, 8, 1, shade(archetype.bandana, 0.22));
+  }
+  if (archetype.glasses) {
+    block(cells, 8, 10, 5, 4, OUTLINE);
+    block(cells, 13, 10, 5, 4, OUTLINE);
+    block(cells, 9, 11, 3, 2, archetype.markerColor);
+    block(cells, 14, 11, 3, 2, archetype.markerColor);
+    block(cells, 12, 12, 2, 1, OUTLINE);
+  }
+  if (archetype.patch) {
+    block(cells, 13, 9, 5, 5, "#2a2a33");
+    block(cells, 13, 9, 5, 1, "#3c3c48");
+    block(cells, 9, 9, 1, 10, "#3c3c48");
+  }
+  return cells;
+}
+
+function bustFor(archetype: Archetype, name: string): string {
+  const cells = bustCells(archetype);
+  const rects = cells
+    .map(
+      (cell) =>
+        `<rect x="${cell.x * CELL}" y="${cell.y * CELL}" width="${cell.w * CELL}" height="${cell.h * CELL}" fill="${cell.fill}"/>`,
+    )
+    .join("");
+  const glyph = MARKER_GLYPHS[archetype.marker] ?? "•";
+  // The trade mark sits in the corner of the frame, like a stamp on a card,
+  // instead of over the host's mouth.
+  const marker = `<text x="${GRID_COLS * CELL - 8}" y="${GRID_ROWS * CELL - 8}" font-size="13" text-anchor="end" fill="${archetype.markerColor}" font-family="monospace" font-weight="bold">${glyph}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${GRID_COLS * CELL} ${GRID_ROWS * CELL}" width="${GRID_COLS * CELL}" height="${GRID_ROWS * CELL}" shape-rendering="crispEdges" role="img" aria-label="Portrait of ${name.replace(/&/g, "&amp;")}">
+  ${rects}
   ${marker}
 </svg>`;
 }

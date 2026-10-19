@@ -36,6 +36,27 @@
         --font-pixel: "Press Start 2P", monospace;
         --font-screen: "VT323", monospace;
         --overlay-bg: rgba(26, 14, 8, 0.82);
+        /* Classic RPG window: a dark ink panel inside a hard dark edge and a
+           cream keyline. Squared corners on purpose — every rounded card in
+           the UI is what made the game look like a web dashboard with sprites
+           on it. */
+        --win-fill-top: rgba(30, 36, 52, 0.96);
+        --win-fill-bottom: rgba(12, 15, 24, 0.97);
+        --win-ink: #0a0d14;
+        --win-rule: #d9c9a0;
+        --win-text: #f4ebd2;
+      }
+
+      /* One rule, reused by every panel that should read as game furniture. */
+      .rpg-window {
+        background: linear-gradient(180deg, var(--win-fill-top), var(--win-fill-bottom));
+        border: 3px solid var(--win-ink);
+        box-shadow:
+          inset 0 0 0 2px var(--win-rule),
+          inset 0 0 0 4px var(--win-ink),
+          0 3px 0 rgba(0, 0, 0, 0.35);
+        border-radius: 0;
+        color: var(--win-text);
       }
 
       * { box-sizing: border-box; }
@@ -127,6 +148,13 @@
         pointer-events: none;
       }
       .top-bar > * { pointer-events: auto; }
+
+      /* The Pocket Ranch hub carries its own bar under the top bar; the chip
+         column and the mode pills start below it instead of underneath it. */
+      body.hub-open .viewport-overlay--stats,
+      body.hub-open .viewport-overlay--status {
+        top: 6.3rem;
+      }
 
       .top-bar__tabs {
         display: flex;
@@ -776,35 +804,50 @@
         left: 0.6rem;
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
-        gap: 0.3rem;
-        max-width: 300px;
+        align-items: stretch;
+        gap: 0.18rem;
+        width: 244px;
+        max-width: calc(100vw - 1.2rem);
+        padding: 0.55rem 0.6rem;
+        background: linear-gradient(180deg, var(--win-fill-top), var(--win-fill-bottom));
+        border: 3px solid var(--win-ink);
+        box-shadow:
+          inset 0 0 0 2px var(--win-rule),
+          inset 0 0 0 4px var(--win-ink),
+          0 3px 0 rgba(0, 0, 0, 0.35);
+        border-radius: 0;
       }
       .stats-chip {
         display: flex;
         align-items: baseline;
+        justify-content: space-between;
+        min-width: 0;
         gap: 0.45rem;
-        background: var(--overlay-bg);
-        border: 1px solid rgba(255, 244, 209, 0.18);
-        border-radius: 6px;
-        padding: 0.3rem 0.55rem;
+        background: none;
+        border: 0;
+        border-radius: 0;
+        padding: 0.12rem 0;
         font-family: var(--font-pixel);
+        text-align: left;
+        width: 100%;
       }
       .stats-chip__label {
-        font-size: 0.48rem;
-        color: var(--paper-dark);
+        font-size: 0.44rem;
+        color: #b9ad92;
         letter-spacing: 0.08em;
+        flex: 0 0 auto;
       }
       .stats-quest {
-        background: rgba(10, 8, 5, 0.82);
-        border: 1px solid #ffd166;
-        border-radius: 6px;
-        padding: 0.4rem 0.55rem;
-        max-width: 300px;
+        margin-top: 0.3rem;
+        padding: 0.35rem 0 0;
+        border-top: 2px solid rgba(255, 209, 102, 0.35);
+        background: none;
+        border-radius: 0;
+        max-width: none;
       }
       .stats-quest__line {
         font-family: var(--font-pixel);
-        font-size: 0.5rem;
+        font-size: 0.48rem;
         line-height: 1.6;
         color: #ffd166;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
@@ -834,15 +877,22 @@
       .stats-quest__hint {
         font-family: var(--font-screen);
         font-size: 0.78rem;
+        overflow-wrap: anywhere;
         color: #e8dcc0;
         margin-top: 0.2rem;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
       }
       .stats-chip__value {
-        font-size: 0.58rem;
+        font-size: 0.5rem;
         color: var(--gold);
         white-space: nowrap;
+        text-align: right;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
+      .stats-chip--button { cursor: pointer; }
+      .stats-chip--button:hover .stats-chip__value { color: #fff4d1; }
 
       /* Top-right: GEN pill + leader */
       .viewport-overlay--status {
@@ -938,21 +988,24 @@
       .dpad { display: grid; justify-items: center; gap: 0.25rem; }
       .dpad-row { display: flex; gap: 0.25rem; }
       .dpad-btn {
-        width: 38px; height: 38px;
-        font-size: 1rem;
-        background: var(--overlay-bg);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-        border: 2px solid rgba(255, 244, 209, 0.3);
-        color: #fff4d1;
+        width: 40px; height: 40px;
+        font-size: 0.9rem;
+        background: linear-gradient(180deg, #2a2016, #16100a);
+        border: 2px solid var(--win-ink);
+        box-shadow: inset 0 0 0 2px rgba(217, 201, 160, 0.55), 0 3px 0 rgba(0, 0, 0, 0.4);
+        color: #e8dcc0;
         cursor: pointer;
-        border-radius: 6px;
+        border-radius: 3px;
         display: flex; align-items: center; justify-content: center;
       }
-      .dpad-btn:active { transform: translateY(1px); }
+      .dpad-btn:active {
+        transform: translateY(2px);
+        box-shadow: inset 0 0 0 2px rgba(217, 201, 160, 0.4), 0 1px 0 rgba(0, 0, 0, 0.4);
+      }
       .dpad-interact {
-        background: rgba(255, 209, 102, 0.25);
-        border-color: var(--gold);
+        background: linear-gradient(180deg, #4a3110, #2a1a06);
+        border-color: var(--win-ink);
+        box-shadow: inset 0 0 0 2px var(--gold), 0 3px 0 rgba(0, 0, 0, 0.4);
         color: var(--gold);
       }
 
@@ -978,42 +1031,58 @@
       .overworld-dialogue {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
-        align-items: center;
-        background: var(--overlay-bg);
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        border: 2px solid rgba(255, 244, 209, 0.3);
-        border-radius: 8px;
-        padding: 0.6rem 0.8rem;
-        display: grid;
-        gap: 0.35rem;
+        align-items: start;
+        background: linear-gradient(180deg, var(--win-fill-top), var(--win-fill-bottom));
+        border: 3px solid var(--win-ink);
+        box-shadow:
+          inset 0 0 0 2px var(--win-rule),
+          inset 0 0 0 4px var(--win-ink),
+          0 4px 0 rgba(0, 0, 0, 0.4);
+        border-radius: 0;
+        padding: 0.75rem 0.85rem;
+        gap: 0.5rem 0.6rem;
       }
       .overworld-dialogue[hidden] { display: none; }
       .overworld-dialogue__name {
+        grid-column: 1 / -1;
+        justify-self: start;
         font-family: var(--font-pixel);
-        font-size: 0.6rem;
-        color: var(--gold);
+        font-size: 0.55rem;
+        color: #1a1206;
+        background: var(--gold);
+        padding: 0.28rem 0.5rem;
+        letter-spacing: 0.04em;
+        box-shadow: 0 0 0 2px var(--win-ink);
+        margin: -0.2rem 0 0.1rem -0.15rem;
       }
       .overworld-dialogue__text {
-        font-size: 0.85rem;
-        color: #fff4d1;
-        line-height: 1.4;
+        font-family: var(--font-screen);
+        font-size: 1.05rem;
+        color: var(--win-text);
+        line-height: 1.32;
       }
       .overworld-dialogue__options {
         display: grid;
         gap: 0.25rem;
       }
       .overworld-dialogue__options button {
-        font-size: 0.8rem;
-        background: rgba(255, 244, 209, 0.1);
-        border: 2px solid rgba(255, 244, 209, 0.2);
-        color: #fff4d1;
-        padding: 0.35rem 0.6rem;
+        font-family: var(--font-screen);
+        font-size: 1rem;
+        background: none;
+        border: 0;
+        border-left: 3px solid transparent;
+        color: #cfc4a8;
+        padding: 0.12rem 0.5rem;
         text-align: left;
         cursor: pointer;
-        border-radius: 4px;
+        border-radius: 0;
       }
-      .overworld-dialogue__options button:hover { background: rgba(255, 244, 209, 0.2); }
+      .overworld-dialogue__options button::before { content: "› "; color: rgba(255,209,102,0.55); }
+      .overworld-dialogue__options button:hover {
+        background: rgba(255, 244, 209, 0.08);
+        border-left-color: var(--gold);
+        color: #fff4d1;
+      }
       .overworld-dialogue__hint {
         font-size: 0.6rem;
         color: rgba(255, 244, 209, 0.5);
@@ -1029,11 +1098,12 @@
         transform: translateX(-50%);
         font-family: var(--font-pixel);
         font-size: 0.5rem;
-        color: rgba(255, 244, 209, 0.92);
-        background: var(--overlay-bg);
-        border: 1px solid rgba(255, 244, 209, 0.16);
-        border-radius: 6px;
-        padding: 0.3rem 0.6rem;
+        color: var(--win-text);
+        background: linear-gradient(180deg, var(--win-fill-top), var(--win-fill-bottom));
+        border: 2px solid var(--win-ink);
+        box-shadow: inset 0 0 0 1px var(--win-rule);
+        border-radius: 0;
+        padding: 0.4rem 0.7rem;
         text-shadow: none;
         white-space: nowrap;
         max-width: 90%;
@@ -1090,41 +1160,45 @@
         flex-direction: column;
         justify-content: center;
         gap: 1rem;
-        background: linear-gradient(180deg, #2a1f13 0%, #170f08 100%);
-        border: 2px solid var(--gold);
-        border-radius: 14px;
-        box-shadow: 0 8px 0 rgba(0, 0, 0, 0.45), inset 0 0 40px rgba(0, 0, 0, 0.45);
+        background: linear-gradient(180deg, var(--win-fill-top), var(--win-fill-bottom));
+        border: 3px solid var(--win-ink);
+        border-radius: 0;
+        box-shadow:
+          inset 0 0 0 2px var(--win-rule),
+          inset 0 0 0 4px var(--win-ink),
+          0 8px 0 rgba(0, 0, 0, 0.45);
+        color: var(--win-text);
       }
       .intro-card__title {
         font-family: var(--font-pixel);
         font-size: 0.8rem;
         letter-spacing: 0.22em;
-        color: #ffd166;
-        text-shadow: 0 2px 3px rgba(0, 0, 0, 0.7);
+        color: var(--gold);
+        text-shadow: 2px 2px 0 #6b4a12;
       }
       .intro-card__text {
-        font-size: 1.12rem;
-        line-height: 1.65;
-        color: #f8f1e0;
-        font-weight: 600;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+        font-family: var(--font-screen);
+        font-size: 1.35rem;
+        line-height: 1.4;
+        color: var(--win-text);
         min-height: 3.4rem;
       }
-      .intro-card__label { font-family: var(--font-pixel); font-size: 0.55rem; color: var(--text-soft); letter-spacing: 0.1em; }
+      .intro-card__label { font-family: var(--font-pixel); font-size: 0.5rem; color: #b9ad92; letter-spacing: 0.1em; }
       .intro-card__row { display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
       .intro-card__name { display: flex; flex-direction: column; align-items: center; gap: 0.8rem; }
       .intro-card__go, .barn-modal__close {
         font-family: var(--font-pixel);
         font-size: 0.55rem;
-        color: #fff;
-        background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%);
-        border: 2px solid #12370f;
-        border-radius: 6px;
-        padding: 0.5rem 1.2rem;
+        color: #1a1206;
+        background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+        border: 2px solid var(--win-ink);
+        border-radius: 0;
+        padding: 0.55rem 1.2rem;
         cursor: pointer;
-        box-shadow: 0 3px 0 #12370f;
+        box-shadow: inset 0 0 0 1px rgba(255, 244, 209, 0.5), 0 3px 0 var(--win-ink);
       }
-      .intro-card__prompt { font-family: var(--font-pixel); font-size: 0.55rem; color: #cbb894; letter-spacing: 0.18em; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+      .intro-card__go:hover, .barn-modal__close:hover { filter: brightness(1.08); }
+      .intro-card__prompt { font-family: var(--font-pixel); font-size: 0.5rem; color: #9a8f77; letter-spacing: 0.18em; }
       .pocket-ranch {
         position: fixed;
         inset: 0;
@@ -1152,10 +1226,13 @@
            `tests/e2e` asserts it stays positive. */
         gap: 0.4rem;
         padding: 0.35rem 0.5rem;
-        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
-        border: 2px solid var(--gold);
-        border-radius: 12px;
-        box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+        background: linear-gradient(180deg, var(--win-fill-top), var(--win-fill-bottom));
+        border: 3px solid var(--win-ink);
+        border-radius: 0;
+        box-shadow:
+          inset 0 0 0 2px var(--win-rule),
+          inset 0 0 0 4px var(--win-ink),
+          0 4px 0 rgba(0, 0, 0, 0.4);
         pointer-events: auto;
         /* Above the barn scene's backdrop so Close stays clickable. */
         z-index: 2;
@@ -1164,7 +1241,7 @@
         font-family: var(--font-pixel);
         font-size: 0.55rem;
         letter-spacing: 0.14em;
-        color: var(--gold-deep, var(--gold));
+        color: var(--gold);
         margin-right: 0.5rem;
         white-space: nowrap;
       }
@@ -1172,31 +1249,32 @@
         white-space: nowrap;
         font-family: var(--font-pixel);
         font-size: 0.5rem;
-        color: var(--text);
-        background: rgba(0, 0, 0, 0.25);
-        border: 2px solid rgba(138, 120, 90, 0.5);
-        border-radius: 8px;
-        padding: 0.5rem 0.8rem;
+        color: #cfc4a8;
+        background: none;
+        border: 2px solid transparent;
+        border-radius: 0;
+        padding: 0.5rem 0.75rem;
         cursor: pointer;
       }
+      .barn-pill:hover { color: #fff4d1; background: rgba(255, 244, 209, 0.08); }
       .barn-pill[aria-pressed="true"] {
-        color: #1a1108;
-        background: linear-gradient(180deg, #ffd166 0%, #d9a323 100%);
-        border-color: #ffd166;
-        box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.25);
+        color: #1a1206;
+        background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+        border-color: var(--win-ink);
+        box-shadow: inset 0 0 0 1px rgba(255, 244, 209, 0.55);
       }
       .barn-hub__close {
         margin-left: auto;
         white-space: nowrap;
         font-family: var(--font-pixel);
         font-size: 0.5rem;
-        color: #fff;
-        background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%);
-        border: 2px solid #12370f;
-        border-radius: 8px;
+        color: #1a1206;
+        background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+        border: 2px solid var(--win-ink);
+        border-radius: 0;
         padding: 0.5rem 0.9rem;
         cursor: pointer;
-        box-shadow: 0 3px 0 #12370f;
+        box-shadow: inset 0 0 0 1px rgba(255, 244, 209, 0.55);
       }
       .pocket-ranch__scene--heritage {
         background: radial-gradient(circle at 50% 40%, rgba(18, 26, 16, 0.94), rgba(4, 7, 4, 0.98) 78%);
@@ -1329,68 +1407,135 @@
         background: radial-gradient(circle at 50% 42%, rgba(6, 12, 22, 0.18) 0%, rgba(4, 8, 16, 0.66) 72%, rgba(3, 6, 12, 0.86) 100%);
       }
       .menu-stage {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 1.1rem;
-        max-width: 560px;
+        gap: 0.9rem;
+        max-width: 520px;
         width: 90%;
-        padding: 2rem 2.5rem;
-        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-dark) 100%);
-        border: 4px solid var(--earth);
-        border-radius: 14px;
-        box-shadow: 0 10px 0 rgba(26, 14, 8, 0.45), 0 0 60px rgba(255, 209, 102, 0.25);
+        padding: 2rem 2.4rem 1.4rem;
+        background: linear-gradient(180deg, var(--win-fill-top), var(--win-fill-bottom));
+        border: 3px solid var(--win-ink);
+        box-shadow:
+          inset 0 0 0 2px var(--win-rule),
+          inset 0 0 0 4px var(--win-ink),
+          0 8px 0 rgba(0, 0, 0, 0.45),
+          0 0 70px rgba(255, 209, 102, 0.18);
+        border-radius: 0;
+        color: var(--win-text);
       }
+      /* Corner studs: the small hardware detail every title screen of the era
+         had, and the thing that makes a panel read as furniture. */
+      .menu-stage::before,
+      .menu-stage::after {
+        content: "";
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        background: var(--win-rule);
+        box-shadow: 0 0 0 2px var(--win-ink);
+        top: 10px;
+      }
+      .menu-stage::before { left: 10px; }
+      .menu-stage::after { right: 10px; }
       .menu-kicker {
         font-family: var(--font-pixel);
-        font-size: 0.6rem;
-        color: var(--gold-ink);
-        letter-spacing: 0.12em;
-        margin-bottom: 0.15rem;
+        font-size: 0.55rem;
+        color: #b9ad92;
+        letter-spacing: 0.22em;
+        margin-bottom: 0.1rem;
+      }
+      .menu-title {
+        font-family: var(--font-pixel);
+        font-size: 2.6rem;
+        color: var(--gold);
+        text-shadow:
+          3px 3px 0 #6b4a12,
+          6px 6px 0 rgba(0, 0, 0, 0.55);
+        letter-spacing: 0.06em;
+        line-height: 1;
+        margin: 0.1rem 0 0.2rem;
       }
       .menu-roadline {
-        width: 70%;
-        border-top: 3px dashed var(--earth-light);
-        margin: 0.2rem 0 0.35rem;
+        width: 78%;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--win-rule), transparent);
+        border: 0;
+        margin: 0.1rem 0 0.3rem;
+        position: relative;
+      }
+      .menu-roadline::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: -2px;
+        width: 6px;
+        height: 6px;
+        transform: translateX(-50%) rotate(45deg);
+        background: var(--gold);
+      }
+      .menu-tagline {
+        font-family: var(--font-screen);
+        font-size: 1.1rem;
+        color: #cfc4a8;
+        margin: 0;
       }
       .menu-stage .menu-tagline {
-        margin-top: 0.25rem;
-        font-size: 0.85rem;
+        font-size: 1rem;
       }
       .menu-actions {
         display: flex;
         flex-direction: column;
-        gap: 0.75rem;
+        gap: 0.15rem;
         width: 100%;
-        margin-top: 0.35rem;
+        margin-top: 0.4rem;
       }
       .menu-btn {
+        position: relative;
         font-family: var(--font-pixel);
-        font-size: 0.8rem;
+        font-size: 0.72rem;
         letter-spacing: 0.06em;
-        color: var(--text);
-        background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
-        border: 3px solid var(--earth);
-        border-radius: 8px;
-        padding: 0.7rem 1rem;
+        color: #cfc4a8;
+        background: none;
+        border: 0;
+        border-left: 4px solid transparent;
+        border-radius: 0;
+        padding: 0.6rem 0.8rem 0.6rem 2.2rem;
+        text-align: left;
         line-height: 1.1;
         cursor: pointer;
-        box-shadow: 0 3px 0 var(--earth);
-        transition: transform 0.06s, box-shadow 0.06s;
+        box-shadow: none;
+        transition: color 0.08s, background 0.08s;
       }
-      .menu-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 0 var(--earth);
+      .menu-btn::before {
+        content: "▶";
+        position: absolute;
+        left: 0.7rem;
+        opacity: 0;
+        color: var(--gold);
+        transition: opacity 0.08s, transform 0.08s;
+        transform: translateX(-4px);
       }
-      .menu-btn:active {
-        transform: translateY(2px);
-        box-shadow: 0 1px 0 var(--earth);
+      .menu-btn:hover,
+      .menu-btn:focus-visible {
+        color: #fff4d1;
+        background: rgba(255, 209, 102, 0.1);
+        border-left-color: var(--gold);
+        outline: none;
       }
+      .menu-btn:hover::before,
+      .menu-btn:focus-visible::before {
+        opacity: 1;
+        transform: translateX(0);
+      }
+      .menu-btn:active { transform: translateY(1px); }
       .menu-btn--primary {
-        color: #fff;
-        background: linear-gradient(180deg, #4f9e55 0%, #1d5e24 100%);
-        text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.4);
+        color: var(--gold);
+        text-shadow: none;
       }
+      .menu-btn--primary:hover { color: #fff4d1; }
+      .menu-btn--primary::before { opacity: 1; transform: translateX(0); }
       .menu-hall {
         width: 100%;
         text-align: left;
@@ -1461,8 +1606,9 @@
       .menu-stage .menu-foot {
         font-family: var(--font-screen);
         font-size: 0.95rem;
-        color: #4f3b24;
+        color: #9a8f77;
         opacity: 1;
+        margin-top: 0.5rem;
       }
       
       /* Bottom-right: herd trend chart (evolution mode) */
@@ -2233,7 +2379,7 @@
               <p class="menu-tagline">Ride the evolving road — the meadow breeds its own champions.</p>
             </div>
             <div class="menu-actions">
-              <button class="menu-btn menu-btn--primary" type="button" data-menu-action="new-game">▶ NEW GAME</button>
+              <button class="menu-btn menu-btn--primary" type="button" data-menu-action="new-game">NEW GAME</button>
               <button class="menu-btn" type="button" data-menu-action="continue" data-menu-continue hidden>CONTINUE</button>
             </div>
             <div class="menu-foot">s / l save &amp; load &nbsp;·&nbsp; the road is yours, new hand</div>
