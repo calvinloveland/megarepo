@@ -120,11 +120,25 @@ id_ed25519
 id_ed25519.*
 *.secret
 secrets.*
+# Named credential dump files (a key pasted alone into a text file). These
+# carry no key=value context, so gitleaks' generic-api-key rule cannot infer
+# them — see the opencode-api-key rule in .gitleaks.toml for the matching
+# content check. Root-level `opencodekey.txt` leaked in 2026-10.
+*key*.txt
+*Key*.txt
+*keys*.txt
+token*.txt
+credentials*.txt
+opencodekey.txt
 
 # age private identities (the public recipient lives in .k33p/age-recipient.txt)
 .k33p/*identity*
 .k33p/age-identity.txt
 
 # Scratch/temp report files the gitleaks hook may write
+
 .gitleaks-report.*
 .k33p/.lift-tmp.*
+# Local credential backup copies written by maintenance scripts
+*.bak.*
+auth.json.bak.*

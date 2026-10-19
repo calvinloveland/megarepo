@@ -52,3 +52,26 @@ regex = [
     # credential.
     '''curl http://127\.0\.0\.1:3002/.*admin:secret''',
 ]
+
+# ── Repo-local rules ───────────────────────────────────────────────────────
+# Patterns the vendored upstream config does not cover.
+#
+# Why these exist: a live OpenCode Go key (`oc_sk_…`) was pasted into
+# `opencodekey.txt` at the repo root. Upstream gitleaks has no rule for that
+# prefix, and `generic-api-key` requires a `key = value`-ish assignment context
+# that a single bare token on its own line does not provide — so the pre-commit
+# hook found nothing and the k33p auto-commit daemon pushed the key to the
+# public repo. The key had to be rotated. Both the prefix and the
+# "bare token in a credential-shaped file" shape are covered below.
+[[rules]]
+id = "opencode-api-key"
+description = "Detected an OpenCode / OpenCode Go API key (`oc_sk_` prefix)."
+regex = '''\boc_sk_[A-Za-z0-9_-]{20,}\b'''
+keywords = ["oc_sk_"]
+
+[[rules]]
+id = "bare-token-in-credential-file"
+description = "Detected a bare API token sitting alone in a credential-shaped file (no key=value context)."
+regex = '''(?i)^[\s"']*(?:oc_sk_|sk-or-v1-|sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[\w-]{35})[A-Za-z0-9_.-]*[\s"']*$'''
+path = '''(?i)(^|/)[^/]*(?:api[_-]?key|apikey|opencodekey|credentials?|secrets?|token|auth)[^/]*\.(txt|log|env|json|ya?ml|csv)$'''
+keywords = ["oc_sk_", "sk-", "ghp_", "gho_", "xox", "aiza"]
