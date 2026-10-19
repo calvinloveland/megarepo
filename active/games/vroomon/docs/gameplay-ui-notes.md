@@ -68,6 +68,29 @@ how loudly they shouted:
    distance gets a three-dot speech chip, and the dialogue window carries the
    name (which is where a player looks for it anyway).
 
+### Second pass, after an outside review (2026-10-19)
+
+A nested pi instance with a vision model was handed the screenshots and asked
+to be blunt. It was right about three things, and the fixes are in the same
+commit series:
+
+- **The map was a bright rectangle laid on a darker copy of itself.** The tile
+  layer now bakes a 14-tile apron of clamped tiles, so a treeline keeps being
+  trees and a road keeps being a road past the edge; props on the edge are
+  looked *past* when the apron is built (extending a doormat paved the forest
+  with stone). Interiors get one tile of half-lit wall as the building's
+  thickness and then darkness, with the lamp glow clipped to the room.
+- **People hovered over detached shadow-discs.** The shadow is a soft blob
+  anchored at the feet now, narrower than the boots.
+- **Props were flat plates.** Fence, counter and bed are drawn in their own
+  pass at 1.25 tiles tall, anchored to the tile floor, so they read as
+  standing objects; fence runs get end posts.
+
+Two more things came out of the same review: grounds meet with a stippled
+fringe instead of a tile edge (a path used to have the edges of a bucket
+fill), and the boulder — one shape, one curl of "crack", repeated eight times
+— is three shapes chosen per tile, seated in whatever ground surrounds it.
+
 ### Verified
 
 `npm test` 561/561, `npm run test:e2e` 59/59 unchanged — the art is behind the
