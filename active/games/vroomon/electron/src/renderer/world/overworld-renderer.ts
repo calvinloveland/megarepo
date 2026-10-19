@@ -215,9 +215,20 @@ function bakedTileLayer(
       const px = gx(x);
       const py = gx(y);
       if (tile === "path") {
-        const h = tileAt(x - 1, y) === "path" && tileAt(x + 1, y) === "path";
-        const v = tileAt(x, y - 1) === "path" && tileAt(x, y + 1) === "path";
-        drawPathWear(lctx, px, py, TILE_SIZE, x, y, h ? "x" : v ? "y" : "corner");
+        // Wear belongs to a track, not to a square. A tile that is path on
+        // every side is in the middle of a plaza, and a band across it reads
+        // as decking — which is exactly what it looked like.
+        const west = tileAt(x - 1, y) === "path";
+        const east = tileAt(x + 1, y) === "path";
+        const north = tileAt(x, y - 1) === "path";
+        const south = tileAt(x, y + 1) === "path";
+        const corridorX = west && east && !(north && south);
+        const corridorY = north && south && !(west && east);
+        if (corridorX) {
+          drawPathWear(lctx, px, py, TILE_SIZE, x, y, "x");
+        } else if (corridorY) {
+          drawPathWear(lctx, px, py, TILE_SIZE, x, y, "y");
+        }
       }
       if (!SOLID_FACE_TILES.has(tile)) {
         if (TALL_PROP_TILES.has(tile)) {

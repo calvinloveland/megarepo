@@ -703,20 +703,20 @@ export function drawPathWear(
   along: "x" | "y" | "corner",
 ): void {
   const p = artPixel(size);
-  ctx.fillStyle = "rgba(120, 92, 52, 0.3)";
+  ctx.fillStyle = "rgba(120, 92, 52, 0.2)";
   if (along === "x") {
     ctx.fillRect(px, py + 6 * p, size, 4 * p);
-    ctx.fillStyle = "rgba(120, 92, 52, 0.18)";
+    ctx.fillStyle = "rgba(120, 92, 52, 0.12)";
     ctx.fillRect(px, py + 5 * p, size, p);
     ctx.fillRect(px, py + 10 * p, size, p);
   } else if (along === "y") {
     ctx.fillRect(px + 6 * p, py, 4 * p, size);
-    ctx.fillStyle = "rgba(120, 92, 52, 0.18)";
+    ctx.fillStyle = "rgba(120, 92, 52, 0.12)";
     ctx.fillRect(px + 5 * p, py, p, size);
     ctx.fillRect(px + 10 * p, py, p, size);
   } else {
     ctx.fillRect(px + 4 * p, py + 4 * p, 8 * p, 8 * p);
-    ctx.fillStyle = "rgba(120, 92, 52, 0.18)";
+    ctx.fillStyle = "rgba(120, 92, 52, 0.12)";
     ctx.fillRect(px + 3 * p, py + 3 * p, 10 * p, 10 * p);
   }
   // A stone or two turned up by wheels.
