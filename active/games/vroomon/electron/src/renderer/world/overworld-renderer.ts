@@ -1,5 +1,6 @@
 import { getMap, isTilePassable } from "./maps.js";
 import {
+  drawBuildingEaves,
   drawGroundScatter,
   drawNpc,
   drawPlayer,
@@ -107,10 +108,18 @@ function bakedTileLayer(
         drawWallShadow(lctx, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, shadowDepth);
         continue;
       }
-      // A treeline has no coping: the light edge on top of a canopy reads as a
-      // UI line, not as leaves.
-      if (tile !== "tree" && !isWallAt(x, y - 1)) {
-        drawWallTrim(lctx, tile, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE);
+      // A treeline has no coping (a light edge on a canopy reads as a UI line)
+      // and a house gets eaves instead, so a row of building tiles reads as a
+      // front with a roof rather than as a row of crates. The test is against
+      // the SAME surface: a tree above a house is not the house's roof line,
+      // which is what a plain "is anything above" check got wrong.
+      const sameAbove = map.tiles[y - 1]?.[x] === tile;
+      if (!sameAbove) {
+        if (tile === "building") {
+          drawBuildingEaves(lctx, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE);
+        } else if (tile !== "tree") {
+          drawWallTrim(lctx, tile, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE);
+        }
       }
     }
   }

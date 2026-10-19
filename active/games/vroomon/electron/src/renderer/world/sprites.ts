@@ -136,7 +136,7 @@ function drawGroundBase(
     drawPebbles(ctx, colors, px, py, size, p, tx, ty);
   }
   if (tile === "doormat") {
-    drawMat(ctx, colors, px, py, size, p);
+    drawMat(ctx, px, py, size, p);
   }
 }
 
@@ -369,34 +369,37 @@ function drawBoulder(
 
 function drawMat(
   ctx: PixelCanvas,
-  colors: Ramp,
   px: number,
   py: number,
   size: number,
   p: number,
 ): void {
-  // A threshold mat: two woven bands across the tile with a fringe on the
-  // stepping sides. Drawn low in the tile so it reads as something on the
-  // floor rather than a crate standing in the grass.
-  ctx.fillStyle = colors.dark;
-  ctx.fillRect(px + 2 * p, py + 7 * p, 12 * p, 8 * p);
-  ctx.fillStyle = colors.base;
-  ctx.fillRect(px + 3 * p, py + 8 * p, 10 * p, 6 * p);
-  ctx.fillStyle = colors.light;
-  for (let y = 9; y < 14; y += 3) {
-    ctx.fillRect(px + 3 * p, py + y * p, 10 * p, p);
-  }
-  ctx.fillStyle = colors.detail;
-  for (let x = 4; x < 13; x += 4) {
-    ctx.fillRect(px + x * p, py + 8 * p, p, 6 * p);
-  }
-  // Fringe on the two long sides.
-  ctx.fillStyle = colors.light;
-  for (let x = 3; x < 13; x += 2) {
-    ctx.fillRect(px + x * p, py + 6 * p, p, p);
-    ctx.fillRect(px + x * p, py + 14 * p, p, p);
-  }
-  void size;
+  // A dressed stone threshold: the one thing that reads as "this is the way
+  // through" both at a town gate and inside a house. Every woven-mat version
+  // read as a wooden crate or a patch of brickwork sitting on the path,
+  // because a rectangle of a different colour in the middle of the ground is a
+  // box, whatever texture is on it.
+  const stone = { base: "#8f8b80", light: "#a5a196", dark: "#726f66", seam: "#5c5a52" };
+  ctx.fillStyle = stone.base;
+  ctx.fillRect(px, py, size, size);
+  // Two courses, offset, with a chiselled seam.
+  ctx.fillStyle = stone.light;
+  ctx.fillRect(px, py + p, size, 6 * p);
+  ctx.fillRect(px, py + 8 * p, size, 6 * p);
+  ctx.fillStyle = stone.dark;
+  ctx.fillRect(px, py + 7 * p, size, p);
+  ctx.fillRect(px, py + 14 * p, size, p);
+  ctx.fillStyle = stone.seam;
+  ctx.fillRect(px + (5 * p), py, p, 7 * p);
+  ctx.fillRect(px + (11 * p), py + 8 * p, p, 7 * p);
+  // Wear: a couple of chips, and a shadow at the edges so it sits in the
+  // ground rather than on it.
+  ctx.fillStyle = stone.dark;
+  ctx.fillRect(px + 3 * p, py + 3 * p, 2 * p, p);
+  ctx.fillRect(px + 9 * p, py + 10 * p, p, p);
+  ctx.fillStyle = "rgba(20, 14, 8, 0.22)";
+  ctx.fillRect(px, py, size, p);
+  ctx.fillRect(px, py + size - p, size, p);
 }
 
 /**
@@ -746,6 +749,34 @@ export function drawWallTrim(
   ctx.fillRect(px, py, size, 2 * p);
   ctx.fillStyle = mixHex(colors.top, "#ffffff", 0.18);
   ctx.fillRect(px, py, size, p);
+}
+
+/**
+ * Eaves for the top edge of a house front. A `building` tile is a wall with a
+ * window in it; a row of them with nothing above reads as a stack of crates
+ * until something says "roof". Drawn by the tile layer only where a building
+ * has no building above it, for the same reason as the wall coping.
+ */
+export function drawBuildingEaves(
+  ctx: PixelCanvas,
+  px: number,
+  py: number,
+  size: number,
+): void {
+  const p = artPixel(size);
+  // Shingle course, lit on top, with a shadow falling onto the plaster.
+  ctx.fillStyle = "#2a1a12";
+  ctx.fillRect(px, py, size, 5 * p);
+  ctx.fillStyle = "#8f4030";
+  ctx.fillRect(px, py + p, size, 3 * p);
+  ctx.fillStyle = "#b05a44";
+  ctx.fillRect(px, py + p, size, p);
+  for (let x = 0; x < 16; x += 4) {
+    ctx.fillStyle = "#6d2f24";
+    ctx.fillRect(px + x * p, py + 2 * p, p, 2 * p);
+  }
+  ctx.fillStyle = "rgba(12, 8, 4, 0.35)";
+  ctx.fillRect(px, py + 5 * p, size, p);
 }
 
 /**
