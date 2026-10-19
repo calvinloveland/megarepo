@@ -1,7 +1,9 @@
 {
-  "hash": "dd22524cb637c3c2f6c4aa25112b1c79ae246962d885873c10b9b7b4a870cc01",
+  "hash": "9489daf923538c0fb72b6dcacda084f1ac7208d0ab2910499bdc3c6143000d3e",
   "sources": [
     "src/renderer/world/sprites.ts",
+    "src/renderer/world/sprite-art.ts",
+    "src/renderer/world/pixel.ts",
     "src/renderer/world/sprites-palette.ts",
     "src/renderer/portraits.ts"
   ]

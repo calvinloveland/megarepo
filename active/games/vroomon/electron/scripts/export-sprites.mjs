@@ -85,8 +85,13 @@ try {
   // the art without a re-export is invisible: the game keeps showing the old
   // pictures. `tests/sprite-export.test.ts` compares this stamp with the
   // current sources and tells you to re-export.
+  // Every module the pictures are made from — including the art tables and
+  // the pixel grid itself, which are easy to forget and were: editing
+  // `sprite-art.ts` once left the stamp unchanged.
   const ART_SOURCES = [
     "src/renderer/world/sprites.ts",
+    "src/renderer/world/sprite-art.ts",
+    "src/renderer/world/pixel.ts",
     "src/renderer/world/sprites-palette.ts",
     "src/renderer/portraits.ts",
   ];

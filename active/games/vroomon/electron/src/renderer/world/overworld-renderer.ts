@@ -1,14 +1,19 @@
 import { getMap, isTilePassable } from "./maps.js";
 import {
+  drawGroundScatter,
   drawNpc,
   drawPlayer,
   drawTile,
+  drawWallShadow,
+  drawWallTrim,
+  PERSON_HEIGHT_TILES,
 } from "./sprites.js";
 import {
   PLAYER_MOVE_DURATION_MS,
   TILE_SIZE,
   type Direction,
   type NpcDefinition,
+  type TileKind,
   type Tilemap,
   type WorldState,
 } from "./types.js";
@@ -41,6 +46,10 @@ export interface OverworldRenderFrame {
 }
 
 // ---- Static tile-layer bake ----
+/** Tiles that are drawn as a standing surface: walls, house fronts and the
+ * tree border. They take the coping and cast the contact shadow. */
+const SOLID_FACE_TILES = new Set<TileKind>(["wall", "building", "tree-trunk", "tree"]);
+
 // One offscreen canvas per map (invalidated when the map or the sprite
 // assets change): the tile layer is drawn once, then blitted per frame.
 let bakedLayer: { key: string; canvas: HTMLCanvasElement } | null = null;
@@ -63,6 +72,12 @@ function bakedTileLayer(
   }
   lctx.fillStyle = map.ambientColor;
   lctx.fillRect(0, 0, layer.width, layer.height);
+  const isWallAt = (x: number, y: number): boolean => {
+    if (x < 0 || y < 0 || x >= map.width || y >= map.height) {
+      return false;
+    }
+    return SOLID_FACE_TILES.has(map.tiles[y]?.[x] ?? "grass");
+  };
   for (let y = 0; y < map.height; y += 1) {
     for (let x = 0; x < map.width; x += 1) {
       const tile = map.tiles[y]?.[x] ?? "grass";
@@ -72,7 +87,30 @@ function bakedTileLayer(
       if (tileAsset) {
         lctx.drawImage(tileAsset, px, py, TILE_SIZE, TILE_SIZE);
       } else {
-        drawTile(lctx, tile, px, py, TILE_SIZE, 0);
+        drawTile(lctx, tile, px, py, TILE_SIZE, 0, x, y);
+      }
+      // Per-cell scatter goes on top of whichever layer drew the tile, so a
+      // field of identical PNG grass still varies cell by cell instead of
+      // repeating like wallpaper.
+      drawGroundScatter(lctx, tile, px, py, TILE_SIZE, x, y);
+    }
+  }
+  // Walls are context: a lit coping belongs on the top edge of a run (not on
+  // every tile in it, which reads as shelving), and the ground below a wall
+  // takes its contact shadow. Both are drawn here rather than in the tile art
+  // because a single tile image cannot know what is beside it.
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) {
+      const tile = map.tiles[y]?.[x] ?? "grass";
+      if (!SOLID_FACE_TILES.has(tile)) {
+        const shadowDepth = isWallAt(x, y - 1) ? TILE_SIZE * 0.34 : 0;
+        drawWallShadow(lctx, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, shadowDepth);
+        continue;
+      }
+      // A treeline has no coping: the light edge on top of a canopy reads as a
+      // UI line, not as leaves.
+      if (tile !== "tree" && !isWallAt(x, y - 1)) {
+        drawWallTrim(lctx, tile, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE);
       }
     }
   }
@@ -143,11 +181,10 @@ export function renderOverworld(
   const cameraX = computeCameraX(world, map, width);
   const cameraY = computeCameraY(world, map, height);
 
-  // Outside the map is deep forest, not more meadow: the bright ambient fill
-  // made the letterbox around small maps look like empty paint. An interior
-  // gets a dark room tone instead — a house floating in woodland read wrong.
-  ctx.fillStyle = map.interior ? "#241a13" : "#14200f";
-  ctx.fillRect(0, 0, width, height);
+  // Beyond the map, the world keeps going: the border tile (a wall indoors, a
+  // treeline outdoors) repeats outward under a heavy shade. A flat colour fill
+  // makes a small room look like a painting dropped on a dark table.
+  drawSurround(ctx, map, width, height, frame.spriteAssets);
 
   // The static tile layer is BAKED once per map into an offscreen canvas
   // and blitted in a single draw call per frame. Drawing ~200 tiles every
@@ -338,13 +375,20 @@ export function renderOverworld(
         ) {
           return;
         }
+        drawPersonShadow(ctx, npcPx, npcPy);
         const npcAsset = frame.spriteAssets?.get(`npc:${npc.id}`);
         if (npcAsset) {
-          ctx.drawImage(npcAsset, npcPx, npcPy, TILE_SIZE, TILE_SIZE);
+          drawPersonAsset(ctx, npcAsset, npcPx, npcPy);
         } else {
           drawNpc(ctx, npc.sprite, npcPx, npcPy, TILE_SIZE, npc.facing, tick, npc.id);
         }
-        drawNpcNameTag(ctx, npc.name, npcPx, npcPy, npc.id, tick);
+        // Names belong to the conversation, not to the map: a field of
+        // floating pill labels reads as a debug view. Only the person within
+        // talking distance is announced.
+        if (withinTalkRange(world, spot)) {
+          drawTalkPrompt(ctx, npcPx, npcPy, tick);
+        }
+        void px;
       },
     });
   }
@@ -374,21 +418,38 @@ export function renderOverworld(
         rust: PAL.cap.red,
         green: PAL.cap.green,
       };
-      drawPlayer(
-        ctx,
-        playerPx,
-        playerPy,
-        TILE_SIZE,
-        world.playerFacing,
-        tick,
-        CAP_HEX[world.rancherCap] ?? PAL.cap.navy,
-      );
+      // Two-frame stride: the asset exporter writes both frames, so the
+      // PNG path animates exactly like the drawn fallback.
+      const strideFrame = Math.sin(tick / 90) > 0 ? 1 : 0;
+      drawPersonShadow(ctx, playerPx, playerPy);
+      const playerAsset =
+        frame.spriteAssets?.get(`player:${world.playerFacing}:${strideFrame}`) ??
+        frame.spriteAssets?.get(`player:${world.playerFacing}`);
+      if (playerAsset) {
+        drawPersonAsset(ctx, playerAsset, playerPx, playerPy);
+      } else {
+        drawPlayer(
+          ctx,
+          playerPx,
+          playerPy,
+          TILE_SIZE,
+          world.playerFacing,
+          tick,
+          CAP_HEX[world.rancherCap] ?? PAL.cap.navy,
+        );
+      }
+      void px;
     },
   });
   sortedEntities.sort((left, right) => left.y - right.y);
   for (const entity of sortedEntities) {
     entity.draw(0);
   }
+
+  // Atmosphere: the room or the map keeps a soft edge. Without it a small
+  // interior floats in a flat void; with it the same void reads as unlit
+  // space beyond the lamplight.
+  drawFrameVignette(ctx, width, height, Boolean(map.interior));
 }
 
 function computeCameraX(world: WorldState, map: Tilemap, width: number): number {
@@ -657,56 +718,154 @@ function drawArenaGarlands(
 }
 
 
-const NAME_TAG_HIDDEN_IDS = new Set([
-  "professor-axle-2",
-  "robby-reveal-1",
-  "robby-reveal-2",
-  "robby-reveal-3",
-  "robby-reveal-4",
-  "robby-yard-1",
-  "robby-yard-2",
-  "robby-yard-3",
-  "robby-caught-1",
-  "robby-caught-2",
-  "robby-caught-3",
-  "robby-caught-4",
-  "elder-join-faction",
-  "elder-decline",
-  "elder-feud",
-  "vroomdex-explain",
-  "professor-farewell",
-  "wanda-first-buys",
-  "wanda-bye",
-]);
+/** Talking distance: the tile in front of the player, or the one the player is
+ * standing on (for a host who has stepped aside). */
+function withinTalkRange(
+  world: WorldState,
+  spot: { x: number; y: number },
+): boolean {
+  const dx = spot.x - world.playerX;
+  const dy = spot.y - world.playerY;
+  return Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && dx * dx + dy * dy <= 2;
+}
 
-function drawNpcNameTag(
+/**
+ * The cue that a person is close enough to talk to. A name tag drawn in canvas
+ * text always looked like a web tooltip floating over pixel art — and the
+ * dialogue window names the speaker anyway. Three dots in a speech chip is the
+ * era-correct way to say "press the button here".
+ */
+function drawTalkPrompt(
   ctx: CanvasRenderingContext2D,
-  name: string,
   npcPx: number,
   npcPy: number,
-  npcId: string,
   tick: number,
 ): void {
-  if (!name || NAME_TAG_HIDDEN_IDS.has(npcId)) {
-    return;
+  const w = 18;
+  const h = 14;
+  const x = Math.round(npcPx + TILE_SIZE / 2 - w / 2);
+  // Above the head: a person is 1.5 tiles tall, so the tile's top edge is
+  // across their face.
+  const bob = Math.round(Math.sin(tick / 320) * 1.5);
+  const y = Math.round(npcPy - h - 10 + bob);
+  ctx.fillStyle = "rgba(16, 11, 7, 0.92)";
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "#ffd166";
+  ctx.fillRect(x, y, w, 1);
+  ctx.fillRect(x, y + h - 1, w, 1);
+  ctx.fillRect(x, y, 1, h);
+  ctx.fillRect(x + w - 1, y, 1, h);
+  // Tail, so the chip points at the person.
+  ctx.fillStyle = "rgba(16, 11, 7, 0.92)";
+  ctx.fillRect(x + w / 2 - 2, y + h, 4, 2);
+  ctx.fillRect(x + w / 2 - 1, y + h + 2, 2, 1);
+  // Speaker dots.
+  ctx.fillStyle = "#f7ecd4";
+  for (let i = 0; i < 3; i += 1) {
+    const phase = (Math.sin(tick / 260 - i * 0.7) + 1) / 2;
+    ctx.globalAlpha = 0.45 + phase * 0.55;
+    ctx.fillRect(x + 4 + i * 4, y + 6, 2, 2);
   }
-  const text = name.length > 22 ? `${name.slice(0, 20)}…` : name;
-  const fontSize = 6;
-  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
-  const width = ctx.measureText(text).width + 6;
-  const x = npcPx + TILE_SIZE / 2;
-  const y = npcPy - 3;
-  const accent = houseAccentForNpc(npcId) ?? "#caa672";
-  ctx.fillStyle = "rgba(10, 8, 5, 0.72)";
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * The dark beyond the edge of the map. Repeats the map's own border tile
+ * outward under a veil so the playfield sits inside a world rather than
+ * floating on a colour.
+ */
+function drawSurround(
+  ctx: CanvasRenderingContext2D,
+  map: Tilemap,
+  width: number,
+  height: number,
+  spriteAssets?: Map<string, HTMLImageElement>,
+): void {
+  const edgeTile: TileKind = map.interior ? "wall" : "tree";
+  let pattern: CanvasPattern | null = null;
+  const tile = document.createElement("canvas");
+  tile.width = TILE_SIZE;
+  tile.height = TILE_SIZE;
+  const tctx = tile.getContext("2d");
+  if (tctx) {
+    const asset = spriteAssets?.get(`tile:${edgeTile}`);
+    if (asset) {
+      tctx.drawImage(asset, 0, 0, TILE_SIZE, TILE_SIZE);
+    } else {
+      drawTile(tctx, edgeTile, 0, 0, TILE_SIZE, 0, 0, 0);
+    }
+    pattern = ctx.createPattern(tile, "repeat");
+  }
+  if (pattern) {
+    ctx.fillStyle = pattern;
+    ctx.fillRect(0, 0, width, height);
+  } else {
+    ctx.fillStyle = map.interior ? "#241a13" : "#14200f";
+    ctx.fillRect(0, 0, width, height);
+  }
+  ctx.fillStyle = map.interior ? "rgba(5, 3, 2, 0.86)" : "rgba(4, 10, 4, 0.58)";
+  ctx.fillRect(0, 0, width, height);
+}
+
+/** A person casts a shadow: without one every villager looks pasted on. */
+function drawPersonShadow(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+): void {
+  ctx.fillStyle = "rgba(10, 6, 2, 0.28)";
   ctx.beginPath();
-  ctx.roundRect(x - width / 2, y - fontSize - 2, width, fontSize + 4, 2.5);
+  ctx.ellipse(
+    px + TILE_SIZE / 2,
+    py + TILE_SIZE - 2,
+    TILE_SIZE * 0.3,
+    TILE_SIZE * 0.13,
+    0,
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = 0.8;
-  ctx.stroke();
-  ctx.fillStyle = "#f4ecd8";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, x, y);
-  void tick;
+}
+
+/** People are 1.5 tiles tall and stand on the tile they occupy, so their
+ * picture hangs half a tile above it. */
+function drawPersonAsset(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  px: number,
+  py: number,
+): void {
+  ctx.drawImage(
+    image,
+    px,
+    py + TILE_SIZE - TILE_SIZE * PERSON_HEIGHT_TILES,
+    TILE_SIZE,
+    TILE_SIZE * PERSON_HEIGHT_TILES,
+  );
+}
+
+/** The soft edge of the lit world. Exported for the tests that assert a
+ * vignette exists rather than trusting the eye. */
+export function drawFrameVignette(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  interior: boolean,
+): void {
+  const reach = Math.max(width, height) * 0.75;
+  const gradient = ctx.createRadialGradient(
+    width / 2,
+    height / 2,
+    reach * 0.45,
+    width / 2,
+    height / 2,
+    reach,
+  );
+  gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+  gradient.addColorStop(
+    1,
+    interior ? "rgba(8, 5, 3, 0.62)" : "rgba(6, 12, 5, 0.5)",
+  );
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
 }

@@ -335,23 +335,43 @@
     "source": "drawn"
   },
   {
-    "id": "player:down",
-    "file": "player_down.png",
+    "id": "player:down:0",
+    "file": "player_down_0.png",
     "source": "drawn"
   },
   {
-    "id": "player:up",
-    "file": "player_up.png",
+    "id": "player:down:1",
+    "file": "player_down_1.png",
     "source": "drawn"
   },
   {
-    "id": "player:left",
-    "file": "player_left.png",
+    "id": "player:up:0",
+    "file": "player_up_0.png",
     "source": "drawn"
   },
   {
-    "id": "player:right",
-    "file": "player_right.png",
+    "id": "player:up:1",
+    "file": "player_up_1.png",
+    "source": "drawn"
+  },
+  {
+    "id": "player:left:0",
+    "file": "player_left_0.png",
+    "source": "drawn"
+  },
+  {
+    "id": "player:left:1",
+    "file": "player_left_1.png",
+    "source": "drawn"
+  },
+  {
+    "id": "player:right:0",
+    "file": "player_right_0.png",
+    "source": "drawn"
+  },
+  {
+    "id": "player:right:1",
+    "file": "player_right_1.png",
     "source": "drawn"
   },
   {
@@ -950,6 +970,11 @@
     "source": "drawn"
   },
   {
+    "id": "npc:maze-bram-tam-home",
+    "file": "npc_maze-bram-tam-home.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:maze-bram-own",
     "file": "npc_maze-bram-own.png",
     "source": "drawn"
@@ -962,6 +987,21 @@
   {
     "id": "npc:tam-walk",
     "file": "npc_tam-walk.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tam-again",
+    "file": "npc_tam-again.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tam-again-later",
+    "file": "npc_tam-again-later.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:tam-again-why",
+    "file": "npc_tam-again-why.png",
     "source": "drawn"
   },
   {
@@ -982,6 +1022,11 @@
   {
     "id": "npc:maze-hedger-race",
     "file": "npc_maze-hedger-race.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:maze-hedger-again",
+    "file": "npc_maze-hedger-again.png",
     "source": "drawn"
   },
   {
@@ -1045,6 +1090,11 @@
     "source": "drawn"
   },
   {
+    "id": "npc:deep-runner-again",
+    "file": "npc_deep-runner-again.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:deep-runner-why",
     "file": "npc_deep-runner-why.png",
     "source": "drawn"
@@ -1075,6 +1125,21 @@
     "source": "drawn"
   },
   {
+    "id": "npc:bramble-kess-job",
+    "file": "npc_bramble-kess-job.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bramble-kess-detail",
+    "file": "npc_bramble-kess-detail.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bramble-kess-known",
+    "file": "npc_bramble-kess-known.png",
+    "source": "drawn"
+  },
+  {
     "id": "npc:goat-girl-nia",
     "file": "npc_goat-girl-nia.png",
     "source": "drawn"
@@ -1102,6 +1167,11 @@
   {
     "id": "npc:bramble-runner-race",
     "file": "npc_bramble-runner-race.png",
+    "source": "drawn"
+  },
+  {
+    "id": "npc:bramble-runner-again",
+    "file": "npc_bramble-runner-again.png",
     "source": "drawn"
   },
   {
