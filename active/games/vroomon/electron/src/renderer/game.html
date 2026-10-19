@@ -156,6 +156,10 @@
         top: 6.3rem;
       }
 
+      /* The status plaque is world chrome; a conversation owns the bottom of
+         the screen while it is open. */
+      body.dialogue-open .viewport-overlay--status-msg { display: none; }
+
       .top-bar__tabs {
         display: flex;
         gap: 0.2rem;
@@ -833,7 +837,7 @@
       }
       .stats-chip__label {
         font-size: 0.44rem;
-        color: #b9ad92;
+        color: #cfc2a4;
         letter-spacing: 0.08em;
         flex: 0 0 auto;
       }
@@ -1071,7 +1075,7 @@
         background: none;
         border: 0;
         border-left: 3px solid transparent;
-        color: #cfc4a8;
+        color: #ded2b4;
         padding: 0.12rem 0.5rem;
         text-align: left;
         cursor: pointer;

@@ -97,8 +97,10 @@ function drawGroundBase(
 ): void {
   const p = artPixel(size);
   const colors = ramp(tile);
-  ctx.fillStyle = colors.base;
-  ctx.fillRect(px, py, size, size);
+  if (tile !== "rock") {
+    ctx.fillStyle = colors.base;
+    ctx.fillRect(px, py, size, size);
+  }
 
   if (tile === "indoor-floor") {
     drawPlankFloor(ctx, colors, px, py, size, p, tx, ty);
@@ -109,6 +111,8 @@ function drawGroundBase(
     return;
   }
   if (tile === "rock") {
+    // The stone only; the tile layer draws the ground it sits in first, so a
+    // boulder in a field is grass around a rock instead of a grey square.
     drawBoulder(ctx, colors, px, py, size, p, tx, ty);
     return;
   }
@@ -224,7 +228,7 @@ function drawPlankFloor(
   for (let row = 0; row < boards; row += 1) {
     const y = py + row * boardH * p;
     if (row % 2 === 1) {
-      ctx.fillStyle = colors.light;
+      ctx.fillStyle = blend(colors.base, colors.light, 0.45);
       ctx.fillRect(px, y, size, boardH * p);
     }
     const seed = hashUnit(tx + row * 3, ty + row, 211);
@@ -316,7 +320,7 @@ function drawCanopy(
   void size;
 }
 
-function drawBoulder(
+export function drawBoulder(
   ctx: PixelCanvas,
   colors: Ramp,
   px: number,
@@ -326,45 +330,82 @@ function drawBoulder(
   tx: number,
   ty: number,
 ): void {
-  // A broken outcrop: angular facets in three tones, rooted in the cell with a
-  // dark rim. A round grey blob with a slot reads as a coin, which is exactly
-  // what it looked like before.
-  const rows = [
-    "................",
-    "................",
-    "...######.......",
-    "..##########....",
-    ".#############..",
-    ".##############.",
-    "#####+++++######",
-    "####+++#+++#####",
-    "####++###++++###",
-    "#####++++++#####",
-    ".#############..",
-    "..###########...",
-    "...#########....",
-    "....#######.....",
-    ".....#####......",
-    "................",
+  // Three shapes, chosen per tile, with a lit crown and a dark seat. The old
+  // one had a single dark "crack" that curled, so every boulder in the world
+  // read as a coin with a slot cut in it. The ground it stands on is drawn by
+  // the caller (the tile layer knows what is around it); this only paints
+  // stone.
+  const shapes: readonly string[][] = [
+    [
+      "................",
+      "................",
+      "....#####.......",
+      "..##########....",
+      ".############...",
+      ".#############..",
+      "#####++++######.",
+      "####++++++#####.",
+      "####+#++#++####.",
+      "#####++++#####..",
+      ".############...",
+      "..###########...",
+      "...#########....",
+      "....#######.....",
+      ".....#####......",
+      "................",
+    ],
+    [
+      "................",
+      "................",
+      "................",
+      "...####.........",
+      "..#######.......",
+      ".##########.....",
+      ".#####++++##....",
+      "######++++###...",
+      "######+#+#+##...",
+      ".#####++++###...",
+      ".###########....",
+      "..#########.....",
+      "...######.......",
+      "................",
+      "................",
+      "................",
+    ],
+    [
+      "................",
+      "......####......",
+      "....########....",
+      "...##########...",
+      "..#####++++##...",
+      "..####+++++##...",
+      ".#####+#+#+###..",
+      ".#####++++####..",
+      ".############...",
+      "..###########...",
+      "...#########....",
+      "....#######.....",
+      "................",
+      "................",
+      "................",
+      "................",
+    ],
   ];
-  const offset = Math.floor(hashUnit(tx, ty, 23) * 2);
-  const palette: ArtPalette = {
-    "#": colors.base,
-    "+": colors.light,
-    "-": colors.dark,
-  };
-  // Shadow the rock casts on its own cell.
-  ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
-  ctx.fillRect(px + (1 + offset) * p, py + 13 * p, 13 * p, 2 * p);
-  drawArtOutline(ctx, rows, "#2a2620", px - offset * p, py, p);
-  drawArtRows(ctx, rows, palette, px - offset * p, py, p);
-  // Cracks, so a field of rocks is not a field of identical boulders.
-  ctx.fillStyle = colors.detail;
-  const cx = 5 + Math.floor(hashUnit(tx, ty, 31) * 5);
-  ctx.fillRect(px + cx * p, py + 6 * p, p, 3 * p);
-  ctx.fillRect(px + (cx + 1) * p, py + 8 * p, 2 * p, p);
-  ctx.fillStyle = colors.dark;
-  ctx.fillRect(px + (cx + 3) * p, py + 10 * p, p, 2 * p);
+  const pick = Math.floor(hashUnit(tx, ty, 23) * shapes.length) % shapes.length;
+  const offset = Math.floor(hashUnit(tx, ty, 29) * 3);
+  const shiftX = hashUnit(tx, ty, 37) > 0.5 ? 1 : -1;
+  // Seat shadow, so the stone is set in the ground rather than printed on it.
+  ctx.fillStyle = "rgba(30, 26, 20, 0.3)";
+  ctx.fillRect(px + 2 * p, py + 12 * p, 12 * p, 3 * p);
+  drawArtOutline(ctx, shapes[pick]!, "#2a2620", px + (shiftX * offset - 1) * p, py, p);
+  drawArtRows(
+    ctx,
+    shapes[pick]!,
+    { "#": colors.base, "+": colors.light },
+    px + (shiftX * offset - 1) * p,
+    py,
+    p,
+  );
 }
 
 function drawMat(
@@ -573,6 +614,9 @@ const TRANSITION_GROUNDS = new Set<TileKind>([
   "vroomgrass",
   "path",
   "water",
+  // Foliage joins too: a clearing ringed by trees had a dead-straight green
+  // boundary, which is the last hard rectangle the critics kept finding.
+  "tree",
 ]);
 
 export function drawGroundTransition(
@@ -589,7 +633,7 @@ export function drawGroundTransition(
   if (tile === neighbour) {
     return;
   }
-  if (WALL_KINDS.has(tile) || WALL_KINDS.has(neighbour) || tile === "tree" || neighbour === "tree") {
+  if (WALL_KINDS.has(tile) || WALL_KINDS.has(neighbour)) {
     return;
   }
   // Grounds only. Props and furniture do not bleed into the ground they stand
@@ -639,6 +683,47 @@ export function drawGroundTransition(
       const by = edge === "north" ? y + 1 : edge === "south" ? y - 1 : y;
       ctx.fillRect(px + bx * p, py + by * p, p, p);
     }
+  }
+}
+
+/**
+ * The wear down the middle of a path.
+ *
+ * A dirt track that is the same tone everywhere reads as a runway; feet and
+ * wheels scuff the middle. Which way the track runs comes from its neighbours,
+ * so a straight run gets a line and a corner gets a patch.
+ */
+export function drawPathWear(
+  ctx: PixelCanvas,
+  px: number,
+  py: number,
+  size: number,
+  tx: number,
+  ty: number,
+  along: "x" | "y" | "corner",
+): void {
+  const p = artPixel(size);
+  ctx.fillStyle = "rgba(120, 92, 52, 0.3)";
+  if (along === "x") {
+    ctx.fillRect(px, py + 6 * p, size, 4 * p);
+    ctx.fillStyle = "rgba(120, 92, 52, 0.18)";
+    ctx.fillRect(px, py + 5 * p, size, p);
+    ctx.fillRect(px, py + 10 * p, size, p);
+  } else if (along === "y") {
+    ctx.fillRect(px + 6 * p, py, 4 * p, size);
+    ctx.fillStyle = "rgba(120, 92, 52, 0.18)";
+    ctx.fillRect(px + 5 * p, py, p, size);
+    ctx.fillRect(px + 10 * p, py, p, size);
+  } else {
+    ctx.fillRect(px + 4 * p, py + 4 * p, 8 * p, 8 * p);
+    ctx.fillStyle = "rgba(120, 92, 52, 0.18)";
+    ctx.fillRect(px + 3 * p, py + 3 * p, 10 * p, 10 * p);
+  }
+  // A stone or two turned up by wheels.
+  const hx = hashUnit(tx, ty, 331);
+  if (hx > 0.6) {
+    ctx.fillStyle = "rgba(90, 74, 48, 0.55)";
+    ctx.fillRect(px + Math.floor(hx * 13) * p, py + Math.floor(hx * 11) * p, p, p);
   }
 }
 
@@ -1311,8 +1396,30 @@ function drawHeadLayer(
 }
 
 // Outfit band: rows 13..23, matching the player's collar-to-boot band.
-function outfitPalette(outfit: OutfitId): ArtPalette {
-  const colors = OUTFIT_COLORS[outfit];
+/** Mix a colour toward an anchor, for per-character variety. */
+function blend(hex: string, toward: string, amount: number): string {
+  return mixHex(hex, toward, amount);
+}
+
+const VILLAGER_ANCHORS = ["#c9a05a", "#8f3b2e", "#3f7a6a", "#6a5aa0", "#a8a29a", "#4f7ab8"];
+
+function outfitPalette(outfit: OutfitId, npcId?: string): ArtPalette {
+  let colors: { main: string; trim: string; pants: string } = OUTFIT_COLORS[outfit];
+  if (npcId) {
+    // The world has six outfits and a hundred villagers, so half the cast was
+    // dressed identically. A tint derived from the id gives each one their
+    // own clothes without a new sprite sheet.
+    const hue = Math.abs(
+      npcId.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0),
+    );
+    const anchor = VILLAGER_ANCHORS[hue % VILLAGER_ANCHORS.length]!;
+    const amount = 0.14 + ((hue % 5) * 0.03);
+    colors = {
+      main: blend(colors.main, anchor, amount),
+      trim: blend(colors.trim, anchor, amount * 0.6),
+      pants: blend(colors.pants, anchor, amount * 0.5),
+    };
+  }
   return {
     B: colors.main,
     b: mixHex(colors.main, "#000000", 0.28),
@@ -1332,13 +1439,19 @@ function drawOutfitLayer(
   px: number,
   py: number,
   size: number,
+  npcId?: string,
 ): void {
   const p = artPixel(size);
   const oy = personOriginY(py, size);
+  const palette = outfitPalette(outfit, npcId);
   drawArtOutline(ctx, OUTFIT_ROWS, KEYLINE, px, oy, p);
-  drawArtRows(ctx, OUTFIT_ROWS, outfitPalette(outfit), px, oy, p);
+  drawArtRows(ctx, OUTFIT_ROWS, palette, px, oy, p);
   // Trade marks, drawn after the grid so the silhouette stays identical.
-  const colors = OUTFIT_COLORS[outfit];
+  const colors = {
+    main: palette.B ?? OUTFIT_COLORS[outfit].main,
+    trim: palette.T ?? OUTFIT_COLORS[outfit].trim,
+    pants: palette.P ?? OUTFIT_COLORS[outfit].pants,
+  };
   const at = (x: number, y: number, w: number, h: number, color: string): void => {
     ctx.fillStyle = color;
     ctx.fillRect(px + x * p, oy + y * p, w * p, h * p);
@@ -1416,7 +1529,7 @@ export function drawNpc(
   const bob = Math.sin(step / 900 + phase) > 0.6 ? -p : 0;
   const lifted = py + bob;
   drawHeadLayer(ctx, parts.head, px, lifted, size);
-  drawOutfitLayer(ctx, parts.outfit, px, lifted, size);
+  drawOutfitLayer(ctx, parts.outfit, px, lifted, size, npcId);
   drawAccessoryLayer(ctx, parts.accessory, px, lifted, size, npcId);
   void facing;
 }

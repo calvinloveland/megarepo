@@ -5850,6 +5850,7 @@ function renderOverworldUi(): void {
   const currentOptions = session?.options() ?? [];
   const activeNpc = map?.npcs.find((npc) => npc.id === world.activeNpc) ?? null;
 
+  document.body.classList.toggle("dialogue-open", Boolean(currentNode));
   if (currentNode) {
     overworldDialogue.hidden = false;
     const dialogueName = activeNpc?.name ?? "Narrator";

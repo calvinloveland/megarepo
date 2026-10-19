@@ -94,7 +94,7 @@ const NPC_ARCHETYPES: Record<string, ArchetypeKey> = {
 // are emitted as SVG rects so the picture stays crisp at any size and there is
 // still no image asset to ship.
 
-const CELL = 5;
+const CELL = 6;
 const GRID_COLS = 26;
 const GRID_ROWS = 30;
 const OUTLINE = "#1b1109";
@@ -171,71 +171,73 @@ function bustCells(archetype: Archetype): Cell[] {
     }
   }
 
-  // Shoulders, chest and collar.
-  block(cells, 3, 22, 20, 9, OUTLINE);
-  block(cells, 4, 23, 18, 8, cloth);
+  // Shoulders, tapering up into the neck so the frame cuts a chest rather
+  // than slicing a torso in half.
+  block(cells, 3, 22, 20, 8, OUTLINE);
+  block(cells, 4, 23, 18, 7, cloth);
   block(cells, 4, 23, 18, 2, shade(cap, 0.24));
-  block(cells, 12, 23, 2, 8, capShade);
-  block(cells, 8, 23, 2, 5, shade(cloth, 0.34));
-  block(cells, 16, 23, 2, 5, shade(cloth, 0.34));
+  block(cells, 12, 23, 2, 7, capShade);
+  block(cells, 8, 23, 2, 4, shade(cloth, 0.34));
+  block(cells, 16, 23, 2, 4, shade(cloth, 0.34));
 
   // Neck.
   block(cells, 11, 19, 4, 4, OUTLINE);
   block(cells, 12, 19, 2, 4, skinShade);
 
-  // Head.
-  block(cells, 7, 5, 12, 15, OUTLINE);
-  block(cells, 8, 6, 10, 13, skin);
-  // A lit temple and a shaded jaw: two tones, no full-height stripes.
-  block(cells, 9, 7, 3, 2, shade(skin, 0.14));
-  block(cells, 8, 15, 10, 4, shade(skin, -0.06));
-  block(cells, 15, 8, 3, 10, skinShade);
+  // Head: wide, like the overworld sprite's — a narrow face over wide
+  // shoulders is the shape of a chess piece, not of the character you walked
+  // up to.
+  block(cells, 5, 4, 16, 17, OUTLINE);
+  block(cells, 6, 5, 14, 15, skin);
+  block(cells, 7, 7, 4, 2, shade(skin, 0.14));
+  block(cells, 6, 16, 14, 4, shade(skin, -0.06));
+  block(cells, 17, 9, 3, 9, skinShade);
 
   // Hair under the cap.
-  block(cells, 8, 5, 10, 2, shade(cap, -0.6));
+  block(cells, 6, 4, 14, 2, shade(cap, -0.6));
 
   // Brows, eyes, nose, mouth.
-  block(cells, 9, 10, 3, 1, OUTLINE);
-  block(cells, 14, 10, 3, 1, OUTLINE);
-  block(cells, 9, 11, 2, 2, OUTLINE);
-  block(cells, 14, 11, 2, 2, OUTLINE);
-  block(cells, 9, 11, 1, 1, "#f4f1e8");
-  block(cells, 14, 11, 1, 1, "#f4f1e8");
-  block(cells, 12, 12, 1, 2, skinShade);
-  block(cells, 12, 15, 1, 1, skinShade);
-  block(cells, 11, 17, 4, 1, "#8a5340");
+  block(cells, 8, 11, 3, 1, OUTLINE);
+  block(cells, 16, 11, 3, 1, OUTLINE);
+  block(cells, 8, 12, 2, 2, OUTLINE);
+  block(cells, 16, 12, 2, 2, OUTLINE);
+  block(cells, 8, 12, 1, 1, "#f4f1e8");
+  block(cells, 16, 12, 1, 1, "#f4f1e8");
+  block(cells, 12, 13, 2, 2, skinShade);
+  block(cells, 12, 17, 2, 1, skinShade);
+  block(cells, 11, 18, 4, 1, "#8a5340");
 
   // The cap: crown, band, then a brim a cell wider than the head.
-  block(cells, 7, 1, 12, 5, OUTLINE);
-  block(cells, 8, 2, 10, 3, cap);
-  block(cells, 8, 2, 10, 1, shade(cap, 0.26));
-  block(cells, 8, 5, 10, 1, capShade);
-  block(cells, 5, 6, 16, 1, OUTLINE);
-  block(cells, 5, 6, 16, 1, shade(cap, -0.1));
+  block(cells, 5, 0, 16, 6, OUTLINE);
+  block(cells, 6, 1, 14, 3, cap);
+  block(cells, 6, 1, 14, 1, shade(cap, 0.26));
+  block(cells, 6, 4, 14, 1, capShade);
+  block(cells, 3, 5, 20, 1, OUTLINE);
+  block(cells, 3, 5, 20, 1, shade(cap, -0.1));
 
   if (archetype.beard) {
     const hair = archetype.beard === "grey" ? "#ded7c6" : "#7a4a1e";
-    block(cells, 8, 15, 10, 2, hair);
-    block(cells, 9, 17, 8, 4, hair);
-    block(cells, 11, 17, 4, 1, "#8a5340");
-    block(cells, 12, 21, 2, 1, hair);
-    block(cells, 9, 15, 8, 1, shade(hair, -0.3));
+    block(cells, 6, 16, 14, 2, hair);
+    block(cells, 7, 18, 12, 4, hair);
+    block(cells, 11, 18, 4, 1, "#8a5340");
+    block(cells, 12, 22, 2, 1, hair);
+    block(cells, 7, 16, 12, 1, shade(hair, -0.3));
   }
   if (archetype.bandana) {
-    block(cells, 9, 20, 8, 3, archetype.bandana);
-    block(cells, 9, 20, 8, 1, shade(archetype.bandana, 0.22));
+    block(cells, 7, 21, 12, 3, archetype.bandana);
+    block(cells, 7, 21, 12, 1, shade(archetype.bandana, 0.22));
   }
   if (archetype.glasses) {
-    block(cells, 8, 10, 5, 4, OUTLINE);
-    block(cells, 13, 10, 5, 4, OUTLINE);
-    block(cells, 9, 11, 3, 2, archetype.markerColor);
-    block(cells, 14, 11, 3, 2, archetype.markerColor);
-    block(cells, 12, 12, 2, 1, OUTLINE);
+    block(cells, 6, 11, 6, 4, OUTLINE);
+    block(cells, 14, 11, 6, 4, OUTLINE);
+    block(cells, 7, 12, 4, 2, archetype.markerColor);
+    block(cells, 15, 12, 4, 2, archetype.markerColor);
+    block(cells, 12, 13, 2, 1, OUTLINE);
   }
   if (archetype.patch) {
-    block(cells, 13, 9, 5, 5, "#2a2a33");
-    block(cells, 13, 9, 5, 1, "#3c3c48");
-    block(cells, 9, 9, 1, 10, "#3c3c48");
+    block(cells, 14, 10, 6, 5, "#2a2a33");
+    block(cells, 14, 10, 6, 1, "#3c3c48");
+    block(cells, 8, 10, 1, 11, "#3c3c48");
   }
   return cells;
 }

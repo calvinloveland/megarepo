@@ -4,6 +4,7 @@ import {
   drawGroundScatter,
   drawGroundTransition,
   drawNpc,
+  drawPathWear,
   drawTallProp,
   drawPlayer,
   drawTile,
@@ -140,6 +141,25 @@ function bakedTileLayer(
   const isWallAt = (x: number, y: number): boolean =>
     SOLID_FACE_TILES.has(tileAt(x, y));
   const gx = (x: number): number => (x + LAYER_PAD) * TILE_SIZE;
+
+  /** The ground around a boulder: the first neighbour that is plain terrain. */
+  const neighbourGround = (x: number, y: number): TileKind => {
+    const order: ReadonlyArray<readonly [number, number]> = [
+      [0, 1],
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [-1, 1],
+      [1, 1],
+    ];
+    for (const [dx, dy] of order) {
+      const candidate = tileAt(x + dx, y + dy);
+      if (!SOLID_FACE_TILES.has(candidate) && candidate !== "rock") {
+        return candidate;
+      }
+    }
+    return "grass";
+  };
   const outsideDepth = (x: number, y: number): number =>
     Math.max(0, -x, x - (map.width - 1), -y, y - (map.height - 1));
 
@@ -158,11 +178,21 @@ function bakedTileLayer(
         }
         lctx.globalAlpha = depth === 0 ? 1 : 0.45;
       }
-      const tileAsset = spriteAssets?.get(`tile:${tile}`);
+      // A boulder is an object, not a surface: the ground it stands in is
+      // drawn from the neighbouring tile, so a rock in a field is grass
+      // around a stone rather than the grey square the rock tile used to be.
+      const groundTile = tile === "rock" ? neighbourGround(x, y) : tile;
+      const tileAsset = spriteAssets?.get(`tile:${groundTile}`);
       if (tileAsset) {
         lctx.drawImage(tileAsset, px, py, TILE_SIZE, TILE_SIZE);
       } else {
-        drawTile(lctx, tile, px, py, TILE_SIZE, 0, x, y);
+        drawTile(lctx, groundTile, px, py, TILE_SIZE, 0, x, y);
+      }
+      if (tile === "rock") {
+        drawGroundScatter(lctx, groundTile, px, py, TILE_SIZE, x, y);
+        drawTile(lctx, "rock", px, py, TILE_SIZE, 0, x, y);
+        lctx.globalAlpha = 1;
+        continue;
       }
       // Per-cell scatter goes on top of whichever layer drew the tile, so a
       // field of identical PNG grass still varies cell by cell instead of
@@ -184,6 +214,11 @@ function bakedTileLayer(
       const tile = tileAt(x, y);
       const px = gx(x);
       const py = gx(y);
+      if (tile === "path") {
+        const h = tileAt(x - 1, y) === "path" && tileAt(x + 1, y) === "path";
+        const v = tileAt(x, y - 1) === "path" && tileAt(x, y + 1) === "path";
+        drawPathWear(lctx, px, py, TILE_SIZE, x, y, h ? "x" : v ? "y" : "corner");
+      }
       if (!SOLID_FACE_TILES.has(tile)) {
         if (TALL_PROP_TILES.has(tile)) {
           drawTallProp(lctx, tile, px, py, TILE_SIZE, {
@@ -205,6 +240,12 @@ function bakedTileLayer(
       // front with a roof rather than as a row of crates. The test is against
       // the SAME surface: a tree above a house is not the house's roof line,
       // which is what a plain "is anything above" check got wrong.
+      if (tile === "tree") {
+        drawGroundTransition(lctx, tile, tileAt(x, y - 1), "north", px, py, TILE_SIZE, x, y);
+        drawGroundTransition(lctx, tile, tileAt(x, y + 1), "south", px, py, TILE_SIZE, x, y);
+        drawGroundTransition(lctx, tile, tileAt(x - 1, y), "west", px, py, TILE_SIZE, x, y);
+        drawGroundTransition(lctx, tile, tileAt(x + 1, y), "east", px, py, TILE_SIZE, x, y);
+      }
       const sameAbove = tileAt(x, y - 1) === tile;
       if (!sameAbove) {
         if (tile === "building") {
