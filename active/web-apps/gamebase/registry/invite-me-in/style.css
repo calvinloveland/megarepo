@@ -730,7 +730,7 @@ input {
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
 
-@media (max-width: 840px) {
+@media (max-width: 720px) {
   .street {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr);

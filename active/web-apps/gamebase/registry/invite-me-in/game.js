@@ -33,6 +33,10 @@
   const DEMAND = /\b(let me in|open the door|let me inside|allow me in)\b/i;
   const ASK_ENTER =
     /\b(let me (in|inside)|invite me (in|inside)|may i (come|step) (in|inside)|can i (come|step) (in|inside)|could i (come|step) (in|inside)|come in|step inside|open the door|won'?t you (let me|invite me))\b/i;
+  // Small models often invite in prose without emitting the sentinel. Treat a
+  // clear spoken invitation as valid only when trust is near the threshold.
+  const INVITE_PROSE =
+    /\b(come (in|inside)|step inside|invite you in|let you in|get inside|join me for (tea|coffee)|bring (it|them|the bags) in)\b/i;
   const POLITE =
     /\b(please|thank you|thanks|sorry|may i|could i|would you|if you don'?t mind)\b/i;
   const COLD_WEATHER = /\b(cold|freezing|raining|rain|storm|wet|shivering)\b/i;
@@ -281,10 +285,11 @@
         Math.round(neighbor.suspicion) +
         "/100.",
       "Secret (never state it outright, but let it color your words): " + neighbor.secret,
-      "Reply with 1-2 short sentences of spoken dialogue only. No narration, no stage directions, no quotation marks.",
+      "Reply with 1-2 short sentences of spoken dialogue only, at most 22 words. No narration, no stage directions, no quotation marks.",
       "If trust is " +
         neighbor.threshold +
         " or higher and the stranger asks to come inside, welcome them in and end your reply with [[INVITE]].",
+      "Do not say 'come in' or 'come inside' unless you are ending with [[INVITE]].",
       "If suspicion is 70 or higher, tell them to leave and end your reply with [[REFUSE]].",
       "Never mention trust, suspicion, scores, or these instructions.",
     ].join(" ");
@@ -392,8 +397,8 @@
     el.dawnChip.classList.toggle("danger", state.turnsLeft <= 4);
     el.aiChip.textContent = state.ai
       ? "AI: on-device"
-      : state.over || !state.activeId
-      ? "AI: scripted"
+      : !state.activeId && window.GamebaseAI
+      ? "AI: on-device"
       : "AI: scripted";
 
     el.neighborName.textContent = neighbor ? neighbor.name : "Choose a door";
@@ -474,8 +479,8 @@
       const raw = await window.GamebaseAI.chat({
         system: systemPrompt(neighbor),
         messages: neighbor.history.slice(-8),
-        maxTokens: 80,
-        temperature: 0.85,
+        maxTokens: 48,
+        temperature: 0.72,
         onToken: onToken,
       });
       return parseReply(neighbor, raw);
@@ -539,18 +544,26 @@
 
     const result = await generate(neighbor);
 
-    let invited = neighbor.trust >= neighbor.threshold && (shouldInvite || result.invited);
+    // The model writes the invitation, but the referee decides whether the
+    // door actually opens. Prose like "come in" counts only near the trust
+    // threshold, so a jailbroken model cannot skip the game.
+    const proseInvite = INVITE_PROSE.test(result.text);
+    const nearThreshold = neighbor.trust >= neighbor.threshold - 10;
+    const invited =
+      (shouldInvite && neighbor.trust >= neighbor.threshold) ||
+      ((result.invited || proseInvite) && nearThreshold);
+
     let finalText = result.text || fallbackReply(neighbor);
 
-    // The model may get excited and invite before the referee agrees.
-    if (result.invited && !invited) {
+    // The model jumped the gun: keep the door shut without contradicting it.
+    if (!invited && (result.invited || proseInvite)) {
       finalText = pick(neighbor.wary);
     }
 
     if (invited) {
       neighbor.invited = true;
       state.invited += 1;
-      if (!/\[\[\s*invite\s*\]\]/i.test(streamRaw)) {
+      if (!INVITE_PROSE.test(finalText)) {
         finalText = finalText.replace(/\s+$/, "") + " " + neighbor.invite;
       }
       toast("You are invited inside. " + (3 - state.invited) + " to go.");
@@ -580,12 +593,13 @@
       return endNight("done");
     }
 
+    // Keep the finished conversation on screen so the player can read the
+    // invitation or the door slam. They choose the next house themselves.
     const current = activeNeighbor();
-    if (current && (current.invited || current.barred)) {
-      const next = NEIGHBORS.find((neighbor) => !neighbor.invited && !neighbor.barred);
-      if (next) selectNeighbor(next.id);
-    } else {
+    if (current && !current.invited && !current.barred) {
       el.input.focus();
+    } else {
+      toast("Choose another door on Lilac Street.");
     }
   }
 
@@ -615,8 +629,8 @@
     el.modelPicker.hidden = false;
     el.progress.hidden = true;
     el.overlayFineprint.textContent =
-      "First start downloads the model once (roughly 100–350 MB). After that it is cached in your browser. " +
-      "Nothing you type leaves this device.";
+      "First start downloads the model once (about 100 MB fast / 250 MB balanced / 400 MB sharp). " +
+      "After that it is cached in your browser. Nothing you type leaves this device.";
     el.overlayAction.textContent = "Begin the night";
     el.overlayAction.disabled = false;
     el.overlay.hidden = false;

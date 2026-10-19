@@ -200,9 +200,9 @@ a:hover { text-decoration: underline; }
 .achievement:last-child { border-bottom: none; }
 .achievement .icon { font-size: 18px; filter: grayscale(1) opacity(0.5); }
 .achievement.unlocked .icon { filter: none; }
-.achievement .title { font-size: 13px; }
+.achievement .title { display: block; font-size: 13px; }
 .achievement.unlocked .title { color: var(--accent); }
-.achievement .desc { color: var(--muted); font-size: 11px; }
+.achievement .desc { display: block; color: var(--muted); font-size: 11px; }
 .achievement .points { color: var(--muted); font-size: 11px; margin-left: auto; white-space: nowrap; }
 
 /* ── Forms ──────────────────────────────────────────────── */
