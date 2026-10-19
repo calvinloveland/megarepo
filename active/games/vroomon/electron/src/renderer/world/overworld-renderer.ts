@@ -86,8 +86,13 @@ function bakedTileLayer(
   if (!lctx) {
     return layer;
   }
-  lctx.fillStyle = map.ambientColor;
-  lctx.fillRect(0, 0, layer.width, layer.height);
+  // The layer's own base fill is the ambient tone for a field; a room leaves
+  // its apron transparent so the renderer's darkness shows through instead of
+  // a warm haze where the building's thickness stops.
+  if (!map.interior) {
+    lctx.fillStyle = map.ambientColor;
+    lctx.fillRect(0, 0, layer.width, layer.height);
+  }
 
   // Clamped access: any coordinate outside the map reads the nearest tile in
   // it, which is what extends the edge outward. Props on the edge (a doormat at
@@ -279,7 +284,7 @@ export function renderOverworld(
 
   // The bake is padded, so the world simply continues past the map's edge.
   // Only the far corners of a room (or the deep forest) need a base fill.
-  ctx.fillStyle = map.interior ? "#120c07" : "#101a0c";
+  ctx.fillStyle = map.interior ? "#0b0805" : "#101a0c";
   ctx.fillRect(0, 0, width, height);
 
   // The static tile layer is BAKED once per map into an offscreen canvas
@@ -377,7 +382,9 @@ export function renderOverworld(
     }
   }
 
-  // Indoors: a warm pool of lamplight where the room's centre is.
+  // Indoors: a warm pool of lamplight where the room's centre is. Clipped to
+  // the room — a lamp lights the room, not the darkness around it, and an
+  // unclipped glow turned the whole screen into a warm haze.
   if (map.interior) {
     const glow = lampGlow(tick, map);
     const gradient = ctx.createRadialGradient(
@@ -390,8 +397,13 @@ export function renderOverworld(
     );
     gradient.addColorStop(0, `rgba(255, 226, 160, ${glow.intensity})`);
     gradient.addColorStop(1, "rgba(255, 214, 130, 0)");
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-cameraX, -cameraY, map.width * TILE_SIZE, map.height * TILE_SIZE);
+    ctx.clip();
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
+    ctx.restore();
   }
 
   // Time of day: a light wash over everything outside. Interiors keep their

@@ -4041,6 +4041,7 @@ function playViewportScene(scene: ViewportScene): void {
       scene.terrain,
       frame,
       scene.focusVehicleId ?? null,
+      rendererState.mode !== "menu",
     );
   };
 
@@ -4281,12 +4282,18 @@ function renderViewportMarkup(
   terrain: TerrainPresetDefinition,
   frame: ViewportFrame,
   focusVehicleId: string | null,
+  showLabels = true,
 ): string {
   const view = calculateViewportWindow(terrain, frame.entities, focusVehicleId);
   const groundY = toSvgY(view, terrain.groundHeight);
   const groundHeight = Math.max(30, SVG_HEIGHT - groundY);
   const patternId = `terrain-pattern-${escapeHtml(terrain.name.toLowerCase())}`;
-  const labelLayout = layoutViewportLabels(frame.entities, view);
+  // The menu uses the race as a moving backdrop: rank labels, dotted leader
+  // lines and the start/finish markers are debug furniture behind a title
+  // card, and they were the first thing a reviewer noticed on it.
+  const labelLayout = showLabels
+    ? layoutViewportLabels(frame.entities, view)
+    : new Map<string, ViewportLabelLayout>();
   const vehicleMarkup = frame.entities
     .map((entity) => renderViewportEntity(entity, terrain, view, labelLayout))
     .join("");
@@ -4307,8 +4314,12 @@ function renderViewportMarkup(
     <rect x="0" y="${groundY}" width="${SVG_WIDTH}" height="6" fill="rgba(0,0,0,0.35)"></rect>
     <rect x="0" y="0" width="${SVG_WIDTH}" height="${SVG_HEIGHT}" fill="url(#viewport-vignette)" pointer-events="none"></rect>
     ${renderTerrainObstacles(terrain, view)}
-    <line x1="${toSvgX(view, 220)}" y1="0" x2="${toSvgX(view, 220)}" y2="${SVG_HEIGHT}" stroke="rgba(255,255,255,0.2)" stroke-width="4" stroke-dasharray="10 10"></line>
-    <line x1="${toSvgX(view, terrain.groundLength - 200)}" y1="0" x2="${toSvgX(view, terrain.groundLength - 200)}" y2="${SVG_HEIGHT}" stroke="rgba(255,215,0,0.35)" stroke-width="6" stroke-dasharray="8 8"></line>
+    ${
+      showLabels
+        ? `<line x1="${toSvgX(view, 220)}" y1="0" x2="${toSvgX(view, 220)}" y2="${SVG_HEIGHT}" stroke="rgba(255,255,255,0.2)" stroke-width="4" stroke-dasharray="10 10"></line>
+    <line x1="${toSvgX(view, terrain.groundLength - 200)}" y1="0" x2="${toSvgX(view, terrain.groundLength - 200)}" y2="${SVG_HEIGHT}" stroke="rgba(255,215,0,0.35)" stroke-width="6" stroke-dasharray="8 8"></line>`
+        : ""
+    }
     ${vehicleMarkup}
   `;
 }
@@ -5194,7 +5205,7 @@ function renderStatsHud(): void {
     // The hunt toggle: you choose whether the tall grass is dangerous.
     chips.push({
       label: "SEEKING",
-      value: rendererState.world.hunting ? "ON 🔍" : "OFF",
+      value: rendererState.world.hunting ? "ON" : "OFF",
       action: "hunt",
     });
     // What the wild on this ground has become while nobody was watching.
