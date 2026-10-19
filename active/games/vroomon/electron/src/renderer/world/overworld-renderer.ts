@@ -812,28 +812,40 @@ function drawSurround(
     ctx.fillStyle = map.interior ? "#241a13" : "#14200f";
     ctx.fillRect(0, 0, width, height);
   }
-  ctx.fillStyle = map.interior ? "rgba(5, 3, 2, 0.86)" : "rgba(4, 10, 4, 0.58)";
+  ctx.fillStyle = map.interior ? "rgba(5, 3, 2, 0.46)" : "rgba(4, 10, 4, 0.3)";
   ctx.fillRect(0, 0, width, height);
 }
 
-/** A person casts a shadow: without one every villager looks pasted on. */
+/**
+ * A contact shadow under the feet.
+ *
+ * The old one was a hard ellipse centred two pixels above the tile's bottom
+ * edge and nearly as wide as the tile, so it stuck out on both sides of the
+ * boots and read as a separate disc — every villager looked like they were
+ * hovering over a puddle. This is a soft blob that starts at the feet and
+ * fades out before the tile edge, so the figure and its shadow share an edge.
+ */
 function drawPersonShadow(
   ctx: CanvasRenderingContext2D,
   px: number,
   py: number,
 ): void {
-  ctx.fillStyle = "rgba(10, 6, 2, 0.28)";
+  const cx = px + TILE_SIZE / 2;
+  const cy = py + TILE_SIZE - 1;
+  const rx = TILE_SIZE * 0.27;
+  const ry = TILE_SIZE * 0.1;
+  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+  gradient.addColorStop(0, "rgba(10, 6, 2, 0.45)");
+  gradient.addColorStop(0.55, "rgba(10, 6, 2, 0.26)");
+  gradient.addColorStop(1, "rgba(10, 6, 2, 0)");
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(1, ry / rx);
+  ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.ellipse(
-    px + TILE_SIZE / 2,
-    py + TILE_SIZE - 2,
-    TILE_SIZE * 0.3,
-    TILE_SIZE * 0.13,
-    0,
-    0,
-    Math.PI * 2,
-  );
+  ctx.arc(0, 0, rx, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
 }
 
 /** People are 1.5 tiles tall and stand on the tile they occupy, so their
