@@ -101,6 +101,30 @@ Supported kinds: `blob`, `tree`, `commit`, `manifest`, `secret`, `artifact`, `po
 
 Backward-compatible: `k33p <path>` launches the TUI (same as `k33p tui <path>`).
 
+## Multi-host sync
+
+When more than one host runs the auto-commit daemon against the same git channel,
+the hosts diverge as soon as both commit: the first push wins and the other host
+can no longer fast-forward. The megarepo does this today (`1337book` and
+`haswell`).
+
+Rules that keep that setup healthy:
+
+- **Rebase, never fast-forward-only.** The companion pull timer fetches
+  `origin/main` and rebases local auto-commits on top of it. `git pull --ff-only`
+  silently wedges a two-writer setup.
+- **Main stays linear.** GitHub branch protection on `calvinloveland/megarepo`
+  rejects merge commits, so reconciliation is always `git pull --rebase`, never
+  `git merge`.
+- **Conflicts are loud.** On a conflicted rebase the daemon aborts, lists the
+  unmerged paths, and prints the exact reconcile command; the pull timer exits
+  non-zero with the same detail. Silence here is how two hosts stayed 59 commits
+  apart for three days in Oct 2026.
+- **Content conflicts are the real hazard, not the mechanism.** Two hosts editing
+  the same registry files (`active/web-apps/launcher/apps.yaml`,
+  `scripts/check_all.py`, `scripts/check_web_app.py`) cannot be reconciled
+automatically — those need a human union merge.
+
 ## Running the TUI
 
 ```bash

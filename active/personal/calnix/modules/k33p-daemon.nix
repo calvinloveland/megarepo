@@ -21,20 +21,47 @@ let
     exec ${k33pPythonEnv}/bin/python3 -m k33p daemon
   '';
 
-  # Companion sync script: keep a passive host up to date by pulling from git
-  # on a timer, but skip if the worktree is dirty so local edits are not
-  # clobbered under the user.
+  # Companion sync script: rebase local auto-commits onto origin on a timer.
+  #
+  # A fast-forward-only pull silently wedges any pair of hosts that both run the
+  # commit daemon: each commits locally, the first push wins, and the other host
+  # can never fast-forward again. Rebase instead, and fail loudly (with the
+  # conflicted paths) when the rebase genuinely conflicts so the divergence is
+  # visible in the journal instead of looping every 5 minutes.
   k33pPullWrapper = pkgs.writeShellScript "k33p-pull" ''
     set -euo pipefail
-    cd "${cfg.projectPath}"
+    repo="${cfg.projectPath}"
+    cd "$repo"
 
     if [ -n "$(${pkgs.git}/bin/git status --porcelain)" ]; then
-      echo "[k33p-sync] skipping pull for ${cfg.projectPath}: working tree is dirty"
+      echo "[k33p-sync] skipping pull for $repo: working tree is dirty"
       exit 0
     fi
 
-    echo "[k33p-sync] pulling latest changes in ${cfg.projectPath}"
-    exec ${pkgs.git}/bin/git pull --ff-only origin main
+    if ! ${pkgs.git}/bin/git fetch --quiet origin main; then
+      echo "[k33p-sync] ERROR: could not fetch origin/main" >&2
+      exit 1
+    fi
+
+    if ${pkgs.git}/bin/git merge-base --is-ancestor origin/main HEAD; then
+      echo "[k33p-sync] up to date at $(${pkgs.git}/bin/git rev-parse --short HEAD)"
+      exit 0
+    fi
+
+    echo "[k33p-sync] rebasing $(${pkgs.git}/bin/git rev-list --count origin/main..HEAD) local commit(s) onto origin/main"
+    if ${pkgs.git}/bin/git rebase origin/main; then
+      echo "[k33p-sync] rebased onto $(${pkgs.git}/bin/git rev-parse --short origin/main)"
+      exit 0
+    fi
+
+    conflicts="$(${pkgs.git}/bin/git diff --name-only --diff-filter=U | tr '\n' ' ')"
+    ${pkgs.git}/bin/git rebase --abort || true
+    echo "[k33p-sync] ERROR: local commits conflict with origin/main; manual reconcile needed" >&2
+    if [ -n "$conflicts" ]; then
+      echo "[k33p-sync] conflicted files: $conflicts" >&2
+    fi
+    echo "[k33p-sync] fix with: git -C $repo pull --rebase origin main" >&2
+    exit 1
   '';
 in
 {

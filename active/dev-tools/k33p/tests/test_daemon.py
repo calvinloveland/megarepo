@@ -479,3 +479,56 @@ class TestGitPushRecovery:
         assert ["git", "fetch", "origin", "main"] in calls
         assert ["git", "rebase", "origin/main"] in calls
         assert push_count["n"] == 2
+
+    def test_conflicting_rebase_reports_files_and_aborts(
+        self, project_with_daemon: Path, monkeypatch, capsys
+    ) -> None:
+        """A rebase that conflicts must name the conflicted files and abort cleanly,
+        so a diverged host is diagnosable from the journal instead of looping."""
+        project = load_project(str(project_with_daemon))
+        daemon = Daemon(project)
+        daemon.state.pending_changes = [FileChange(path="file.txt", mtime=time.time())]
+
+        calls: list[list[str]] = []
+
+        def fake_run(args, **kwargs):
+            calls.append(list(args))
+            if args[:4] == ["git", "diff", "--name-only", "--relative"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:4] == ["git", "diff", "--name-only", "--diff-filter=U"]:
+                return subprocess.CompletedProcess(
+                    args, 0, stdout="launcher/apps.yaml\nscripts/check_all.py\n", stderr=""
+                )
+            if args[:4] == ["git", "ls-files", "--others", "--exclude-standard"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:2] == ["git", "add"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:4] == ["git", "diff", "--cached", "--quiet"]:
+                return subprocess.CompletedProcess(args, 1, stdout="", stderr="")
+            if args[:2] == ["git", "commit"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:3] == ["git", "rev-parse", "--abbrev-ref"]:
+                return subprocess.CompletedProcess(args, 0, stdout="main\n", stderr="")
+            if args[:2] == ["git", "push"]:
+                return subprocess.CompletedProcess(
+                    args, 1, stdout="", stderr="! [rejected] main -> main (non-fast-forward)"
+                )
+            if args[:2] == ["git", "fetch"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:3] == ["git", "rebase", "--abort"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:2] == ["git", "rebase"]:
+                return subprocess.CompletedProcess(
+                    args, 1, stdout="", stderr="Rebasing (1/58)\nerror: could not apply abc123"
+                )
+            raise AssertionError(f"unexpected git command: {args}")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        rc = daemon._do_git_push("https://git.example.com/repo.git")
+
+        assert rc == 1
+        assert ["git", "rebase", "--abort"] in calls
+        out = capsys.readouterr().out
+        assert "hit conflicts" in out
+        assert "launcher/apps.yaml, scripts/check_all.py" in out
+        assert "manual reconcile needed" in out
