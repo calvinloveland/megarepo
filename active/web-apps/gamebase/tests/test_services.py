@@ -17,8 +17,19 @@ def test_ai_service_is_served(client):
     assert "GamebaseAI" in body
     assert "text-generation" in body
     assert "GAMEBASE_AI_RUNTIME" in body
+    assert "ai-worker.js" in body
     # Keep the CPU-friendly default models discoverable by games.
     assert "SmolLM2" in body
+
+
+def test_ai_worker_is_served(client):
+    response = client.get("/static/services/ai-worker.js")
+    assert response.status_code == 200
+    assert "javascript" in response.headers["Content-Type"].lower()
+
+    body = response.get_data(as_text=True)
+    assert "text-generation" in body
+    assert "onmessage" in body
 
 
 def test_sdk_exposes_lazy_ai_loader(client):

@@ -210,6 +210,8 @@ and ONNX Runtime Web on WebAssembly:
 script. `ready()` is idempotent; the first call downloads roughly 100–350 MB
 from the Hugging Face Hub and the browser caches it. `GamebaseAI.models`
 exposes `fast`, `balanced`, and `sharp` presets. `unload()` frees the model.
+Inference runs in `/static/services/ai-worker.js` so the game stays responsive
+and streamed tokens paint; strict sandboxes fall back to the main thread.
 
 Rules of thumb:
 

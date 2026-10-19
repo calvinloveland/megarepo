@@ -223,7 +223,11 @@ quantized chat model on WebAssembly and is exposed as `GamebaseAI`.
   it. `GamebaseAI.models` is `{fast, balanced, sharp}`.
 - `GamebaseAI.chat({system, messages, maxTokens, temperature, onToken})` returns
   the assistant text; pass `onToken` to stream.
+- Inference runs in `/static/services/ai-worker.js` so the game stays
+  responsive and tokens paint as they arrive. If workers are unavailable (a
+  strict sandbox), it falls back to the main thread automatically.
 - `GamebaseAI.info()` / `isReady()` / `unload()` inspect or free the model.
+  `info().mode` is `"worker"` or `"main"`.
 - `Gamebase.ai({warm: true, ...})` is a lazy SDK wrapper that injects
   `/static/services/ai.js` if the game did not include it.
 
