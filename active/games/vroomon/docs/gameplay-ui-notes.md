@@ -4,6 +4,77 @@ Companion to `docs/audit.md`. Covers the gameplay/UI pass: how we reviewed the
 rendered app, what we found, what we fixed, and reusable recipes (vision
 sub-agents, OCR, pixel probes) for future sessions.
 
+## Pixel art: the game stops looking like a prototype (2026-10-19) ✅
+
+The overworld was drawn with canvas primitives: one flat fill per tile, a
+rectangle for a head, a rectangle for a torso, and a translucent rounded card
+for every panel. Nothing about it was broken and all of it read as a
+prototype — the ask was "classic homage to top-down RPGs", so the art was
+rebuilt rather than tuned.
+
+**The five things that were making it look like a first attempt**, in order of
+how loudly they shouted:
+
+1. **The tile grid was visible.** Every ground tile shaded its own right and
+   bottom edge, so a field was a spreadsheet. Tiles now fill edge to edge; all
+   texture is interior.
+2. **People were made of three rectangles.** They are now authored as 16×24
+   character grids (head ≈ a third of the figure, a neck, a collar, two legs,
+   two boots, a keyline) and drawn at 1.5 tiles tall, anchored to the tile's
+   floor.
+3. **Grass, path and floor were one colour with a pattern of dashes.** Each now
+   has a four-tone ramp, sparse texture, and per-cell scatter hashed from the
+   tile coordinate — so a field of one PNG varies cell by cell instead of
+   repeating like wallpaper.
+4. **UI was web chrome**: translucent rounded pills, blurred cards, system-ui
+   text. Panels are now one shared `.rpg-window` (dark ink fill, hard dark
+   edge, cream keyline, squared corners), portraits are pixel busts built from
+   the same grid, and the title screen is a title card with a corner-studded
+   frame and a cursor row.
+5. **Small rooms floated in a flat void.** The space beyond a map now repeats
+   the map's own border tile under a heavy veil (wall indoors, treeline
+   outdoors) and a vignette closes the edges. A 14×5 room reads as a lit room
+   in a dark house rather than a picture dropped on a table.
+
+### The mechanics that made it possible
+
+- **`world/pixel.ts`** — the grid. Art is authored on 16 columns and scaled by
+  `size / 16`, so a 32px tile is exactly 2 screen pixels per art pixel and a
+  96px export is 6. Nothing lands on a half pixel at either size.
+- **`world/sprite-art.ts`** — the character tables, as data. Every row is 16
+  cells; the suite checks that, checks every cell names a palette key the
+  drawing code knows, and checks each layer stays in its band.
+- **Context-aware walls** — a per-tile wall cannot know it is the top of a run,
+  so the coping is drawn in the baked tile layer only where no wall is above,
+  and floors below a wall take a contact shadow. A coping on every wall tile
+  turned side walls into columns of shelves.
+
+### Four real bugs the rewrite turned up
+
+1. **NPC hands were transparent.** The outfit table draws exposed skin below
+   the sleeves, and the outfit palette had no skin keys — a 24-row sprite with
+   two holes where the hands should be. Caught by the new palette test, not by
+   eye.
+2. **The sprite export did not reach `dist/`.** `npm run export:sprites` ran the
+   build (which copies assets) *before* writing the new PNGs, so the served
+   game kept the previous art until the next unrelated build. The script now
+   copies static again after exporting, and only then does the hash stamp test
+   pass.
+3. **The HUD panel overflowed its own frame.** A `white-space: nowrap` chip
+   value set the flex row's min-content width, so the MAP row pushed the quest
+   text out past the border. Values now ellipsis, labels do not shrink.
+4. **Name tags were web tooltips.** Canvas text at 8px in `system-ui` over pixel
+   art, one per villager, every frame. They are gone: the person within talking
+   distance gets a three-dot speech chip, and the dialogue window carries the
+   name (which is where a player looks for it anyway).
+
+### Verified
+
+`npm test` 561/561, `npm run test:e2e` 59/59 unchanged — the art is behind the
+same `Game.view()`/renderer seam, so no gameplay contract moved. Screenshots at
+1280×800 for the ranch house, yard, town, Route 1 and Marrow Orchard; the
+sprite export hash test is the guard that the PNGs match the drawing code.
+
 ## HUD widths — verified, no change needed (2026-09-15) ✅
 
 The WILD chip grew a second fact (`gen 13 · sends 200`) and the CIRCUIT chip a
@@ -4071,25 +4142,39 @@ the same failure the quest contracts already catch for accept flags.
 
 ## Outstanding gameplay/UI issues (identified, not yet fixed — design work)
 
-From the vision-model critique + probes, ordered by impact:
+Re-audited after the pixel-art pass (2026-10-19). Fixed, and struck off:
 
-- **Equipment/cosmetic depth**: car bodies are still flat color blocks without
-  shading or per-chassis variation; cross-entity z-order means a dense pileup
-  can still look like a web of constraint lines.
+- ~~Aesthetic: flat colour blocks and translucent blobs~~ — tiles, people and
+  portraits are now authored pixel art (`docs/art-pipeline.md`), and panels
+  share one window style.
+- ~~Menu screen design~~ — the title is a framed title card with a cursor row,
+  not a cream landing page.
+- ~~Status line contrast/clipping~~ — it is a two-line-height plaque in the
+  window style, on the pixel font at a readable size.
+- ~~Batch progress pill behind the top bar~~ — moved below it.
+- ~~World stretched to fit~~ and the HUD panel overflow (#4 in the entry above)
+  — both fixed and covered.
+
+Still open, ordered by impact:
+
+- **Cars are still flat colour blocks in the SVG race viewport.** The
+  evolution/test-drive bench draws each vroomon as its plates and wheels, but
+  as single pastel fills with no shading or chassis variation, and a dense
+  pileup still reads as a web of constraint lines. This is the last surface
+  that does not match the world's art language.
+- **The Pocket Ranch scene palette** is the dark slate behind those cars; it
+  now matches the window style, but the ground/obstacle fills come from the
+  terrain presets and are still brighter than the overworld's ramps.
 - **Hall of Fame card blank** ("Top:"/"Saved:" empty) and overlapped by the
   error-logger ring (`.error-toggle` bottom-right). Error badge shows "0" and
   is permanent player chrome — hide it until `data-has-errors="true"`.
-- **Batch progress pill** is positioned at `top: 0.5rem` behind the fixed
-  36px top bar (blurred smudge); move below the bar.
 - **Vehicle focus strip buttons are unstyled** (`.active`/`.ghost` have no CSS
   in game.html) and overlap the config panel.
-- **Status line** at 8px, `rgba(255,244,209,0.75)` on the sky (~1.2:1 contrast),
-  baseline clipped; dev copy "Ready to begin the Electron rewrite preview."
-  ships in the status line (`state.ts` createRendererState).
 - **Terrain select + gen pill shown in world mode** (meaningless there).
-- **Aesthetic**: obstacles are flat gray slabs; cars are translucent blobs with
-  no wheel shading; three Google Fonts loaded from CDN (offline risk in the
-  Electron build); ~60-90% empty sky in most modes.
+- **Three Google Fonts loaded from CDN** (offline risk in the Electron build).
+  The pixel look now depends on them more than before, so this matters more,
+  not less — either vendor the two display faces or accept the monospace
+  fallback deliberately.
 
 Candidate A/B tests for later (use `ab_test_visuals`): menu screen design,
 label strategy (leader-only vs collision-avoidance), HOF surfacing in web UI.
