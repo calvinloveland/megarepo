@@ -8,11 +8,16 @@
  * Hub; after that the browser caches it (games that use this service should
  * declare `capabilities.sandbox: same-origin` so the Cache API is available).
  *
+ * Inference runs in a Web Worker when the browser allows one, so the game stays
+ * responsive and streamed tokens actually paint. If workers are unavailable
+ * (for example in a strict, opaque-origin sandbox) it falls back to running on
+ * the main thread.
+ *
  * Load it from a game (classic script, no build step):
  *
  *   <script src="/static/services/ai.js"></script>
  *
- *   const info = await GamebaseAI.ready({
+ *   await GamebaseAI.ready({
  *     model: GamebaseAI.models.balanced,
  *     onProgress: ({ progress }) => console.log(progress),
  *   });
@@ -31,7 +36,8 @@
 (function (global) {
   "use strict";
 
-  const VERSION = "1.0.0";
+  const VERSION = "1.1.0";
+  const WORKER_URL = "/static/services/ai-worker.js";
   const DEFAULT_RUNTIME_URL =
     "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1";
 
@@ -42,26 +48,110 @@
     sharp: "onnx-community/Qwen2.5-0.5B-Instruct",
   });
 
+  // ── Worker-backed inference ────────────────────────────────────────────
+
+  let worker = null;
+  let workerBroken = false;
+  let workerSequence = 0;
+  const workerPending = new Map();
+
+  // ── Main-thread fallback ───────────────────────────────────────────────
+
   let runtimePromise = null;
   let generator = null;
-  let loaded = { model: null, device: null, dtype: null };
+
+  // ── Shared state ───────────────────────────────────────────────────────
+
+  let loaded = { model: null, device: null, dtype: null, mode: null };
+  let readyFlag = false;
   let loadingPromise = null;
 
   function runtimeUrl() {
     return global.GAMEBASE_AI_RUNTIME || DEFAULT_RUNTIME_URL;
   }
 
+  function errorMessage(error) {
+    return error && error.message ? error.message : String(error);
+  }
+
+  function handleWorkerMessage(event) {
+    const message = event.data || {};
+    const pending = workerPending.get(message.id);
+    if (!pending) return;
+
+    if (message.type === "progress") {
+      if (pending.onProgress) pending.onProgress(message);
+      return;
+    }
+    if (message.type === "token") {
+      if (pending.onToken) pending.onToken(message.token);
+      return;
+    }
+    workerPending.delete(message.id);
+    if (message.type === "done") {
+      pending.resolve(message);
+    } else if (message.type === "error") {
+      pending.reject(new Error(message.error || "GamebaseAI worker failed"));
+    }
+  }
+
+  function failPendingWorkers(reason) {
+    workerBroken = true;
+    worker = null;
+    workerPending.forEach((pending) => pending.reject(new Error(reason)));
+    workerPending.clear();
+  }
+
+  function ensureWorker() {
+    if (worker || workerBroken) return worker;
+    if (typeof global.Worker !== "function") {
+      workerBroken = true;
+      return null;
+    }
+    try {
+      worker = new global.Worker(WORKER_URL, { type: "module" });
+      worker.addEventListener("message", handleWorkerMessage);
+      worker.addEventListener("error", (event) => {
+        failPendingWorkers(
+          "GamebaseAI worker failed: " + ((event && event.message) || "unknown error")
+        );
+      });
+      return worker;
+    } catch (error) {
+      workerBroken = true;
+      worker = null;
+      return null;
+    }
+  }
+
+  function requestWorker(payload, handlers) {
+    const target = ensureWorker();
+    if (!target) return null;
+
+    const id = ++workerSequence;
+    return new Promise((resolve, reject) => {
+      workerPending.set(id, {
+        resolve,
+        reject,
+        onProgress: handlers && handlers.onProgress,
+        onToken: handlers && handlers.onToken,
+      });
+      target.postMessage(Object.assign({ id: id, runtimeUrl: runtimeUrl() }, payload));
+    });
+  }
+
+  // ── Main-thread fallback ───────────────────────────────────────────────
+
   function loadRuntime() {
     if (!runtimePromise) {
       const url = runtimeUrl();
       runtimePromise = import(url).catch((error) => {
         runtimePromise = null;
-        const detail = error && error.message ? error.message : String(error);
         throw new Error(
           "GamebaseAI could not load its runtime from " +
             url +
             " (" +
-            detail +
+            errorMessage(error) +
             "). Set window.GAMEBASE_AI_RUNTIME to a self-hosted build if the CDN is blocked."
         );
       });
@@ -77,78 +167,27 @@
     }
   }
 
-  function isReady() {
-    return Boolean(generator);
-  }
+  async function loadLocally(model, dtype, options) {
+    const transformers = await loadRuntime();
+    const env = transformers.env;
+    env.allowLocalModels = false;
+    env.useBrowserCache = options.cache === false ? false : canUseBrowserCache();
 
-  function info() {
-    return {
-      ready: isReady(),
-      model: loaded.model,
-      device: loaded.device,
-      dtype: loaded.dtype,
-      runtime: runtimeUrl(),
-      version: VERSION,
+    const progress_callback = (report) => {
+      if (typeof options.onProgress !== "function") return;
+      options.onProgress({
+        model,
+        progress:
+          report && typeof report.progress === "number" ? report.progress / 100 : null,
+        file: (report && report.file) || null,
+        status: (report && report.status) || null,
+      });
     };
-  }
 
-  /**
-   * Load the model. Idempotent: concurrent calls share one download.
-   * Resolves to `info()`. Call `unload()` before switching models.
-   */
-  function ready(options) {
-    const opts = options || {};
-    const model = opts.model || MODELS.balanced;
-    const dtype = opts.dtype || "q4";
-
-    if (generator) {
-      if (loaded.model === model) return Promise.resolve(info());
-      return Promise.reject(
-        new Error(
-          "GamebaseAI is already running " +
-            loaded.model +
-            "; call GamebaseAI.unload() before switching models."
-        )
-      );
-    }
-    if (loadingPromise) return loadingPromise;
-
-    loadingPromise = (async () => {
-      const transformers = await loadRuntime();
-      const env = transformers.env;
-      env.allowLocalModels = false;
-      env.useBrowserCache = opts.cache === false ? false : canUseBrowserCache();
-
-      const progress_callback = (report) => {
-        if (typeof opts.onProgress !== "function") return;
-        const progress =
-          report && typeof report.progress === "number" ? report.progress / 100 : null;
-        opts.onProgress({
-          model,
-          progress,
-          file: (report && report.file) || null,
-          status: (report && report.status) || null,
-        });
-      };
-
-      try {
-        generator = await transformers.pipeline("text-generation", model, {
-          device: "wasm",
-          dtype,
-          progress_callback,
-        });
-      } catch (error) {
-        generator = null;
-        const detail = error && error.message ? error.message : String(error);
-        throw new Error("GamebaseAI could not load " + model + ": " + detail);
-      }
-
-      loaded = { model, device: "wasm", dtype };
-      return info();
-    })();
-
-    return loadingPromise.finally(() => {
-      loadingPromise = null;
+    generator = await transformers.pipeline("text-generation", model, {
+      device: "wasm",
+      dtype,
+      progress_callback,
     });
   }
 
@@ -169,32 +208,17 @@
     return "";
   }
 
-  /**
-   * Generate a chat completion. `messages` is an array of
-   * `{role: "system"|"user"|"assistant", content}`. `system` is a convenience
-   * shorthand. Resolves to the assistant text.
-   *
-   * Pass `onToken` to stream: it receives text chunks as they are generated.
-   */
-  async function chat(options) {
-    const opts = options || {};
-    if (!generator) {
-      await ready({ model: opts.model, onProgress: opts.onProgress });
-    }
-    if (!generator) {
-      throw new Error("GamebaseAI has no model loaded.");
-    }
-
+  async function chatLocally(options) {
     const transformers = await loadRuntime();
     const messages = [];
-    if (opts.system) messages.push({ role: "system", content: String(opts.system) });
-    (opts.messages || []).forEach((message) => {
+    if (options.system) messages.push({ role: "system", content: String(options.system) });
+    (options.messages || []).forEach((message) => {
       if (message && message.role && typeof message.content === "string") {
         messages.push({ role: message.role, content: message.content });
       }
     });
 
-    const onToken = typeof opts.onToken === "function" ? opts.onToken : null;
+    const onToken = typeof options.onToken === "function" ? options.onToken : null;
     let streamed = "";
     let streamer = null;
     if (onToken && typeof transformers.TextStreamer === "function") {
@@ -209,23 +233,152 @@
     }
 
     const generateOptions = {
-      max_new_tokens: opts.maxTokens || 96,
-      do_sample: opts.temperature !== 0,
-      temperature: opts.temperature == null ? 0.8 : opts.temperature,
-      top_p: opts.topP == null ? 0.9 : opts.topP,
-      repetition_penalty: opts.repetitionPenalty == null ? 1.1 : opts.repetitionPenalty,
+      max_new_tokens: options.maxTokens || 96,
+      do_sample: options.temperature !== 0,
+      temperature: options.temperature == null ? 0.8 : options.temperature,
+      top_p: options.topP == null ? 0.9 : options.topP,
+      repetition_penalty:
+        options.repetitionPenalty == null ? 1.1 : options.repetitionPenalty,
       return_full_text: false,
     };
     if (streamer) generateOptions.streamer = streamer;
 
     const output = await generator(messages, generateOptions);
-    const text = (streamed || extractText(output)).trim();
+    return (streamed || extractText(output)).trim();
+  }
+
+  // ── Public API ─────────────────────────────────────────────────────────
+
+  function isReady() {
+    return readyFlag;
+  }
+
+  function info() {
+    return {
+      ready: readyFlag,
+      model: loaded.model,
+      device: loaded.device,
+      dtype: loaded.dtype,
+      mode: loaded.mode,
+      runtime: runtimeUrl(),
+      version: VERSION,
+    };
+  }
+
+  /**
+   * Load the model. Idempotent: concurrent calls share one download.
+   * Resolves to `info()`. Call `unload()` before switching models.
+   */
+  function ready(options) {
+    const opts = options || {};
+    const model = opts.model || MODELS.balanced;
+    const dtype = opts.dtype || "q4";
+
+    if (readyFlag) {
+      if (loaded.model === model) return Promise.resolve(info());
+      return Promise.reject(
+        new Error(
+          "GamebaseAI is already running " +
+            loaded.model +
+            "; call GamebaseAI.unload() before switching models."
+        )
+      );
+    }
+    if (loadingPromise) return loadingPromise;
+
+    loadingPromise = (async () => {
+      readyFlag = false;
+
+      // Prefer the worker so the UI stays responsive during generation.
+      const workerLoad =
+        workerBroken
+          ? null
+          : requestWorker(
+              { action: "load", model: model, dtype: dtype, cache: opts.cache !== false },
+              { onProgress: opts.onProgress }
+            );
+
+      if (workerLoad) {
+        try {
+          await workerLoad;
+          loaded = { model: model, device: "wasm", dtype: dtype, mode: "worker" };
+          readyFlag = true;
+          return info();
+        } catch (error) {
+          // A worker crash can be recovered from on the main thread. A model
+          // load failure should surface: retrying locally repeats the download.
+          if (!workerBroken) throw error;
+        }
+      }
+
+      try {
+        await loadLocally(model, dtype, opts);
+      } catch (error) {
+        generator = null;
+        throw new Error("GamebaseAI could not load " + model + ": " + errorMessage(error));
+      }
+      loaded = { model: model, device: "wasm", dtype: dtype, mode: "main" };
+      readyFlag = true;
+      return info();
+    })();
+
+    return loadingPromise.finally(() => {
+      loadingPromise = null;
+    });
+  }
+
+  /**
+   * Generate a chat completion. `messages` is an array of
+   * `{role: "system"|"user"|"assistant", content}`. `system` is a convenience
+   * shorthand. Resolves to the assistant text.
+   *
+   * Pass `onToken` to stream: it receives text chunks as they are generated.
+   */
+  async function chat(options) {
+    const opts = options || {};
+    if (!readyFlag) {
+      await ready({ model: opts.model, onProgress: opts.onProgress });
+    }
+    if (!readyFlag) {
+      throw new Error("GamebaseAI has no model loaded.");
+    }
+
+    if (loaded.mode === "worker") {
+      const result = await requestWorker(
+        {
+          action: "chat",
+          system: opts.system,
+          messages: opts.messages,
+          maxTokens: opts.maxTokens,
+          temperature: opts.temperature,
+          topP: opts.topP,
+          repetitionPenalty: opts.repetitionPenalty,
+        },
+        { onToken: opts.onToken }
+      );
+      if (!result) throw new Error("GamebaseAI worker is unavailable.");
+      const text = (result.text || "").trim();
+      if (!text) throw new Error("GamebaseAI produced an empty response.");
+      return text;
+    }
+
+    if (!generator) {
+      throw new Error("GamebaseAI has no model loaded.");
+    }
+    const text = await chatLocally(opts);
     if (!text) throw new Error("GamebaseAI produced an empty response.");
     return text;
   }
 
   /** Drop the model so another one can be loaded (or to free memory). */
   function unload() {
+    if (loaded.mode === "worker" && worker) {
+      try {
+        worker.postMessage({ action: "unload", id: ++workerSequence });
+      } catch (error) {
+        /* ignore */
+      }
+    }
     if (generator && typeof generator.dispose === "function") {
       try {
         generator.dispose();
@@ -234,7 +387,8 @@
       }
     }
     generator = null;
-    loaded = { model: null, device: null, dtype: null };
+    loaded = { model: null, device: null, dtype: null, mode: null };
+    readyFlag = false;
     loadingPromise = null;
   }
 
