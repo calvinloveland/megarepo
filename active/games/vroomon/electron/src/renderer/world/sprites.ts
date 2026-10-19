@@ -403,6 +403,246 @@ function drawMat(
 }
 
 /**
+ * Props that stand up out of their tile.
+ *
+ * A counter, a bed and a fence drawn flat inside one 32px cell all read as
+ * things lying on the floor — which is exactly the criticism they earned. They
+ * are drawn in their own pass, 1.25 tiles tall and anchored to the tile's
+ * floor, so they overlap the tile above and cast their own shadow. The pass
+ * runs top row to bottom row, so a nearer prop always covers a farther one.
+ */
+export const TALL_PROP_TILES = new Set<TileKind>(["fence", "counter", "bed"]);
+
+/** Height of a tall prop in art rows (the tile is 16). */
+export const TALL_PROP_ROWS = 20;
+
+const FENCE_ROWS: readonly string[] = [
+  "................",
+  "................",
+  "................",
+  ".......PPP......",
+  ".......PpP......",
+  "RRRRRRRPpPRRRRRR",
+  "RrrrrrrPpPrrrrrR",
+  "RRRRRRRPpPRRRRRR",
+  ".......PpP......",
+  ".......PpP......",
+  "RRRRRRRPpPRRRRRR",
+  "RrrrrrrPpPrrrrrR",
+  "RRRRRRRPpPRRRRRR",
+  ".......PpP......",
+  ".......PpP......",
+  ".......PpP......",
+  ".......PpP......",
+  "......PPPP......",
+  "................",
+  "................",
+];
+
+const COUNTER_ROWS: readonly string[] = [
+  "................",
+  "................",
+  "................",
+  "TTTTTTTTTTTTTTTT",
+  "TttttttttttttttT",
+  "tttttttttttttttt",
+  "tttttttttttttttt",
+  "tttttttttttttttt",
+  "LLLLLLLLLLLLLLLL",
+  "FFFFFFFFFFFFFFFF",
+  "FFfdFFfdFFfdFFFF",
+  "FFFFFFFFFFFFFFFF",
+  "FFFFFFFFFFFFFFFF",
+  "FFfdFFfdFFfdFFFF",
+  "FFFFFFFFFFFFFFFF",
+  "FFFFFFFFFFFFFFFF",
+  "FFFFFFFFFFFFFFFF",
+  "SSSSSSSSSSSSSSSS",
+  "................",
+  "................",
+];
+
+const BED_ROWS: readonly string[] = [
+  "................",
+  "HHHHHHHHHHHHHHHH",
+  "HhhhhhhhhhhhhhhH",
+  "HhhhhhhhhhhhhhhH",
+  "HhhhhhhhhhhhhhhH",
+  "HWWWWWWWWWWWWWWH",
+  "HWWWWWWWWWWWWWWH",
+  "HBBBBBBBBBBBBBBH",
+  "HBBBBBBBBBBBBBBH",
+  "HBBBBBBBBBBBBBBH",
+  "HBBBBBBBBBBBBBBH",
+  "HBBBBBBBBBBBBBBH",
+  "HBBBBBBBBBBBBBBH",
+  "HBBBBBBBBBBBBBBH",
+  "HhhhhhhhhhhhhhhH",
+  "HhhhhhhhhhhhhhhH",
+  "HhhhhhhhhhhhhhhH",
+  "HHHHHHHHHHHHHHHH",
+  "................",
+  "................",
+];
+
+/**
+ * Draw one tall prop. `px,py` is the tile's top-left, so the prop's extra rows
+ * hang above the tile, over whatever is there.
+ */
+export function drawTallProp(
+  ctx: PixelCanvas,
+  tile: TileKind,
+  px: number,
+  py: number,
+  size: number,
+  neighbours: { west: boolean; east: boolean } = { west: true, east: true },
+): void {
+  const p = artPixel(size);
+  const originY = py + size - TALL_PROP_ROWS * p;
+  if (tile === "fence") {
+    const palette: ArtPalette = {
+      P: "#8a6a44",
+      p: "#6b5033",
+      R: "#a28055",
+      r: "#7d6040",
+    };
+    drawArtOutline(ctx, FENCE_ROWS, KEYLINE, px, originY, p);
+    drawArtRows(ctx, FENCE_ROWS, palette, px, originY, p);
+    // Sawed-off ends are what made a fence run look like floating fragments:
+    // a run that stops gets an end post, and the rails stop with it.
+    const endPost = (x: number): void => {
+      ctx.fillStyle = KEYLINE;
+      ctx.fillRect(px + x * p, originY + 3 * p, 3 * p, 15 * p);
+      ctx.fillStyle = "#8a6a44";
+      ctx.fillRect(px + x * p, originY + 4 * p, 2 * p, 13 * p);
+      ctx.fillStyle = "#6b5033";
+      ctx.fillRect(px + x * p, originY + 4 * p, p, 13 * p);
+    };
+    if (!neighbours.west) {
+      // Cut the rails at the run's end so they do not hang in the air.
+      ctx.fillStyle = "rgba(20, 14, 8, 0.55)";
+      ctx.fillRect(px, originY + 5 * p, 2 * p, 3 * p);
+      ctx.fillRect(px, originY + 10 * p, 2 * p, 3 * p);
+      endPost(1);
+    }
+    if (!neighbours.east) {
+      ctx.fillStyle = "rgba(20, 14, 8, 0.55)";
+      ctx.fillRect(px + 14 * p, originY + 5 * p, 2 * p, 3 * p);
+      ctx.fillRect(px + 14 * p, originY + 10 * p, 2 * p, 3 * p);
+      endPost(13);
+    }
+    return;
+  }
+  if (tile === "counter") {
+    const palette: ArtPalette = {
+      T: "#c48d52",
+      t: "#b07c46",
+      L: "#96602f",
+      F: "#7d5128",
+      f: "#8f5f30",
+      d: "#5d3a1c",
+      S: "rgba(0, 0, 0, 0.28)",
+    };
+    drawArtOutline(ctx, COUNTER_ROWS, KEYLINE, px, originY, p);
+    drawArtRows(ctx, COUNTER_ROWS, palette, px, originY, p);
+    return;
+  }
+  // Bed.
+  const palette: ArtPalette = {
+    H: "#4a2f18",
+    h: "#8a6440",
+    W: "#efe4cc",
+    B: "#cf3a3a",
+  };
+  drawArtOutline(ctx, BED_ROWS, KEYLINE, px, originY, p);
+  drawArtRows(ctx, BED_ROWS, palette, px, originY, p);
+}
+
+/**
+ * The ragged join between two grounds.
+ *
+ * Two ground types meeting at a tile edge is a straight line, and a straight
+ * line across a field reads as a bucket fill. This stipples the neighbour's
+ * colour into this tile along the shared edge, fading with depth, so grass
+ * creeps onto a path and a path crumbles into grass. Deterministic from the
+ * tile coordinate; a dozen rectangles per shared edge, once, at bake time.
+ */
+const TRANSITION_GROUNDS = new Set<TileKind>([
+  "grass",
+  "tall-grass-edge",
+  "vroomgrass",
+  "path",
+  "water",
+]);
+
+export function drawGroundTransition(
+  ctx: PixelCanvas,
+  tile: TileKind,
+  neighbour: TileKind,
+  edge: "north" | "south" | "east" | "west",
+  px: number,
+  py: number,
+  size: number,
+  tx: number,
+  ty: number,
+): void {
+  if (tile === neighbour) {
+    return;
+  }
+  if (WALL_KINDS.has(tile) || WALL_KINDS.has(neighbour) || tile === "tree" || neighbour === "tree") {
+    return;
+  }
+  // Grounds only. Props and furniture do not bleed into the ground they stand
+  // on — a boulder ringed with grey confetti is the noise this function
+  // exists to avoid, not an example of it.
+  if (!TRANSITION_GROUNDS.has(tile) || !TRANSITION_GROUNDS.has(neighbour)) {
+    return;
+  }
+  const p = artPixel(size);
+  const colors = ramp(neighbour);
+  const salt = { north: 307, south: 311, east: 313, west: 317 }[edge];
+  const water = neighbour === "water" || tile === "water";
+  // A shoreline is drawn dense and dark; everything else is sparse.
+  const threshold = water ? 0.1 : 0.26;
+  for (let along = 0; along < 16; along += 1) {
+    const hx = hashUnit(tx * 13 + along * 7, ty * 11 + along * 3, salt);
+    if (hx < threshold) {
+      continue;
+    }
+    // Deeper marks are rarer: a fringe, not a gradient wash.
+    const depth = 1 + Math.floor(hx * hx * (water ? 3 : 3));
+    let x = along;
+    let y = 0;
+    if (edge === "north") {
+      y = depth - 1;
+    } else if (edge === "south") {
+      y = 15 - (depth - 1);
+    } else if (edge === "west") {
+      x = depth - 1;
+      y = along;
+    } else {
+      x = 15 - (depth - 1);
+      y = along;
+    }
+    ctx.fillStyle = water
+      ? hx > 0.55
+        ? "rgba(24, 34, 20, 0.5)"
+        : "rgba(226, 214, 176, 0.35)"
+      : hx > 0.62
+        ? colors.base
+        : colors.detail;
+    ctx.fillRect(px + x * p, py + y * p, p, p);
+    // Occasionally a second cell inward, so the join has a fringe rather than
+    // a dotted line.
+    if (hx > 0.86) {
+      const bx = edge === "west" ? x + 1 : edge === "east" ? x - 1 : x;
+      const by = edge === "north" ? y + 1 : edge === "south" ? y - 1 : y;
+      ctx.fillRect(px + bx * p, py + by * p, p, p);
+    }
+  }
+}
+
+/**
  * Per-cell ground detail, drawn on top of whichever layer produced the tile
  * (PNG or code). The tile image is one picture; a field is many cells, and a
  * field of one picture repeated is a checkerboard. This is the difference, and

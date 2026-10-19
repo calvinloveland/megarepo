@@ -2,12 +2,15 @@ import { getMap, isTilePassable } from "./maps.js";
 import {
   drawBuildingEaves,
   drawGroundScatter,
+  drawGroundTransition,
   drawNpc,
+  drawTallProp,
   drawPlayer,
   drawTile,
   drawWallShadow,
   drawWallTrim,
   PERSON_HEIGHT_TILES,
+  TALL_PROP_TILES,
 } from "./sprites.js";
 import {
   PLAYER_MOVE_DURATION_MS,
@@ -53,6 +56,16 @@ const SOLID_FACE_TILES = new Set<TileKind>(["wall", "building", "tree-trunk", "t
 
 // One offscreen canvas per map (invalidated when the map or the sprite
 // assets change): the tile layer is drawn once, then blitted per frame.
+
+/**
+ * The bake is padded by this many tiles on every side, each one a clamped copy
+ * of the nearest tile inside the map. That is what makes the world continue
+ * past the map's edge instead of stopping at a bright rectangle laid on a dark
+ * rug: a treeline keeps being trees, a road keeps being a road, and the camera
+ * never reaches the pad's own edge (it is clamped to the map).
+ */
+const LAYER_PAD = 14;
+
 let bakedLayer: { key: string; canvas: HTMLCanvasElement } | null = null;
 
 function bakedTileLayer(
@@ -64,26 +77,82 @@ function bakedTileLayer(
   if (bakedLayer && bakedLayer.key === key) {
     return bakedLayer.canvas;
   }
+  const cols = map.width + LAYER_PAD * 2;
+  const rows = map.height + LAYER_PAD * 2;
   const layer = document.createElement("canvas");
-  layer.width = map.width * TILE_SIZE;
-  layer.height = map.height * TILE_SIZE;
+  layer.width = cols * TILE_SIZE;
+  layer.height = rows * TILE_SIZE;
   const lctx = layer.getContext("2d");
   if (!lctx) {
     return layer;
   }
   lctx.fillStyle = map.ambientColor;
   lctx.fillRect(0, 0, layer.width, layer.height);
-  const isWallAt = (x: number, y: number): boolean => {
-    if (x < 0 || y < 0 || x >= map.width || y >= map.height) {
-      return false;
-    }
-    return SOLID_FACE_TILES.has(map.tiles[y]?.[x] ?? "grass");
+
+  // Clamped access: any coordinate outside the map reads the nearest tile in
+  // it, which is what extends the edge outward. Props on the edge (a doormat at
+  // a town gate, a counter against a wall) are looked *past* — extending one
+  // outward paved the forest with stone slabs. The ground behind it is the
+  // honest continuation.
+  const FEATURE_TILES = new Set<TileKind>([
+    "doormat",
+    "door",
+    "counter",
+    "bed",
+    "fence",
+    "rock",
+  ]);
+  const rawTileAt = (x: number, y: number): TileKind => {
+    const cx = Math.max(0, Math.min(map.width - 1, x));
+    const cy = Math.max(0, Math.min(map.height - 1, y));
+    return map.tiles[cy]?.[cx] ?? "grass";
   };
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      const tile = map.tiles[y]?.[x] ?? "grass";
-      const px = x * TILE_SIZE;
-      const py = y * TILE_SIZE;
+  const inside = (x: number, y: number): boolean =>
+    x >= 0 && y >= 0 && x < map.width && y < map.height;
+  const tileAt = (x: number, y: number): TileKind => {
+    const tile = rawTileAt(x, y);
+    // Inside the map every tile is itself, props included. The substitution is
+    // only for the padded apron outside it.
+    if (inside(x, y) || !FEATURE_TILES.has(tile)) {
+      return tile;
+    }
+    // Step from the clamped point toward the map's inside and take the first
+    // tile that is terrain.
+    const cx = Math.max(0, Math.min(map.width - 1, x));
+    const cy = Math.max(0, Math.min(map.height - 1, y));
+    const inX = x < 0 ? 1 : x >= map.width ? -1 : 0;
+    const inY = y < 0 ? 1 : y >= map.height ? -1 : 0;
+    const dx = inX !== 0 ? inX : cx < map.width - 1 ? 1 : -1;
+    const dy = inY !== 0 ? inY : cy < map.height - 1 ? 1 : -1;
+    for (let step = 1; step <= 4; step += 1) {
+      const candidate = map.tiles[cy + dy * step]?.[cx + dx * step];
+      if (candidate && !FEATURE_TILES.has(candidate)) {
+        return candidate;
+      }
+    }
+    return "grass";
+  };
+  const isWallAt = (x: number, y: number): boolean =>
+    SOLID_FACE_TILES.has(tileAt(x, y));
+  const gx = (x: number): number => (x + LAYER_PAD) * TILE_SIZE;
+  const outsideDepth = (x: number, y: number): number =>
+    Math.max(0, -x, x - (map.width - 1), -y, y - (map.height - 1));
+
+  for (let y = -LAYER_PAD; y < map.height + LAYER_PAD; y += 1) {
+    for (let x = -LAYER_PAD; x < map.width + LAYER_PAD; x += 1) {
+      const tile = tileAt(x, y);
+      const px = gx(x);
+      const py = gx(y);
+      // A room is not a field: beyond its walls is darkness, not more wall.
+      // One tile of half-lit wall reads as the building's thickness, and then
+      // the bake simply stops — the renderer's near-black base shows through.
+      const depth = outsideDepth(x, y);
+      if (map.interior) {
+        if (depth > 1) {
+          continue;
+        }
+        lctx.globalAlpha = depth === 0 ? 1 : 0.45;
+      }
       const tileAsset = spriteAssets?.get(`tile:${tile}`);
       if (tileAsset) {
         lctx.drawImage(tileAsset, px, py, TILE_SIZE, TILE_SIZE);
@@ -94,18 +163,36 @@ function bakedTileLayer(
       // field of identical PNG grass still varies cell by cell instead of
       // repeating like wallpaper.
       drawGroundScatter(lctx, tile, px, py, TILE_SIZE, x, y);
+      lctx.globalAlpha = 1;
     }
   }
+
   // Walls are context: a lit coping belongs on the top edge of a run (not on
   // every tile in it, which reads as shelving), and the ground below a wall
   // takes its contact shadow. Both are drawn here rather than in the tile art
   // because a single tile image cannot know what is beside it.
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      const tile = map.tiles[y]?.[x] ?? "grass";
+  for (let y = -LAYER_PAD; y < map.height + LAYER_PAD; y += 1) {
+    for (let x = -LAYER_PAD; x < map.width + LAYER_PAD; x += 1) {
+      if (map.interior && outsideDepth(x, y) > 1) {
+        continue;
+      }
+      const tile = tileAt(x, y);
+      const px = gx(x);
+      const py = gx(y);
       if (!SOLID_FACE_TILES.has(tile)) {
+        if (TALL_PROP_TILES.has(tile)) {
+          drawTallProp(lctx, tile, px, py, TILE_SIZE, {
+            west: tileAt(x - 1, y) === tile,
+            east: tileAt(x + 1, y) === tile,
+          });
+          continue;
+        }
         const shadowDepth = isWallAt(x, y - 1) ? TILE_SIZE * 0.34 : 0;
-        drawWallShadow(lctx, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, shadowDepth);
+        drawWallShadow(lctx, px, py, TILE_SIZE, shadowDepth);
+        drawGroundTransition(lctx, tile, tileAt(x, y - 1), "north", px, py, TILE_SIZE, x, y);
+        drawGroundTransition(lctx, tile, tileAt(x, y + 1), "south", px, py, TILE_SIZE, x, y);
+        drawGroundTransition(lctx, tile, tileAt(x - 1, y), "west", px, py, TILE_SIZE, x, y);
+        drawGroundTransition(lctx, tile, tileAt(x + 1, y), "east", px, py, TILE_SIZE, x, y);
         continue;
       }
       // A treeline has no coping (a light edge on a canopy reads as a UI line)
@@ -113,12 +200,12 @@ function bakedTileLayer(
       // front with a roof rather than as a row of crates. The test is against
       // the SAME surface: a tree above a house is not the house's roof line,
       // which is what a plain "is anything above" check got wrong.
-      const sameAbove = map.tiles[y - 1]?.[x] === tile;
+      const sameAbove = tileAt(x, y - 1) === tile;
       if (!sameAbove) {
         if (tile === "building") {
-          drawBuildingEaves(lctx, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE);
+          drawBuildingEaves(lctx, px, py, TILE_SIZE);
         } else if (tile !== "tree") {
-          drawWallTrim(lctx, tile, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE);
+          drawWallTrim(lctx, tile, px, py, TILE_SIZE);
         }
       }
     }
@@ -190,17 +277,21 @@ export function renderOverworld(
   const cameraX = computeCameraX(world, map, width);
   const cameraY = computeCameraY(world, map, height);
 
-  // Beyond the map, the world keeps going: the border tile (a wall indoors, a
-  // treeline outdoors) repeats outward under a heavy shade. A flat colour fill
-  // makes a small room look like a painting dropped on a dark table.
-  drawSurround(ctx, map, width, height, frame.spriteAssets);
+  // The bake is padded, so the world simply continues past the map's edge.
+  // Only the far corners of a room (or the deep forest) need a base fill.
+  ctx.fillStyle = map.interior ? "#120c07" : "#101a0c";
+  ctx.fillRect(0, 0, width, height);
 
   // The static tile layer is BAKED once per map into an offscreen canvas
   // and blitted in a single draw call per frame. Drawing ~200 tiles every
   // frame was the biggest per-frame cost in the overworld; the bake keeps
   // tiles (and their PNG assets) as load-once art.
   const baked = bakedTileLayer(map, frame.spriteAssets);
-  ctx.drawImage(baked, -cameraX, -cameraY);
+  ctx.drawImage(
+    baked,
+    -cameraX - LAYER_PAD * TILE_SIZE,
+    -cameraY - LAYER_PAD * TILE_SIZE,
+  );
 
   // Water moves. The pond sits in the baked layer (static), so the ripples
   // are drawn over it each frame — a couple of lines per tile is cheap and
@@ -776,44 +867,6 @@ function drawTalkPrompt(
     ctx.fillRect(x + 4 + i * 4, y + 6, 2, 2);
   }
   ctx.globalAlpha = 1;
-}
-
-/**
- * The dark beyond the edge of the map. Repeats the map's own border tile
- * outward under a veil so the playfield sits inside a world rather than
- * floating on a colour.
- */
-function drawSurround(
-  ctx: CanvasRenderingContext2D,
-  map: Tilemap,
-  width: number,
-  height: number,
-  spriteAssets?: Map<string, HTMLImageElement>,
-): void {
-  const edgeTile: TileKind = map.interior ? "wall" : "tree";
-  let pattern: CanvasPattern | null = null;
-  const tile = document.createElement("canvas");
-  tile.width = TILE_SIZE;
-  tile.height = TILE_SIZE;
-  const tctx = tile.getContext("2d");
-  if (tctx) {
-    const asset = spriteAssets?.get(`tile:${edgeTile}`);
-    if (asset) {
-      tctx.drawImage(asset, 0, 0, TILE_SIZE, TILE_SIZE);
-    } else {
-      drawTile(tctx, edgeTile, 0, 0, TILE_SIZE, 0, 0, 0);
-    }
-    pattern = ctx.createPattern(tile, "repeat");
-  }
-  if (pattern) {
-    ctx.fillStyle = pattern;
-    ctx.fillRect(0, 0, width, height);
-  } else {
-    ctx.fillStyle = map.interior ? "#241a13" : "#14200f";
-    ctx.fillRect(0, 0, width, height);
-  }
-  ctx.fillStyle = map.interior ? "rgba(5, 3, 2, 0.46)" : "rgba(4, 10, 4, 0.3)";
-  ctx.fillRect(0, 0, width, height);
 }
 
 /**
