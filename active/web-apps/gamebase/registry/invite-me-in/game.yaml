@@ -1,0 +1,90 @@
+slug: invite-me-in
+title: Invite Me In
+description: >-
+  You are a vampire on a quiet suburban street with one night to get inside.
+  Talk your way past three very different neighbors — a lonely widow, an
+  insomniac streamer, and an exhausted nurse — before dawn. Their replies are
+  voiced on your own device by the Gamebase AI service, and every conversation
+  is different. Trust opens doors; suspicion closes them. Never show your teeth.
+author: gamebase
+version: 1.0.0
+entry: index.html
+tags:
+- horror
+- dialogue
+- llm
+- ai
+- narrative
+- single-player
+thumbnail: thumbnail.svg
+remix_of: null
+capabilities:
+  # GamebaseAI caches the model with the Cache API, which an opaque-origin
+  # (strict) sandbox cannot use. Everything else stays inside the iframe.
+  sandbox: same-origin
+  leaderboard:
+    order: desc
+    min: 0
+    max: 6000
+    label: Night Score
+  achievements:
+  - id: first-invite
+    title: Threshold
+    description: Talk your way into one house.
+    icon: 🚪
+    points: 10
+    criteria:
+      type: meta
+      key: invited
+      gte: 1
+  - id: full-house
+    title: Full House
+    description: Get all three neighbors to invite you in.
+    icon: 🩸
+    points: 40
+    criteria:
+      type: meta
+      key: invited
+      gte: 3
+  - id: smooth-operator
+    title: Smooth Operator
+    description: Invite everyone without letting any neighbor's suspicion reach 40.
+    icon: 🎩
+    points: 30
+    criteria:
+      type: all
+      all:
+      - type: meta
+        key: invited
+        gte: 3
+      - type: meta
+        key: max_suspicion
+        lte: 39
+  - id: fast-talker
+    title: Fast Talker
+    description: Get all three invitations in 12 messages or fewer.
+    icon: ⏱️
+    points: 30
+    criteria:
+      type: all
+      all:
+      - type: meta
+        key: invited
+        gte: 3
+      - type: meta
+        key: turns_used
+        lte: 12
+  - id: close-call
+    title: Close Call
+    description: Get invited by someone whose suspicion reached 80.
+    icon: 😰
+    points: 20
+    criteria:
+      type: all
+      all:
+      - type: meta
+        key: invited
+        gte: 1
+      - type: meta
+        key: max_suspicion
+        gte: 80

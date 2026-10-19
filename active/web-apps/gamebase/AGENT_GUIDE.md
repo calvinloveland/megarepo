@@ -193,6 +193,59 @@ Events: `ready`, `runended`, `checkpoint`, `unlocked`.
 
 ---
 
+## Platform service: on-device LLM (`GamebaseAI`)
+
+Gamebase ships an optional, shared LLM service that runs **in the browser** —
+no per-game backend, no API key, nothing sent to a server. It wraps
+[Transformers.js](https://huggingface.co/docs/transformers.js) running a
+quantized chat model on WebAssembly and is exposed as `GamebaseAI`.
+
+```html
+<script src="/sdk/gamebase.js"></script>
+<script src="/static/services/ai.js"></script>
+<script>
+  await GamebaseAI.ready({
+    model: GamebaseAI.models.balanced,
+    onProgress: ({ progress }) => console.log(progress),
+  });
+
+  const reply = await GamebaseAI.chat({
+    system: "You are a wary homeowner.",
+    messages: [{ role: "user", content: "Cold night, isn't it?" }],
+    maxTokens: 80,
+    onToken: (chunk) => console.log(chunk),
+  });
+</script>
+```
+
+- `GamebaseAI.ready({model, onProgress})` loads the model (idempotent). The
+  first call downloads ~100–350 MB from the Hugging Face Hub; the browser caches
+  it. `GamebaseAI.models` is `{fast, balanced, sharp}`.
+- `GamebaseAI.chat({system, messages, maxTokens, temperature, onToken})` returns
+  the assistant text; pass `onToken` to stream.
+- `GamebaseAI.info()` / `isReady()` / `unload()` inspect or free the model.
+- `Gamebase.ai({warm: true, ...})` is a lazy SDK wrapper that injects
+  `/static/services/ai.js` if the game did not include it.
+
+**Requirements and tradeoffs**
+
+- Games using it should declare `capabilities.sandbox: same-origin` so the Cache
+  API can store the model. A strict (opaque-origin) sandbox can still run the
+  model, but it re-downloads every session.
+- Inference runs on the CPU (~a few tokens/second on desktop). Keep replies
+  short (≤80 tokens) and stream them.
+- Use the LLM for flavour, not for refereeing. Score rules deterministically so
+  a small model — or a player prompt-injecting it — cannot hand out a win.
+  `registry/invite-me-in/game.js` is the reference.
+- The runtime is imported from a pinned CDN
+  (`@huggingface/transformers@4.3.1`). Self-hosters can override it with
+  `window.GAMEBASE_AI_RUNTIME = "/static/services/vendor/transformers.web.js"`
+  before loading the service.
+- This is a **shared platform service**, not a per-game capability: do not add a
+  `service`/`backend` key to `capabilities` (the hosting policy rejects it).
+
+---
+
 ## Publishing over HTTP (no repo access needed)
 
 ```bash

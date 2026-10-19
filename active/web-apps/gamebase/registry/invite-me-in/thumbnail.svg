@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" role="img" aria-label="Invite Me In — a vampire persuasion game">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#130a1d"/>
+      <stop offset="0.55" stop-color="#1d0f26"/>
+      <stop offset="1" stop-color="#07040b"/>
+    </linearGradient>
+    <radialGradient id="moon" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#f7edcf"/>
+      <stop offset="0.72" stop-color="#e8d3a0"/>
+      <stop offset="1" stop-color="#c4a468"/>
+    </radialGradient>
+    <radialGradient id="doorGlow" cx="0.5" cy="0.72" r="0.62">
+      <stop offset="0" stop-color="#ffd98a" stop-opacity="0.95"/>
+      <stop offset="0.42" stop-color="#ff9f4a" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#ff6a3d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="house" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#28162e"/>
+      <stop offset="1" stop-color="#0c0610"/>
+    </linearGradient>
+    <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b0e22"/>
+      <stop offset="1" stop-color="#120a18"/>
+    </linearGradient>
+    <linearGradient id="figure" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#08040b"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <radialGradient id="eyeGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff5a6e" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#ff2a45" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <filter id="blurSmall" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+  </defs>
+
+  <!-- Night sky -->
+  <rect width="640" height="400" fill="url(#sky)"/>
+
+  <!-- Moon and halo -->
+  <circle cx="524" cy="84" r="72" fill="#e8d3a0" opacity="0.08" filter="url(#blur)"/>
+  <circle cx="524" cy="84" r="42" fill="url(#moon)"/>
+  <circle cx="536" cy="72" r="5" fill="#d8c08c" opacity="0.5"/>
+  <circle cx="514" cy="94" r="3.5" fill="#d8c08c" opacity="0.45"/>
+  <circle cx="530" cy="102" r="2.5" fill="#d8c08c" opacity="0.4"/>
+
+  <!-- Stars -->
+  <g fill="#efe4ff">
+    <circle cx="90" cy="52" r="1.6" opacity="0.8"/>
+    <circle cx="170" cy="96" r="1.2" opacity="0.55"/>
+    <circle cx="300" cy="46" r="1.5" opacity="0.7"/>
+    <circle cx="388" cy="108" r="1.1" opacity="0.5"/>
+    <circle cx="452" cy="42" r="1.3" opacity="0.6"/>
+    <circle cx="600" cy="150" r="1.4" opacity="0.6"/>
+    <circle cx="64" cy="150" r="1.1" opacity="0.45"/>
+    <circle cx="238" cy="120" r="1" opacity="0.4"/>
+  </g>
+
+  <!-- Neighbouring rooftops -->
+  <g fill="#120a18" opacity="0.9">
+    <path d="M0 300 L0 246 L58 208 L112 246 L112 300 Z"/>
+    <path d="M420 300 L420 222 L494 176 L568 222 L568 300 Z"/>
+    <rect x="112" y="246" width="30" height="54"/>
+    <rect x="568" y="246" width="72" height="54"/>
+  </g>
+  <g fill="#2a1733" opacity="0.8">
+    <rect x="24" y="240" width="14" height="18" rx="2"/>
+    <rect x="74" y="240" width="14" height="18" rx="2"/>
+    <rect x="446" y="228" width="16" height="20" rx="2"/>
+    <rect x="510" y="228" width="16" height="20" rx="2"/>
+  </g>
+
+  <!-- Foreground house -->
+  <path d="M148 168 L318 70 L488 168 L488 400 L148 400 Z" fill="url(#roof)"/>
+  <rect x="172" y="168" width="292" height="232" fill="url(#house)"/>
+  <rect x="172" y="168" width="292" height="7" fill="#3a2144" opacity="0.7"/>
+
+  <!-- Lit doorway -->
+  <ellipse cx="300" cy="332" rx="150" ry="128" fill="url(#doorGlow)" opacity="0.55"/>
+  <path d="M300 208 C324 208 340 226 340 252 L340 400 L260 400 L260 252 C260 226 276 208 300 208 Z" fill="#2b1420"/>
+  <path d="M300 218 C319 218 331 233 331 254 L331 400 L269 400 L269 254 C269 233 281 218 300 218 Z" fill="#ffcf7a" opacity="0.92"/>
+  <path d="M300 218 C319 218 331 233 331 254 L331 400 L269 400 L269 254 C269 233 281 218 300 218 Z" fill="#ff8f4d" opacity="0.18"/>
+
+  <!-- Vampire silhouette in the doorway -->
+  <path d="M300 246 C316 246 327 260 330 282 C337 300 341 340 343 400 L257 400 C259 340 263 300 270 282 C273 260 284 246 300 246 Z" fill="url(#figure)"/>
+  <path d="M282 250 C276 226 284 210 300 210 C316 210 324 226 318 250 C312 244 306 241 300 241 C294 241 288 244 282 250 Z" fill="url(#figure)"/>
+  <!-- Eyes -->
+  <circle cx="290" cy="252" r="9" fill="url(#eyeGlow)" filter="url(#blurSmall)"/>
+  <circle cx="310" cy="252" r="9" fill="url(#eyeGlow)" filter="url(#blurSmall)"/>
+  <ellipse cx="290" cy="252" rx="3.2" ry="2.1" fill="#ffd7dd"/>
+  <ellipse cx="310" cy="252" rx="3.2" ry="2.1" fill="#ffd7dd"/>
+  <!-- Faint fang line -->
+  <path d="M296 264 L300 269 L304 264" stroke="#e8c9c9" stroke-width="1.4" fill="none" opacity="0.55"/>
+
+  <!-- Rose bush hint -->
+  <g fill="#3d1526">
+    <circle cx="196" cy="372" r="10"/>
+    <circle cx="214" cy="382" r="8"/>
+    <circle cx="186" cy="388" r="7"/>
+  </g>
+  <g fill="#7c1f38">
+    <circle cx="199" cy="368" r="4"/>
+    <circle cx="218" cy="380" r="3.4"/>
+  </g>
+
+  <!-- Title -->
+  <g font-family="Georgia, 'Times New Roman', serif" fill="#f1e6ee">
+    <text x="408" y="304" font-size="46" letter-spacing="2" font-weight="700">INVITE</text>
+    <text x="408" y="350" font-size="46" letter-spacing="2" font-weight="700">ME IN</text>
+    <text x="410" y="378" font-family="Inter, system-ui, sans-serif" font-size="12.5" letter-spacing="4.5" fill="#c77a8e">A VAMPIRE PERSUASION GAME</text>
+  </g>
+
+  <!-- Blood underline -->
+  <path d="M408 360 C452 360 500 360 560 360" stroke="#c02a44" stroke-width="2.4" stroke-linecap="round" opacity="0.85"/>
+</svg>

@@ -932,6 +932,39 @@
         await new Promise((resolve) => setTimeout(resolve, interval));
       }
     },
+    /**
+     * Load the on-device LLM platform service (`GamebaseAI`).
+     *
+     * Resolves to the `GamebaseAI` object. By default it only injects the
+     * service script; pass `{warm: true, model, onProgress}` to also download
+     * and initialise the model before resolving.
+     */
+    async ai(options) {
+      const opts = options || {};
+      if (!global.GamebaseAI) {
+        if (!Gamebase._aiLoader) {
+          Gamebase._aiLoader = new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = opts.src || "/static/services/ai.js";
+            script.async = true;
+            script.onload = resolve;
+            script.onerror = () => {
+              Gamebase._aiLoader = null;
+              reject(new Error("GamebaseAI service failed to load"));
+            };
+            document.head.appendChild(script);
+          });
+        }
+        await Gamebase._aiLoader;
+      }
+      if (!global.GamebaseAI) {
+        throw new Error("GamebaseAI service did not initialise");
+      }
+      if (opts.warm) {
+        await global.GamebaseAI.ready(opts);
+      }
+      return global.GamebaseAI;
+    },
   };
 
   global.Gamebase = Gamebase;

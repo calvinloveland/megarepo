@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Invite Me In</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">🩸</span><span>Invite Me In</span></div>
+      <div class="topstats">
+        <span class="chip" id="player-tag" title="Your arcade tag">···</span>
+        <span class="chip"><strong id="invited-count">0</strong>/3 invited</span>
+        <span class="chip" id="dawn-chip">Dawn in <strong id="turns-left">18</strong></span>
+        <span class="chip ai" id="ai-chip">AI: waking…</span>
+      </div>
+    </header>
+
+    <main class="street">
+      <aside class="houses" aria-label="Neighbors">
+        <h2 class="section-title">Lilac Street</h2>
+        <div id="house-list" class="house-list"></div>
+        <p class="street-note">Trust opens doors. Suspicion closes them. Never show your teeth.</p>
+      </aside>
+
+      <section class="parlor" aria-label="Conversation">
+        <div class="parlor-head">
+          <div>
+            <h2 id="neighbor-name">Choose a door</h2>
+            <p id="neighbor-house" class="muted">—</p>
+          </div>
+          <div id="neighbor-status" class="status-badge" data-state="idle">Waiting</div>
+        </div>
+
+        <div class="meters" id="meters">
+          <div class="meter trust">
+            <div class="meter-label"><span>Trust</span><span id="trust-value">0</span></div>
+            <div class="meter-track"><div id="trust-bar" class="meter-bar"></div></div>
+          </div>
+          <div class="meter suspicion">
+            <div class="meter-label"><span>Suspicion</span><span id="suspicion-value">0</span></div>
+            <div class="meter-track"><div id="suspicion-bar" class="meter-bar"></div></div>
+          </div>
+        </div>
+
+        <div id="chat" class="chat" aria-live="polite"></div>
+
+        <form id="composer" class="composer">
+          <label class="sr-only" for="message">What do you say?</label>
+          <textarea id="message" rows="1" maxlength="280" placeholder="What do you say to the closed door?" autocomplete="off" spellcheck="false"></textarea>
+          <button id="send" class="btn primary" type="submit">Speak</button>
+        </form>
+        <p class="fineprint">The neighbors are voiced by an on-device LLM. Nothing you type leaves your browser.</p>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div id="overlay" class="overlay">
+    <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="overlay-title">
+      <p class="overlay-eyebrow" id="overlay-eyebrow">Lilac Street · 11:58 PM</p>
+      <h1 id="overlay-title">Invite Me In</h1>
+      <p id="overlay-body" class="overlay-body"></p>
+      <div id="overlay-detail" class="overlay-detail"></div>
+      <fieldset id="model-picker" class="model-picker">
+        <legend>Neighbor brain</legend>
+        <label><input type="radio" name="model" value="fast" /> <span><strong>Fast</strong> — SmolLM2 135M · smallest download</span></label>
+        <label><input type="radio" name="model" value="balanced" checked /> <span><strong>Balanced</strong> — SmolLM2 360M · recommended</span></label>
+        <label><input type="radio" name="model" value="sharp" /> <span><strong>Sharp</strong> — Qwen2.5 0.5B · best dialogue, slower on CPU</span></label>
+      </fieldset>
+      <div id="progress" class="progress" hidden>
+        <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+        <span id="progress-label" class="muted small">Preparing…</span>
+      </div>
+      <button id="overlay-action" class="btn primary big" type="button">Begin the night</button>
+      <p class="fineprint" id="overlay-fineprint"></p>
+    </div>
+  </div>
+
+  <script src="/sdk/gamebase.js"></script>
+  <script src="/static/services/ai.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

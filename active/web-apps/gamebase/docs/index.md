@@ -32,6 +32,7 @@ and exposes it through a REST API.
 | **Registry** | The folder scanned to build the catalog. Configurable via `GAMEBASE_REGISTRY_DIR`. |
 | **Player** | A platform identity: a classic 3-character arcade tag (A–Z/0–9) plus a bearer token. First visit asks for a tag. |
 | **Capability** | A platform service a game opts into (`leaderboard`, `achievements`, `matchmaking`). |
+| **Shared service** | A platform-wide helper available without a backend; currently the on-device `GamebaseAI` LLM. |
 | **Remix** | A copy of a published game into a new `<slug>` that records `remix_of` for lineage. |
 | **Score** | A numeric result with optional metadata; leaderboards keep each player's best. |
 | **Achievement** | A named unit of progress, unlocked by server-side criteria or by the game. |
@@ -184,6 +185,44 @@ game on the platform.
 | `match(matchId)` | Read the shared match object. |
 | `cancelMatch()` | Leave the queue. |
 | `on(event, callback)` | Subscribe to SDK events: `ready`, `runended`, `checkpoint`, `unlocked`. |
+| `ai(options?)` | Load the shared on-device LLM service (`GamebaseAI`); `warm: true` also downloads the model. |
+
+## Shared service: on-device LLM (`GamebaseAI`)
+
+Games can add LLM-driven characters without a backend. Gamebase ships a shared
+service that runs a quantized chat model **in the browser** with Transformers.js
+and ONNX Runtime Web on WebAssembly:
+
+```html
+<script src="/static/services/ai.js"></script>
+<script>
+  await GamebaseAI.ready({ model: GamebaseAI.models.balanced });
+  const reply = await GamebaseAI.chat({
+    system: "You are a wary homeowner.",
+    messages: [{ role: "user", content: "Cold night, isn't it?" }],
+    maxTokens: 80,
+    onToken: (chunk) => console.log(chunk),
+  });
+</script>
+```
+
+`Gamebase.ai({warm: true})` is the lazy wrapper if the game did not include the
+script. `ready()` is idempotent; the first call downloads roughly 100–350 MB
+from the Hugging Face Hub and the browser caches it. `GamebaseAI.models`
+exposes `fast`, `balanced`, and `sharp` presets. `unload()` frees the model.
+
+Rules of thumb:
+
+- Declare `capabilities.sandbox: same-origin` so the Cache API can persist the
+  model; an opaque-origin (strict) sandbox runs but re-downloads each session.
+- Keep prompts short and stream tokens. CPU inference is a few tokens/second.
+- Treat the model as flavour, not as a referee. Derive rules and scores
+  deterministically so a small or prompt-injected model cannot hand out a win.
+  See `registry/invite-me-in/` for a worked example.
+- The runtime is imported from a pinned CDN. Self-host it by setting
+  `window.GAMEBASE_AI_RUNTIME` before loading `/static/services/ai.js`.
+- This is a **shared service**, not a manifest capability. Do not add
+  `backend`/`service` keys to `capabilities` (the hosting policy rejects them).
 
 ## REST API
 
@@ -422,6 +461,8 @@ Classic arcade and board games, all built on the same SDK:
   (1v1 matchmaking).
 - **Ports of existing megarepo games** — Marble Survivors (roguelite) and
   Washing Machine Tycoon (continuous simulation with save state).
+- **Narrative / LLM** — Invite Me In (vampire persuasion; three neighbors are
+  voiced on-device by the `GamebaseAI` service).
 
 ## Ported megarepo games
 
