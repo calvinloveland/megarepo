@@ -1,0 +1,3 @@
+# Purchased audio never belongs in git.
+audio/
+build/
