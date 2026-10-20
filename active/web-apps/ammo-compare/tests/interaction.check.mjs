@@ -10,6 +10,9 @@
  *     --user-data-dir=/tmp/ammo-chrome about:blank &
  *   APP_URL=http://localhost:5113/ node tests/interaction.check.mjs
  */
+import { AMMO } from '../data/ammo.js';
+import { derive } from '../lib/ballistics.js';
+
 const CDP = process.env.CDP_URL ?? 'http://127.0.0.1:9222';
 const APP_URL = process.env.APP_URL ?? 'http://localhost:5113/';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -61,30 +64,42 @@ const clickChip = (category) =>
   evaluate(`[...document.querySelectorAll('.chip')].find((c) => c.dataset.category === '${category}').click()`);
 const clickHeader = (key) => evaluate(`document.querySelector('th[data-sort="${key}"]').click()`);
 
-check('renders every load', (await rowCount()) === 18);
-check('summary counts loads', (await evaluate(`document.getElementById('summary').textContent`)).includes('Showing 18'));
-check('default sort is energy, highest first', (await firstLoadName()) === '.300 Win Mag');
+// Expectations come from the dataset, so adding a load never silently breaks
+// the checks (and never lets a stale count pass either).
+const withEnergy = AMMO.map((l) => ({ ...l, ...derive(l) }));
+const hottest = withEnergy.reduce((a, b) => (b.energyFtLb > a.energyFtLb ? b : a));
+const fastest = withEnergy.reduce((a, b) => (b.velocityFps > a.velocityFps ? b : a));
+const slowest = withEnergy.reduce((a, b) => (b.velocityFps < a.velocityFps ? b : a));
+const pistolCount = AMMO.filter((l) => l.category === 'pistol').length;
+
+check('renders every load', (await rowCount()) === AMMO.length, `${await rowCount()} rows vs ${AMMO.length} loads`);
+check('summary counts loads', (await evaluate(`document.getElementById('summary').textContent`)).includes(`Showing ${AMMO.length}`));
+check('default sort is energy, highest first', (await firstLoadName()) === hottest.name, await firstLoadName());
 
 await clickChip('pistol');
 await sleep(150);
-check('category chip filters rows', (await rowCount()) === 7, await evaluate(`document.getElementById('summary').textContent`));
+check('category chip filters rows', (await rowCount()) === pistolCount, await evaluate(`document.getElementById('summary').textContent`));
 check('active chip is pressed', (await evaluate(`document.querySelector('.chip[data-category="pistol"]').getAttribute('aria-pressed')`)) === 'true');
 
 await clickChip('all');
 await sleep(120);
 await clickHeader('velocityFps');
 await sleep(120);
-check('numeric sort starts descending', (await firstLoadName()) === '.223 Rem / 5.56 NATO', await firstLoadName());
+check('numeric sort starts descending', (await firstLoadName()) === fastest.name, await firstLoadName());
 await clickHeader('velocityFps');
 await sleep(120);
-check('second click flips to ascending', (await firstLoadName()) === '.38 Special', await firstLoadName());
+check('second click flips to ascending', (await firstLoadName()) === slowest.name, await firstLoadName());
 check('aria-sort tracks the active column', (await evaluate(`document.querySelector('th[data-sort="velocityFps"]').getAttribute('aria-sort')`)) === 'ascending');
 check('only one column carries aria-sort', (await evaluate(`document.querySelectorAll('th[aria-sort]').length`)) === 1);
 
 await evaluate(`document.querySelector('tbody tr.row').click()`);
 await sleep(150);
 check('row click opens details', (await evaluate(`document.querySelectorAll('tbody tr.detail').length`)) === 1);
-check('details name the platforms', (await evaluate(`document.querySelector('tr.detail').textContent`)).includes('S&W Model 10'));
+check(
+  'details name the platforms',
+  (await evaluate(`document.querySelector('tr.detail').textContent`)).includes(slowest.platforms[0]),
+  slowest.platforms[0],
+);
 check('expanded row is announced', (await evaluate(`document.querySelector('tbody tr.row').getAttribute('aria-expanded')`)) === 'true');
 await evaluate(`document.querySelector('tbody tr.row').click()`);
 await sleep(150);
@@ -98,7 +113,10 @@ check('metric mode shows m/s', (await evaluate(`document.querySelectorAll('tbody
 await evaluate(`(() => { const s = document.getElementById('units'); s.value = 'imperial'; s.dispatchEvent(new Event('change')); })()`);
 await evaluate(`(() => { const i = document.getElementById('search'); i.value = 'shotgun'; i.dispatchEvent(new Event('input')); })()`);
 await sleep(150);
-check('search matches category and platform text', (await rowCount()) === 3);
+const shotgunCount = AMMO.filter(
+  (l) => l.category === 'shotgun' || l.platforms.join(' ').toLowerCase().includes('shotgun'),
+).length;
+check('search matches category and platform text', (await rowCount()) === shotgunCount, `${await rowCount()} vs ${shotgunCount}`);
 
 await evaluate(`(() => { const i = document.getElementById('search'); i.value = 'zzzz'; i.dispatchEvent(new Event('input')); })()`);
 await sleep(150);

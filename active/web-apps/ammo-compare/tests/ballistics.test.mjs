@@ -48,6 +48,14 @@ test('load ids stay unique so row expansion is deterministic', () => {
   assert.equal(new Set(ids).size, ids.length);
 });
 
+test('the dataset is broad enough to be a comparison, not a sample', () => {
+  const byCategory = AMMO.reduce((acc, l) => ({ ...acc, [l.category]: (acc[l.category] ?? 0) + 1 }), {});
+  assert.ok(AMMO.length >= 45, `expected a comprehensive list, got ${AMMO.length}`);
+  for (const category of ['rimfire', 'pistol', 'rifle', 'shotgun']) {
+    assert.ok((byCategory[category] ?? 0) >= 3, `${category} needs at least three loads`);
+  }
+});
+
 test('energy ordering lands where shooters expect it', () => {
   const byId = Object.fromEntries(AMMO.map((l) => [l.id, energyFtLb(l.bulletGr, l.velocityFps)]));
   assert.ok(byId['22lr'] < byId['9mm']);
@@ -56,7 +64,13 @@ test('energy ordering lands where shooters expect it', () => {
   assert.ok(byId['40sw'] < byId['10mm']);
   // The 12 ga slug carries a whole 1 oz payload, so it easily outguns rifle
   // cartridges of a similar case size — but not a .30-06 class load (~2,900 ft-lb).
+  assert.ok(byId['25acp'] < byId['22lr'], 'the smallest centerfire should sit under .22 LR');
+  assert.ok(byId['22lr'] < byId['22wmr']);
+  assert.ok(byId['45acp'] < byId['10mm']);
+  assert.ok(byId['30-06'] < byId['300wm']);
+  assert.ok(byId['300wm'] < byId['338lapua']);
+  assert.ok(byId['338lapua'] < byId['50bmg']);
   assert.ok(byId['12ga-slug'] > byId['762x39']);
   assert.ok(byId['12ga-slug'] > byId['357mag']);
-  assert.ok(byId['12ga-slug'] < byId['3006']);
+  assert.ok(byId['12ga-slug'] < byId['30-06']);
 });
