@@ -346,3 +346,14 @@ apps:
     env:
       PORT: "5121"
 
+  - id: ammo-compare
+    name: Ammo Comparison Table
+    description: Typical centerfire, rimfire, and shotgun loads compared by derived muzzle energy, power factor, recoil, and cost
+    icon: 🎯
+    subdomain: ammo
+    path: ../ammo-compare
+    type: node
+    port: 5113
+    start_cmd: "node server.mjs 2>&1"
+    env:
+      PORT: "5113"

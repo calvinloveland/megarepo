@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ammo Comparison Table</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Ammo Comparison Table</h1>
+    <p class="subtitle">
+      Common centerfire, rimfire, and shotgun loads side by side. Energy and power
+      factor are computed from bullet weight and muzzle velocity, not copied from a
+      chart, so the math always agrees with the numbers in the row.
+    </p>
+  </header>
+
+  <main>
+    <section class="controls" aria-label="Table controls">
+      <label class="search">
+        <span>Filter</span>
+        <input id="search" type="search" placeholder="9mm, shotgun, elk…" autocomplete="off" />
+      </label>
+
+      <div class="chips" id="categories" role="group" aria-label="Category filter"></div>
+
+      <label class="units">
+        <span>Units</span>
+        <select id="units">
+          <option value="imperial">grains · fps · ft·lb</option>
+          <option value="metric">grams · m/s · joules</option>
+        </select>
+      </label>
+    </section>
+
+    <p class="summary" id="summary" aria-live="polite"></p>
+
+    <div class="table-wrap">
+      <table id="ammo">
+        <caption class="visually-hidden">
+          Comparison of typical ammunition loads by bullet weight, velocity, energy,
+          power factor, recoil, and cost.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" data-sort="name" class="sortable col-load"><button type="button">Load</button></th>
+            <th scope="col" data-sort="bulletGr" class="sortable num"><button type="button">Bullet</button></th>
+            <th scope="col" data-sort="velocityFps" class="sortable num"><button type="button">Velocity</button></th>
+            <th scope="col" data-sort="energy" class="sortable num col-energy"><button type="button">Energy</button></th>
+            <th scope="col" data-sort="powerFactor" class="sortable num col-pf"><button type="button">Power factor</button></th>
+            <th scope="col" data-sort="recoil" class="sortable col-recoil"><button type="button">Recoil</button></th>
+            <th scope="col" data-sort="costPerRound" class="sortable num col-cost"><button type="button">Cost/rd</button></th>
+            <th scope="col" data-sort="use" class="sortable col-use"><button type="button">Typical use</button></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <footer class="footnotes">
+      <p>
+        <strong>How to read this.</strong> Values are typical commercial loads from
+        everyday barrel lengths (pistol ≈ 4″, rifle ≈ 22–24″, shotgun ≈ 28″), so a
+        hotter or slower load of the same cartridge will read differently.
+        Energy is <code>gr × fps² / 450437</code> foot-pounds; power factor is
+        <code>gr × fps / 1000</code>. Shotgun rows use the whole payload, so their
+        power factor is not comparable to a single projectile.
+      </p>
+      <p>
+        Cost per round is a rough retail estimate for relative comparison only.
+        Click a row for platforms and notes.
+      </p>
+    </footer>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
