@@ -1,0 +1,546 @@
+{
+ "source": "api.deezer.com/artist/9036740/top",
+ "fetched": "2026-10-20",
+ "tracks": [
+  {
+   "pos": 1,
+   "title": "Love Me Less (feat. Quinn XCII)",
+   "artist": "MAX",
+   "album": "Love Me Less (feat. Quinn XCII)",
+   "duration": 177,
+   "rank": 342714,
+   "link": "https://www.deezer.com/track/650377082"
+  },
+  {
+   "pos": 2,
+   "title": "Tough (feat. Noah Kahan)",
+   "artist": "Quinn XCII",
+   "album": "Tough (feat. Noah Kahan)",
+   "duration": 178,
+   "rank": 312951,
+   "link": "https://www.deezer.com/track/600663732"
+  },
+  {
+   "pos": 3,
+   "title": "Straightjacket",
+   "artist": "Quinn XCII",
+   "album": "The Story of Us",
+   "duration": 206,
+   "rank": 258967,
+   "link": "https://www.deezer.com/track/405231302"
+  },
+  {
+   "pos": 4,
+   "title": "A Letter To My Younger Self",
+   "artist": "Quinn XCII",
+   "album": "A Letter To My Younger Self",
+   "duration": 212,
+   "rank": 212551,
+   "link": "https://www.deezer.com/track/968154372"
+  },
+  {
+   "pos": 5,
+   "title": "FFYL",
+   "artist": "Quinn XCII",
+   "album": "Change of Scenery",
+   "duration": 226,
+   "rank": 222796,
+   "link": "https://www.deezer.com/track/2022159057"
+  },
+  {
+   "pos": 6,
+   "title": "Too Late",
+   "artist": "Quinn XCII",
+   "album": "The People's Champ",
+   "duration": 178,
+   "rank": 186478,
+   "link": "https://www.deezer.com/track/2116145297"
+  },
+  {
+   "pos": 7,
+   "title": "Autopilot",
+   "artist": "Quinn XCII",
+   "album": "From Michigan With Love",
+   "duration": 181,
+   "rank": 146347,
+   "link": "https://www.deezer.com/track/630521322"
+  },
+  {
+   "pos": 8,
+   "title": "Flare Guns (feat. Chelsea Cutler)",
+   "artist": "Quinn XCII",
+   "album": "The Story of Us (Deluxe)",
+   "duration": 240,
+   "rank": 175864,
+   "link": "https://www.deezer.com/track/461386362"
+  },
+  {
+   "pos": 9,
+   "title": "Best Day",
+   "artist": "Quinn XCII",
+   "album": "GOAT (Original Motion Picture Soundtrack)",
+   "duration": 142,
+   "rank": 302709,
+   "link": "https://www.deezer.com/track/3827175011"
+  },
+  {
+   "pos": 10,
+   "title": "Pasadena",
+   "artist": "Quinn XCII",
+   "album": "Pasadena",
+   "duration": 189,
+   "rank": 301410,
+   "link": "https://www.deezer.com/track/2712157671"
+  },
+  {
+   "pos": 11,
+   "title": "BULL IN A CHINA SHOP",
+   "artist": "Quinn XCII",
+   "album": "BULL IN A CHINA SHOP EP",
+   "duration": 139,
+   "rank": 116317,
+   "link": "https://www.deezer.com/track/4201663432"
+  },
+  {
+   "pos": 12,
+   "title": "Stacy",
+   "artist": "Quinn XCII",
+   "album": "Stacy",
+   "duration": 168,
+   "rank": 343848,
+   "link": "https://www.deezer.com/track/696429302"
+  },
+  {
+   "pos": 13,
+   "title": "Kings of Summer (Single Version)",
+   "artist": "ayokay",
+   "album": "4ft to Infinity - EP",
+   "duration": 207,
+   "rank": 225946,
+   "link": "https://www.deezer.com/track/133584064"
+  },
+  {
+   "pos": 14,
+   "title": "Sober Up",
+   "artist": "Quinn XCII",
+   "album": "Lunch EP",
+   "duration": 169,
+   "rank": 159601,
+   "link": "https://www.deezer.com/track/2972547261"
+  },
+  {
+   "pos": 15,
+   "title": "Am I High Rn (feat. blackbear)",
+   "artist": "Quinn XCII",
+   "album": "A Letter To My Younger Self",
+   "duration": 199,
+   "rank": 244290,
+   "link": "https://www.deezer.com/track/1009758592"
+  },
+  {
+   "pos": 16,
+   "title": "Bartender",
+   "artist": "Quinn XCII",
+   "album": "The People's Champ",
+   "duration": 177,
+   "rank": 174749,
+   "link": "https://www.deezer.com/track/2116145237"
+  },
+  {
+   "pos": 17,
+   "title": "Little Things",
+   "artist": "Louis The Child",
+   "album": "Little Things",
+   "duration": 197,
+   "rank": 306581,
+   "link": "https://www.deezer.com/track/916267852"
+  },
+  {
+   "pos": 18,
+   "title": "Yellow Brick Road",
+   "artist": "Quinn XCII",
+   "album": "Yellow Brick Road",
+   "duration": 152,
+   "rank": 338960,
+   "link": "https://www.deezer.com/track/3376605591"
+  },
+  {
+   "pos": 19,
+   "title": "Werewolf (feat. Yoshi Flower)",
+   "artist": "Quinn XCII",
+   "album": "From Michigan With Love",
+   "duration": 190,
+   "rank": 172563,
+   "link": "https://www.deezer.com/track/630521352"
+  },
+  {
+   "pos": 20,
+   "title": "My Wife & 2 Dogs",
+   "artist": "Quinn XCII",
+   "album": "My Wife & 2 Dogs",
+   "duration": 138,
+   "rank": 162158,
+   "link": "https://www.deezer.com/track/1237469412"
+  },
+  {
+   "pos": 21,
+   "title": "Common",
+   "artist": "Quinn XCII",
+   "album": "Common",
+   "duration": 159,
+   "rank": 147790,
+   "link": "https://www.deezer.com/track/1915324887"
+  },
+  {
+   "pos": 22,
+   "title": "Olive Tree",
+   "artist": "Quinn XCII",
+   "album": "Olive Tree",
+   "duration": 241,
+   "rank": 258034,
+   "link": "https://www.deezer.com/track/3321750011"
+  },
+  {
+   "pos": 23,
+   "title": "Kings of Summer",
+   "artist": "ayokay",
+   "album": "Kings of Summer",
+   "duration": 222,
+   "rank": 173853,
+   "link": "https://www.deezer.com/track/134212578"
+  },
+  {
+   "pos": 24,
+   "title": "Another Day in Paradise",
+   "artist": "Quinn XCII",
+   "album": "Change of Scenery",
+   "duration": 255,
+   "rank": 271290,
+   "link": "https://www.deezer.com/track/2022159077"
+  },
+  {
+   "pos": 25,
+   "title": "Monday Morning",
+   "artist": "Quinn XCII",
+   "album": "Change of Scenery II",
+   "duration": 152,
+   "rank": 143938,
+   "link": "https://www.deezer.com/track/1260776722"
+  },
+  {
+   "pos": 26,
+   "title": "Melt",
+   "artist": "Quinn XCII",
+   "album": "Melt",
+   "duration": 212,
+   "rank": 205025,
+   "link": "https://www.deezer.com/track/2835850062"
+  },
+  {
+   "pos": 27,
+   "title": "Look How Far We've Come",
+   "artist": "Quinn XCII",
+   "album": "Change of Scenery II",
+   "duration": 205,
+   "rank": 67924,
+   "link": "https://www.deezer.com/track/1260776752"
+  },
+  {
+   "pos": 28,
+   "title": "Good Thing Go",
+   "artist": "Quinn XCII",
+   "album": "From Michigan With Love",
+   "duration": 212,
+   "rank": 109986,
+   "link": "https://www.deezer.com/track/630521412"
+  },
+  {
+   "pos": 29,
+   "title": "Stay Next To Me",
+   "artist": "Quinn XCII",
+   "album": "Stay Next To Me",
+   "duration": 206,
+   "rank": 226700,
+   "link": "https://www.deezer.com/track/1160375132"
+  },
+  {
+   "pos": 30,
+   "title": "Two 10s",
+   "artist": "Quinn XCII",
+   "album": "Two 10s",
+   "duration": 216,
+   "rank": 158417,
+   "link": "https://www.deezer.com/track/845933152"
+  },
+  {
+   "pos": 31,
+   "title": "HOOPLA",
+   "artist": "Quinn XCII",
+   "album": "HOOPLA",
+   "duration": 134,
+   "rank": 174193,
+   "link": "https://www.deezer.com/track/3981665591"
+  },
+  {
+   "pos": 32,
+   "title": "Georgia Peach",
+   "artist": "Quinn XCII",
+   "album": "The People's Champ (Extended Version)",
+   "duration": 141,
+   "rank": 167639,
+   "link": "https://www.deezer.com/track/2227088747"
+  },
+  {
+   "pos": 33,
+   "title": "Coffee",
+   "artist": "Quinn XCII",
+   "album": "Coffee",
+   "duration": 180,
+   "rank": 203823,
+   "link": "https://www.deezer.com/track/941254532"
+  },
+  {
+   "pos": 34,
+   "title": "Rain Check (feat. Quinn XCII)",
+   "artist": "Lawrence",
+   "album": "Rain Check (feat. Quinn XCII)",
+   "duration": 168,
+   "rank": 228142,
+   "link": "https://www.deezer.com/track/4034223071"
+  },
+  {
+   "pos": 35,
+   "title": "Life Must Go On",
+   "artist": "Quinn XCII",
+   "album": "From Michigan With Love",
+   "duration": 185,
+   "rank": 112209,
+   "link": "https://www.deezer.com/track/630521332"
+  },
+  {
+   "pos": 36,
+   "title": "Candle",
+   "artist": "Quinn XCII",
+   "album": "The Story of Us (Deluxe)",
+   "duration": 214,
+   "rank": 140326,
+   "link": "https://www.deezer.com/track/461386442"
+  },
+  {
+   "pos": 37,
+   "title": "Less I Know",
+   "artist": "NOTD",
+   "album": "NOTED...EP",
+   "duration": 166,
+   "rank": 282669,
+   "link": "https://www.deezer.com/track/1896625517"
+  },
+  {
+   "pos": 38,
+   "title": "Sleep While I Drive (feat. Ashe)",
+   "artist": "Quinn XCII",
+   "album": "A Letter To My Younger Self",
+   "duration": 204,
+   "rank": 147254,
+   "link": "https://www.deezer.com/track/1009758612"
+  },
+  {
+   "pos": 39,
+   "title": "Always Been You",
+   "artist": "Quinn XCII",
+   "album": "The Story of Us (Deluxe)",
+   "duration": 236,
+   "rank": 165975,
+   "link": "https://www.deezer.com/track/461386432"
+  },
+  {
+   "pos": 40,
+   "title": "Sad Still",
+   "artist": "Quinn XCII",
+   "album": "Sad Still",
+   "duration": 184,
+   "rank": 76589,
+   "link": "https://www.deezer.com/track/573948072"
+  },
+  {
+   "pos": 41,
+   "title": "Iron & Steel",
+   "artist": "Quinn XCII",
+   "album": "The Story of Us (Deluxe)",
+   "duration": 203,
+   "rank": 111778,
+   "link": "https://www.deezer.com/track/461386452"
+  },
+  {
+   "pos": 42,
+   "title": "SPEEDBOAT",
+   "artist": "Quinn XCII",
+   "album": "BULL IN A CHINA SHOP EP",
+   "duration": 156,
+   "rank": 141082,
+   "link": "https://www.deezer.com/track/4201663442"
+  },
+  {
+   "pos": 43,
+   "title": "Tourist",
+   "artist": "Quinn XCII",
+   "album": "The Story of Us (Deluxe)",
+   "duration": 188,
+   "rank": 131615,
+   "link": "https://www.deezer.com/track/461386412"
+  },
+  {
+   "pos": 44,
+   "title": "Middle Finger",
+   "artist": "Phoebe Ryan",
+   "album": "Middle Finger",
+   "duration": 241,
+   "rank": 189395,
+   "link": "https://www.deezer.com/track/507976082"
+  },
+  {
+   "pos": 45,
+   "title": "Daddy (feat. Quinn XCII)",
+   "artist": "Tiny Meat Gang",
+   "album": "Daddy (feat. Quinn XCII)",
+   "duration": 165,
+   "rank": 133873,
+   "link": "https://www.deezer.com/track/1346365672"
+  },
+  {
+   "pos": 46,
+   "title": "Way It Was",
+   "artist": "Two Friends",
+   "album": "Way It Was",
+   "duration": 199,
+   "rank": 158146,
+   "link": "https://www.deezer.com/track/3485868071"
+  },
+  {
+   "pos": 47,
+   "title": "Stung",
+   "artist": "Quinn XCII",
+   "album": "Stung",
+   "duration": 234,
+   "rank": 141036,
+   "link": "https://www.deezer.com/track/2021657437"
+  },
+  {
+   "pos": 48,
+   "title": "One More Golden Hour",
+   "artist": "Quinn XCII",
+   "album": "LOOK! I'm Alive",
+   "duration": 198,
+   "rank": 127929,
+   "link": "https://www.deezer.com/track/3450835641"
+  },
+  {
+   "pos": 49,
+   "title": "Make Time",
+   "artist": "Quinn XCII",
+   "album": "Make Time",
+   "duration": 202,
+   "rank": 95052,
+   "link": "https://www.deezer.com/track/144941330"
+  },
+  {
+   "pos": 50,
+   "title": "Doris Terrace",
+   "artist": "Quinn XCII",
+   "album": "Change of Scenery II",
+   "duration": 212,
+   "rank": 174756,
+   "link": "https://www.deezer.com/track/1260776692"
+  },
+  {
+   "pos": 51,
+   "title": "Full Circle",
+   "artist": "Quinn XCII",
+   "album": "Full Circle",
+   "duration": 219,
+   "rank": 219105,
+   "link": "https://www.deezer.com/track/2021648327"
+  },
+  {
+   "pos": 52,
+   "title": "Native Tongue",
+   "artist": "Quinn XCII",
+   "album": "Change of Scenery",
+   "duration": 178,
+   "rank": 131126,
+   "link": "https://www.deezer.com/track/2022159037"
+  },
+  {
+   "pos": 53,
+   "title": "Panama",
+   "artist": "Quinn XCII",
+   "album": "Panama",
+   "duration": 247,
+   "rank": 124099,
+   "link": "https://www.deezer.com/track/546715092"
+  },
+  {
+   "pos": 54,
+   "title": "Abel & Cain",
+   "artist": "Quinn XCII",
+   "album": "From Michigan With Love",
+   "duration": 227,
+   "rank": 63429,
+   "link": "https://www.deezer.com/track/630521392"
+  },
+  {
+   "pos": 55,
+   "title": "Worst",
+   "artist": "Quinn XCII",
+   "album": "The Story of Us (Deluxe)",
+   "duration": 195,
+   "rank": 99688,
+   "link": "https://www.deezer.com/track/461386352"
+  },
+  {
+   "pos": 56,
+   "title": "The City",
+   "artist": "Louis The Child",
+   "album": "Kids At Play- EP",
+   "duration": 186,
+   "rank": 145871,
+   "link": "https://www.deezer.com/track/571920812"
+  },
+  {
+   "pos": 57,
+   "title": "These Days",
+   "artist": "Quinn XCII",
+   "album": "Bloom",
+   "duration": 252,
+   "rank": 113137,
+   "link": "https://www.deezer.com/track/2021959677"
+  },
+  {
+   "pos": 58,
+   "title": "Right Where You Should Be (feat. Ashe & Louis Futon)",
+   "artist": "Quinn XCII",
+   "album": "From Michigan With Love",
+   "duration": 205,
+   "rank": 196219,
+   "link": "https://www.deezer.com/track/630521422"
+  },
+  {
+   "pos": 59,
+   "title": "U & Us",
+   "artist": "Quinn XCII",
+   "album": "From Michigan With Love",
+   "duration": 226,
+   "rank": 355223,
+   "link": "https://www.deezer.com/track/630521342"
+  },
+  {
+   "pos": 60,
+   "title": "Holding Hands (feat. Elohim)",
+   "artist": "Quinn XCII",
+   "album": "From Michigan With Love",
+   "duration": 224,
+   "rank": 89995,
+   "link": "https://www.deezer.com/track/630521312"
+  }
+ ]
+}
