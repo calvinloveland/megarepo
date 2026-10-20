@@ -95,8 +95,11 @@ main() {
 
     # 3. calnix CLI/state tests
     run_test_suite "Calnix CLI Tests" "python3 tests/test_calnix_cli.py" ""
+
+    # 4. Cross-host SSH mesh (static — verifies declared keys survive rebuilds)
+    run_test_suite "SSH Mesh (static)" "python3 tests/test_ssh_mesh.py" ""
     
-    # 4. Nix flake checks (if available)
+    # 5. Nix flake checks (if available)
     if command -v nix >/dev/null 2>&1; then
         # Use the main project flake, not the tests flake
         run_test_suite "Nix Flake Check" "nix flake check --no-build path:$PROJECT_ROOT" ""
@@ -176,6 +179,7 @@ case "${1:-}" in
             run_test_suite "Configuration Validation" "python3 tests/validate_config.py" ""
             run_test_suite "Rebuild Script Tests" "./test_rebuild.sh" "tests"
             run_test_suite "Calnix CLI Tests" "python3 tests/test_calnix_cli.py" ""
+            run_test_suite "SSH Mesh (static)" "python3 tests/test_ssh_mesh.py" ""
             echo -e "\n${GREEN}✅ Quick tests completed${NC}"
         }
         ;;

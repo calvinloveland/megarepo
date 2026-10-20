@@ -298,9 +298,23 @@ in
       "scanner" # Access to SANE scanner devices
     ];
     shell = pkgs.fish;
+    # Authorized SSH keys for the `calvin` user, shared by every calnix host.
+    #
+    # Declaring the full cross-host mesh here (instead of per-host or in a
+    # manually managed ~/.ssh/authorized_keys) is what lets any host reach any
+    # other host after a fresh rebuild — e.g. 1337book -> haswell/thinker. Keep
+    # this list in sync with the client keys tracked by
+    # scripts/verify_ssh_mesh.py and tests/test_ssh_mesh.py.
     openssh.authorizedKeys.keys = [
+      # Phone (Termux) — ad-hoc admin from Android
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJDnMAOJB9upYVOUbUCqUIgTcYepkWdR9nYi/ZX5MG4L phone@haswell"
+      # 1337book client key (HP Elitebook)
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDwix44A6TqqGOokU/gIpaf3shN0Pad+S08M36flhBZv calvin@loveland.dev"
+      # haswell client key (server)
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICDpCMmZqccnMEQ+S4Gl9vR9y6Gfxi6dqUteuECefOsS calvin@haswell"
+      # thinker client key (ThinkPad)
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtQPcJzTpW1SkWCrxmtju0HEIuyvppXCVnvNscLgbgT calvin@loveland.dev"
+      # Android Termux secondary key
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHrIxasJfr0Lb2OoL/WFiQ/1DAeKxOtY4KDiVBCBswL u0_a513@localhost"
     ];
   };

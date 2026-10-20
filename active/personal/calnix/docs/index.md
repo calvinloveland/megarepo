@@ -79,6 +79,42 @@ To demo the screenshot diff, heuristic scoring, and bounded autopolish workflow,
 
 - [`docs/ui-automation-demo.md`](ui-automation-demo.md)
 
+## Cross-Host SSH Access
+
+Every calnix host authorizes every host's SSH client key through the shared
+`modules/base.nix`, so the mesh survives a fresh rebuild instead of depending on
+a hand-edited `~/.ssh/authorized_keys`. The requested guarantee is that
+**1337book can SSH into haswell and thinker**:
+
+```bash
+# from 1337book
+ssh haswell hostname
+ssh thinker hostname
+```
+
+### Verifying the mesh
+
+```bash
+# Offline: confirm the flake source declares every host client key
+python3 scripts/verify_ssh_mesh.py
+
+# End-to-end: hop through each host and read the target's hostname
+python3 scripts/verify_ssh_mesh.py --live
+
+# Narrow the check
+python3 scripts/verify_ssh_mesh.py --live --from 1337book --to haswell thinker
+```
+
+`tests/test_ssh_mesh.py` runs the static checks as part of the test suite, so a
+rebuild that drops a key fails the local checks.
+
+### Key rotation
+
+Client public keys are tracked in two places that must stay in sync:
+
+- `modules/base.nix` — the `openssh.authorizedKeys.keys` list
+- `scripts/verify_ssh_mesh.py` — the `HOST_CLIENT_KEYS` map
+
 ## Architecture
 
 ```
