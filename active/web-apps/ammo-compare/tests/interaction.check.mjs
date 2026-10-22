@@ -86,6 +86,14 @@ const pistolCount = AMMO.filter((l) => l.category === 'pistol').length;
 
 check('renders every load', (await rowCount()) === AMMO.length, `${await rowCount()} rows vs ${AMMO.length} loads`);
 check('summary counts loads', (await evaluate(`document.getElementById('summary').textContent`)).includes(`Showing ${AMMO.length}`));
+check(
+  'every row draws a cartridge silhouette',
+  (await evaluate(`document.querySelectorAll('tbody tr.row td.col-svg svg.cart').length`)) === AMMO.length,
+);
+check(
+  'silhouettes share one viewBox',
+  (await evaluate(`new Set([...document.querySelectorAll('td.col-svg svg')].map((s) => s.getAttribute('viewBox'))).size`)) === 1,
+);
 check('default sort is energy, highest first', (await firstLoadName()) === hottest.name, await firstLoadName());
 
 await clickChip('pistol');

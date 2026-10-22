@@ -1,8 +1,16 @@
 import { AMMO } from './data/ammo.js';
 import { derive, fmtInt, fmtCost, fmtEnergy } from './lib/ballistics.js';
+import { cartridgeSvg, cartridgeExtents } from './lib/cartridge-svg.js';
+
+/** One shared scale, so silhouettes compare across rows. */
+const EXTENTS = cartridgeExtents(AMMO);
 
 /** Enrich the static load data with derived numbers once, at module load. */
-const ROWS = AMMO.map((load) => ({ ...load, ...derive(load) }));
+const ROWS = AMMO.map((load) => ({
+  ...load,
+  ...derive(load),
+  silhouette: cartridgeSvg(load, EXTENTS),
+}));
 const MAX_ENERGY = Math.max(...ROWS.map((r) => r.energyFtLb));
 const MAX_LOG_ENERGY = Math.log1p(MAX_ENERGY);
 const CATEGORIES = ['all', ...new Set(ROWS.map((r) => r.category))];
@@ -155,6 +163,7 @@ function rowHtml(r) {
         <span class="load-main"><span class="load-name">${r.name}</span><span class="cat">${r.category}</span></span>
         ${loadSubline(r)}
       </th>
+      <td class="col-svg">${r.silhouette}</td>
       <td class="num col-introduced">${r.introduced ?? '<span class="none">—</span>'}</td>
       <td class="num col-bullet">${bullet(r)}</td>
       <td class="num col-velocity">${velocity(r)}</td>
@@ -208,7 +217,7 @@ function detailHtml(r) {
   ].filter(Boolean);
   return `
     <tr class="detail" id="detail-${r.id}">
-      <td colspan="9">
+      <td colspan="10">
         <dl>
           <dt>Platforms</dt>
           <dd class="badges">${r.platforms.map((p) => `<span class="badge">${p}</span>`).join('')}</dd>
@@ -267,7 +276,7 @@ function render() {
   const rows = visibleRows();
   els.rows.innerHTML = rows.length
     ? rows.map(rowHtml).join('')
-    : `<tr><td colspan="9" class="empty">No loads match that filter.</td></tr>`;
+    : `<tr><td colspan="10" class="empty">No loads match that filter.</td></tr>`;
   renderSummary(rows);
   renderChips();
   renderSortIndicators();

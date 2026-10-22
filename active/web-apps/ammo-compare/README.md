@@ -10,6 +10,8 @@ and velocity rather than transcribed from a chart.
   current-production rounds such as 6.5 PRC, 7mm PRC, `.300 PRC`, and `.277 Fury`.
 - Rows carry the cartridge's origin, introduction year, bullet diameter, case
   length, and the usual bullet-weight range — not just the numbers for one load.
+- Each row also draws a cartridge profile generated from its case length, bullet
+  diameter, and bullet weight, so the shapes are data, not bespoke artwork.
 - Full-width table on a wide screen, with columns shedding in priority order as
   the window narrows.
 - Sort any column, filter by category, search across names, uses, and platforms.

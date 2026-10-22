@@ -39,6 +39,12 @@ Keeping the math in one module is the point: the UI, the tests, and anything
 added later all read the same implementation, so an energy column can never
 disagree with a velocity column.
 
+`lib/cartridge-svg.js` turns the same stored dimensions into the row profiles. It
+estimates projectile length from bullet mass and lead density, infers a neck from
+case proportions and velocity, and emits one inline SVG per load. Nothing is
+downloaded and there are no per-cartridge image assets, so fixing a case length
+or bullet diameter immediately fixes that row's drawing.
+
 ## Coverage
 
 The curated section covers the loads someone is most likely to compare. The
@@ -81,6 +87,15 @@ report it. Unpriced rows sort to the bottom in both directions.
   and case length under its name, plus the usual bullet-weight range in the
   bullet cell. Those fields came from the detail panel because they answer
   questions people ask while scanning, not after clicking.
+- The profile column draws each cartridge from its stored dimensions and bullet
+  mass: case length sets the body, bullet diameter sets the neck and width, and
+  mass divided by lead density estimates projectile length. Base diameter and
+  ogive are approximations because the source table does not publish them, so
+  the drawings are schematic rather than engineering drawings. Silhouettes share
+  a compressed scale (`length^0.55`) so a 2 mm Kolibri stays legible beside a
+  14.5×114mm while true proportions and ordering are preserved; the printed
+  dimensions remain authoritative. `lib/cartridge-svg.js` is the single source
+  for the geometry, and every drawing is self-contained inline SVG.
 - Sticky header row; the load column stays pinned on narrow screens so you never
   lose track of which row you are reading.
 - Sortable headers use `aria-sort`; the default is energy, descending, because
@@ -131,14 +146,21 @@ still work.
 - energy ordering that matches shooter intuition (`.22 LR < 9mm < .223`,
   `.308 < .300 Win Mag`, and the 1 oz 12 ga slug outgunning a .30-06).
 
+`tests/silhouette.test.mjs` checks the generated profiles without opening a
+browser: every load emits a finite inline SVG, all drawings share one viewBox,
+nothing references an external resource, drawn length and width follow the stored
+dimensions, bottleneck and rim inference land on the right cartridges, shotgun
+hulls contain no protruding bullet, and missing metadata falls back instead of
+producing `NaN`.
+
 ```
 node --test tests/*.test.mjs
 ```
 
 `tests/interaction.check.mjs` drives the real page over the Chrome DevTools
 Protocol — no Playwright install and no browser download, which matters on this
-NixOS host — and asserts filtering, sorting, row expansion, the unit toggle, and
-the empty state:
+NixOS host — and asserts filtering, sorting, row expansion, the unit toggle,
+silhouette rendering, and the empty state:
 
 Both suites are offline. The unit tests import the checked-in dataset directly;
 the browser check talks only to `localhost` (your `server.mjs` and Chrome's

@@ -7,12 +7,17 @@
  * the numbers in the row, and means a corrected dimension fixes its silhouette.
  *
  * These are schematics, not engineering drawings. Case base diameter and bullet
- * ogive are approximated (the source table does not publish base diameter), but
- * every silhouette shares one scale, so relative lengths and widths are honest.
+ * ogive are approximated (the source table does not publish base diameter).
+ * Sizes use a compressed scale (length^0.55) so a 2 mm Kolibri stays visible next
+ * to a 14.5×114mm; aspect ratios are preserved, absolute size is not.
  */
 import { GRAINS_TO_GRAMS } from './ballistics.js';
 
 const LEAD_DENSITY_G_MM3 = 0.01134;
+/** Width of the shared coordinate space; every silhouette lives in this box. */
+const VIEW_WIDTH = 160;
+/** < 1 compresses the size range; 0 would make every drawing the same length. */
+const SCALE_EXPONENT = 0.55;
 
 /** Fallbacks for rows whose name and metadata do not pin a dimension down. */
 const CATEGORY_DEFAULTS = {
@@ -64,7 +69,11 @@ function isRimmed(load) {
   return /(rimmed|\bR\b|R$|Rimfire)/i.test(load.name) || load.category === 'rimfire';
 }
 
-function geometry(load) {
+/**
+ * Approximate profile geometry in millimetres. Exported so tests can assert the
+ * drawing tracks the data without parsing path strings.
+ */
+export function cartridgeGeometry(load) {
   const category = load.category in CATEGORY_DEFAULTS ? load.category : 'rifle';
   const bulletMm = bulletDiameterMm(load);
   const caseMm = caseLengthMm(load);
@@ -118,16 +127,22 @@ function geometry(load) {
   };
 }
 
-/** Shared bounds so every silhouette is drawn at the same scale. */
+/** Compressed but proportion-preserving scale for one cartridge. */
+function scaleFor(totalLength, maxLength) {
+  if (!(maxLength > 0) || !(totalLength > 0)) return 1;
+  const drawn = VIEW_WIDTH * (totalLength / maxLength) ** SCALE_EXPONENT;
+  return drawn / totalLength;
+}
+
+/** Shared bounds so every silhouette is drawn in the same coordinate box. */
 export function cartridgeExtents(loads) {
-  let length = 0;
+  const geometries = loads.map(cartridgeGeometry);
+  const maxLength = Math.max(...geometries.map((g) => g.totalLength));
   let radius = 0;
-  for (const load of loads) {
-    const g = geometry(load);
-    length = Math.max(length, g.totalLength);
-    radius = Math.max(radius, g.maxRadius);
+  for (const g of geometries) {
+    radius = Math.max(radius, g.maxRadius * scaleFor(g.totalLength, maxLength));
   }
-  return { length, radius };
+  return { length: VIEW_WIDTH, maxLength, radius };
 }
 
 const num = (n) => (Number.isFinite(n) ? Number(n.toFixed(2)) : 0);
@@ -135,31 +150,27 @@ const num = (n) => (Number.isFinite(n) ? Number(n.toFixed(2)) : 0);
 function casePath(g) {
   const {
     rimThickness, groove, bodyRadius, grooveRadius, neckRadius,
-    shoulderX, shoulderLength, neckLength, caseMm,
+    shoulderX, shoulderLength, caseMm,
   } = g;
-  const x0 = 0;
   const x1 = rimThickness;
   const x2 = rimThickness + groove;
   const x3 = shoulderX;
   const x4 = shoulderX + shoulderLength;
-  const x5 = caseMm;
   return [
-    `M${num(x0)},${num(-g.rimMm / 2)}`,
-    `L${num(x1)},${num(-g.rimMm / 2)}`,
+    `M${num(x1)},${num(-g.rimMm / 2)}`,
     `L${num(x1)},${num(-grooveRadius)}`,
     `L${num(x2)},${num(-grooveRadius)}`,
     `L${num(x2)},${num(-bodyRadius)}`,
     `L${num(x3)},${num(-bodyRadius)}`,
     `L${num(x4)},${num(-neckRadius)}`,
-    `L${num(x5)},${num(-neckRadius)}`,
-    `L${num(x5)},${num(neckRadius)}`,
+    `L${num(caseMm)},${num(-neckRadius)}`,
+    `L${num(caseMm)},${num(neckRadius)}`,
     `L${num(x4)},${num(neckRadius)}`,
     `L${num(x3)},${num(bodyRadius)}`,
     `L${num(x2)},${num(bodyRadius)}`,
     `L${num(x2)},${num(grooveRadius)}`,
     `L${num(x1)},${num(grooveRadius)}`,
     `L${num(x1)},${num(g.rimMm / 2)}`,
-    `L${num(x0)},${num(g.rimMm / 2)}`,
     'Z',
   ].join(' ');
 }
@@ -168,14 +179,31 @@ function bulletPath(g) {
   const r = g.bulletMm / 2;
   const seat = Math.min(3, g.caseMm * 0.12);
   const x0 = g.caseMm - seat;
-  const tip = g.caseMm + g.exposed;
-  const shoulder = tip - g.exposed * 0.45;
-  const belly = g.caseMm + g.exposed * 0.35;
+  const mouth = g.caseMm;
+  const tip = mouth + g.exposed;
+  const e = g.exposed;
+  const roundNose = g.category === 'pistol' || g.category === 'rimfire';
+
+  if (roundNose) {
+    const cap = Math.min(r, e);
+    const shoulder = tip - cap;
+    return [
+      `M${num(x0)},${num(-r)}`,
+      `L${num(shoulder)},${num(-r)}`,
+      `A${num(r)},${num(r)} 0 0 1 ${num(tip)},0`,
+      `A${num(r)},${num(r)} 0 0 1 ${num(shoulder)},${num(r)}`,
+      `L${num(x0)},${num(r)}`,
+      'Z',
+    ].join(' ');
+  }
+
+  // Spitzer ogive: straight bearing surface, then a long curve to the tip.
+  const ogive = Math.max(mouth, tip - e * 0.58);
   return [
     `M${num(x0)},${num(-r)}`,
-    `L${num(g.caseMm)},${num(-r)}`,
-    `C${num(belly)},${num(-r)} ${num(shoulder)},${num(-r * 0.72)} ${num(tip)},0`,
-    `C${num(shoulder)},${num(r * 0.72)} ${num(belly)},${num(r)} ${num(g.caseMm)},${num(r)}`,
+    `L${num(ogive)},${num(-r)}`,
+    `C${num(ogive + e * 0.3)},${num(-r)} ${num(tip - e * 0.1)},${num(-r * 0.74)} ${num(tip)},0`,
+    `C${num(tip - e * 0.1)},${num(r * 0.74)} ${num(ogive + e * 0.3)},${num(r)} ${num(ogive)},${num(r)}`,
     `L${num(x0)},${num(r)}`,
     'Z',
   ].join(' ');
@@ -184,29 +212,40 @@ function bulletPath(g) {
 function hullMarkup(g) {
   const r = g.bulletMm / 2;
   const head = Math.min(8, g.caseMm * 0.18);
+  const crimp = Math.min(3, g.caseMm * 0.09);
+  const hull = [
+    `M0,${num(-r)}`,
+    `L${num(g.caseMm - crimp)},${num(-r)}`,
+    `Q${num(g.caseMm)},${num(-r * 0.9)} ${num(g.caseMm)},0`,
+    `Q${num(g.caseMm)},${num(r * 0.9)} ${num(g.caseMm - crimp)},${num(r)}`,
+    'L0,' + num(r),
+    'Z',
+  ].join(' ');
   return `
-    <rect class="cart-hull" x="0" y="${num(-r)}" width="${num(g.caseMm)}" height="${num(r * 2)}" rx="${num(Math.min(1.4, r * 0.5))}"/>
-    <rect class="cart-head" x="0" y="${num(-r)}" width="${num(head)}" height="${num(r * 2)}" rx="${num(Math.min(0.8, r * 0.3))}"/>`;
+    <path class="cart-hull" d="${hull}"/>
+    <rect class="cart-head" x="0" y="${num(-r - 0.4)}" width="${num(head)}" height="${num(r * 2 + 0.8)}" rx="0.3"/>`;
 }
 
 /**
  * One inline SVG. `extents` comes from `cartridgeExtents` over the whole
- * dataset, so the drawings are comparable across rows.
+ * dataset, so every drawing shares one coordinate box.
  */
 export function cartridgeSvg(load, extents) {
-  const g = geometry(load);
+  const g = cartridgeGeometry(load);
   const pad = 0.8;
-  const width = extents.length + pad * 2;
+  const width = extents.length + pad + 2.6;
   const height = extents.radius * 2 + pad * 2;
   const centerY = pad + extents.radius;
+  const scale = scaleFor(g.totalLength, extents.maxLength ?? extents.length);
 
   const body =
     g.category === 'shotgun'
       ? hullMarkup(g)
       : `
     <path class="cart-bullet" d="${bulletPath(g)}"/>
+    <rect class="cart-rim" x="0" y="${num(-g.rimMm / 2)}" width="${num(g.rimThickness)}" height="${num(g.rimMm)}" rx="0.25"/>
     <path class="cart-case" d="${casePath(g)}"/>`;
 
-  return `<svg class="cart" viewBox="0 0 ${num(width)} ${num(height)}" preserveAspectRatio="xMinYMid meet" aria-hidden="true" focusable="false"><g transform="translate(${num(pad)} ${num(centerY)})">${body}
+  return `<svg class="cart" viewBox="0 0 ${num(width)} ${num(height)}" preserveAspectRatio="xMinYMid meet" aria-hidden="true" focusable="false"><g transform="translate(${num(pad)} ${num(centerY)}) scale(${num(scale)})">${body}
     </g></svg>`;
 }
