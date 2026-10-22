@@ -33,17 +33,9 @@
 
   # ThinkPad-specific options could go here (TLP, ACPI tweaks, etc.)
 
-  # SSH — enable LAN access for remote management
-  services.openssh = {
-    enable = true;
-    openFirewall = true;
-    settings = {
-      PermitRootLogin = "no";
-      PasswordAuthentication = false;
-      KbdInteractiveAuthentication = false;
-      PubkeyAuthentication = true;
-    };
-  };
+  # SSH — the shared remote-access module keeps the firewall closed so SSH is
+  # Tailscale-only; thinker also needs LAN access for remote management.
+  services.openssh.openFirewall = lib.mkForce true;
 
   # Warden per-host monitoring agent
   calnix.warden = {
