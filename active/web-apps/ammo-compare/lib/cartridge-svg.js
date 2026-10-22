@@ -61,7 +61,7 @@ function isBottleneck(load, bulletMm, caseMm) {
     load.category === 'rifle' &&
     load.velocityFps >= 2000 &&
     caseMm / bulletMm >= 3.2 &&
-    bulletMm < 9.2
+    bulletMm < 9.0
   );
 }
 
@@ -77,18 +77,32 @@ export function cartridgeGeometry(load) {
   const category = load.category in CATEGORY_DEFAULTS ? load.category : 'rifle';
   const bulletMm = bulletDiameterMm(load);
   const caseMm = caseLengthMm(load);
-  const bottleneck = isBottleneck(load, bulletMm, caseMm);
+  const ref = load.saami;
 
-  const baseMm = bottleneck
+  // A SAAMI drawing settles the shape outright: if the case is wider at the
+  // head than at the mouth it has a shoulder. The fallback has to guess.
+  const bottleneck = ref
+    ? ref.baseMm > ref.neckMm * 1.11
+    : isBottleneck(load, bulletMm, caseMm);
+
+  const baseMm = ref?.baseMm ?? (bottleneck
     ? Math.max(bulletMm * 1.55, bulletMm + 2)
-    : bulletMm + (category === 'rimfire' ? 0.2 : category === 'shotgun' ? 1.6 : 1.0);
+    : bulletMm + (category === 'rimfire' ? 0.2 : category === 'shotgun' ? 1.6 : 0.75));
 
-  const rimMm = baseMm + (isRimmed(load) ? 1.0 : 0.5);
-  const rimThickness = Math.max(0.9, baseMm * 0.06);
+  // Rimless cases sit within a tenth of a millimetre of the base; rimmed ones
+  // step out roughly 1.5-2.5 mm, and the exact figure grows with the case.
+  const rimMm = ref?.rimMm ?? (isRimmed(load)
+    ? baseMm + Math.max(1.3, baseMm * 0.09)
+    : baseMm + 0.12);
+
+  const rimThickness = ref?.rimThicknessMm ?? Math.max(0.9, baseMm * 0.06);
   const groove = 0.8;
   const bodyRadius = baseMm / 2;
   const grooveRadius = Math.max(bodyRadius - 0.35, 0.5);
-  const neckRadius = bottleneck ? (bulletMm + 0.25) / 2 : bodyRadius;
+  const neckMm = ref?.neckMm ?? (bottleneck
+    ? bulletMm + 0.78
+    : baseMm - (category === 'pistol' ? 0.1 : category === 'shotgun' ? 0 : 0.6));
+  const neckRadius = neckMm / 2;
   const shoulderLength = bottleneck ? Math.max(caseMm * 0.1, 1.6) : 0;
   const neckLength = bottleneck ? Math.max(bulletMm * 0.8, 3) : 0;
   const shoulderX = caseMm - neckLength - shoulderLength;
@@ -113,6 +127,7 @@ export function cartridgeGeometry(load) {
     baseMm,
     rimMm,
     rimThickness,
+    neckMm,
     groove,
     bodyRadius,
     grooveRadius,
@@ -210,7 +225,7 @@ function bulletPath(g) {
 }
 
 function hullMarkup(g) {
-  const r = g.bulletMm / 2;
+  const r = g.baseMm / 2;
   const head = Math.min(8, g.caseMm * 0.18);
   const crimp = Math.min(3, g.caseMm * 0.09);
   const hull = [
@@ -221,9 +236,10 @@ function hullMarkup(g) {
     'L0,' + num(r),
     'Z',
   ].join(' ');
+  const headR = g.rimMm / 2;
   return `
     <path class="cart-hull" d="${hull}"/>
-    <rect class="cart-head" x="0" y="${num(-r - 0.4)}" width="${num(head)}" height="${num(r * 2 + 0.8)}" rx="0.3"/>`;
+    <rect class="cart-head" x="0" y="${num(-headR)}" width="${num(head)}" height="${num(headR * 2)}" rx="0.3"/>`;
 }
 
 /**

@@ -61,17 +61,12 @@ export const SAAMI_DIMENSIONS = {
     standard: 'Z299.3', title: '44 Remington Magnum',
     bulletMm: 10.973, caseMm: 32.64, baseMm: 11.605, neckMm: 11.583, rimMm: 13.06, rimThicknessMm: 1.52,
   },
-  '50ae': {
-    standard: 'Z299.3', title: '50 Action Express',
-    bulletMm: 12.75, caseMm: 32.64, baseMm: 13.792, neckMm: 13.437, rimMm: 13.08, rimThicknessMm: 1.52,
-  },
-
   // ── centerfire rifle (Z299.4) ──────────────────────────────────────────
   '223': {
     standard: 'Z299.4', title: '223 Remington',
     bulletMm: 5.702, caseMm: 44.7, baseMm: 9.548, neckMm: 6.43, rimMm: 9.6, rimThicknessMm: 1.14,
   },
-  '22-250': {
+  '22250': {
     standard: 'Z299.4', title: '22-250 Remington',
     bulletMm: 5.702, caseMm: 48.56, baseMm: 11.857, neckMm: 6.45, rimMm: 12.01, rimThicknessMm: 1.24,
   },
@@ -111,7 +106,7 @@ export const SAAMI_DIMENSIONS = {
     standard: 'Z299.4', title: '6.5 Creedmoor',
     bulletMm: 6.716, caseMm: 48.77, baseMm: 11.946, neckMm: 7.49, rimMm: 11.99, rimThicknessMm: 1.4,
   },
-  '300blk': {
+  '300-aac-blackout': {
     standard: 'Z299.4', title: '300 AAC Blackout',
     bulletMm: 7.85, caseMm: 34.75, baseMm: 9.548, neckMm: 8.48, rimMm: 9.6, rimThicknessMm: 1.14,
   },

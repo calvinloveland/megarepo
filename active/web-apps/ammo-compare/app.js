@@ -1,16 +1,18 @@
 import { AMMO } from './data/ammo.js';
+import { saamiFor } from './data/saami.js';
 import { derive, fmtInt, fmtCost, fmtEnergy } from './lib/ballistics.js';
 import { cartridgeSvg, cartridgeExtents } from './lib/cartridge-svg.js';
-
-/** One shared scale, so silhouettes compare across rows. */
-const EXTENTS = cartridgeExtents(AMMO);
 
 /** Enrich the static load data with derived numbers once, at module load. */
 const ROWS = AMMO.map((load) => ({
   ...load,
   ...derive(load),
-  silhouette: cartridgeSvg(load, EXTENTS),
+  saami: saamiFor(load.id),
 }));
+
+/** One shared scale, so silhouettes compare across rows. */
+const EXTENTS = cartridgeExtents(ROWS);
+for (const row of ROWS) row.silhouette = cartridgeSvg(row, EXTENTS);
 const MAX_ENERGY = Math.max(...ROWS.map((r) => r.energyFtLb));
 const MAX_LOG_ENERGY = Math.log1p(MAX_ENERGY);
 const CATEGORIES = ['all', ...new Set(ROWS.map((r) => r.category))];
@@ -196,6 +198,10 @@ function detailHtml(r) {
       `${r.diameterIn}″ (${(r.diameterIn * 25.4).toFixed(2)} mm)`,
     ],
     r.caseLengthMm && ['Case length', `${r.caseLengthMm} mm`],
+    r.saami && [
+      'Case dimensions',
+      `SAAMI ${r.saami.standard} — ${r.saami.baseMm} mm base, ${r.saami.rimMm} mm rim`,
+    ],
     r.commonGrains && [
       'Common bullet weights',
       r.commonGrains[0] === r.commonGrains[1]

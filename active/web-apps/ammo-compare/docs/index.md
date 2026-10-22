@@ -41,9 +41,11 @@ disagree with a velocity column.
 
 `lib/cartridge-svg.js` turns the same stored dimensions into the row profiles. It
 estimates projectile length from bullet mass and lead density, infers a neck from
-case proportions and velocity, and emits one inline SVG per load. Nothing is
-downloaded and there are no per-cartridge image assets, so fixing a case length
-or bullet diameter immediately fixes that row's drawing.
+case proportions and velocity, and emits one inline SVG per load. Where SAAMI
+publishes a drawing, `data/saami.js` supplies the base, neck, rim, and rim height
+that would otherwise be inferred. Nothing is downloaded and there are no
+per-cartridge image assets, so fixing a case length or bullet diameter immediately
+fixes that row's drawing.
 
 ## Coverage
 
@@ -60,6 +62,41 @@ a current commercial load exists and a retail estimate is meaningful. The
 reference rows are deliberately unpriced: many are obsolete, surplus, or
 collector-only, so attaching a dollar figure would invent data rather than
 report it. Unpriced rows sort to the bottom in both directions.
+
+## SAAMI validation
+
+The silhouettes are generated, so they can be checked against the standards
+instead of being taken on faith. Thirty-four cartridges (37 rows, because +P
+variants share a drawing) have published ANSI/SAAMI Z299 dimensions; those values
+live in `data/saami.js` and are asserted in `tests/saami.test.mjs`.
+
+Where a SAAMI drawing exists, the profile uses its base, neck, rim, and rim
+height. That also settles edge cases the inference cannot see: .350 Legend and
+.450 Bushmaster have rebated rims (the rim is narrower than the case body), and
+belted magnums step out at the belt rather than the base.
+
+Measured against those 37 rows:
+
+| Dimension | Source | Median error | Worst error |
+|---|---|---|---|
+| Bullet diameter | load data (published) | 0.03 mm | 0.09 mm |
+| Case length | load data (published) | 0.05 mm | 1.26 mm |
+| Base diameter | SAAMI reference | exact | exact |
+| Base diameter | inferred fallback | 0.42 mm | 3.04 mm (26%) |
+| Neck diameter | inferred fallback | 0.10 mm | 0.93 mm (19%) |
+| Rim diameter | inferred fallback | 1.26 mm | 3.07 mm (28%) |
+
+The largest case-length gap is the .410 slug row, which uses a nominal 2.48″
+figure rather than SAAMI's 2.53″ maximum. The fallback's worst base errors are
+small-case varmint rounds and .300 Blackout, whose case family cannot be inferred
+from bullet diameter and case length alone. Rim error largely follows base error:
+a rimless rim is only about 0.1 mm wider than the body, so whatever the base gets
+wrong carries straight through.
+
+Rows without a SAAMI drawing — many are obsolete, military, or wildcat designs —
+are therefore schematics within roughly the band above, not measured drawings.
+The test enforces 0.1 mm on bullet diameter, 1.5 mm on case length, and a 30%
+band on the inferred base and rim so a regression cannot quietly widen the gap.
 
 ## Data caveats (deliberate, and stated on the page)
 
@@ -89,13 +126,14 @@ report it. Unpriced rows sort to the bottom in both directions.
   questions people ask while scanning, not after clicking.
 - The profile column draws each cartridge from its stored dimensions and bullet
   mass: case length sets the body, bullet diameter sets the neck and width, and
-  mass divided by lead density estimates projectile length. Base diameter and
-  ogive are approximations because the source table does not publish them, so
-  the drawings are schematic rather than engineering drawings. Silhouettes share
-  a compressed scale (`length^0.55`) so a 2 mm Kolibri stays legible beside a
-  14.5×114mm while true proportions and ordering are preserved; the printed
-  dimensions remain authoritative. `lib/cartridge-svg.js` is the single source
-  for the geometry, and every drawing is self-contained inline SVG.
+  mass divided by lead density estimates projectile length. Where SAAMI publishes
+  a drawing, the base, neck, rim, and rim height come from the standard
+  (`data/saami.js`); elsewhere they are inferred. The ogive is always an
+  approximation, so the drawings are schematic rather than engineering drawings.
+  Silhouettes share a compressed scale (`length^0.55`) so a 2 mm Kolibri stays
+  legible beside a 14.5×114mm while true proportions and ordering are preserved;
+  the printed dimensions remain authoritative. `lib/cartridge-svg.js` is the
+  single source for the geometry, and every drawing is self-contained inline SVG.
 - Sticky header row; the load column stays pinned on narrow screens so you never
   lose track of which row you are reading.
 - Sortable headers use `aria-sort`; the default is energy, descending, because
@@ -152,6 +190,11 @@ nothing references an external resource, drawn length and width follow the store
 dimensions, bottleneck and rim inference land on the right cartridges, shotgun
 hulls contain no protruding bullet, and missing metadata falls back instead of
 producing `NaN`.
+
+`tests/saami.test.mjs` is the accuracy check: it maps 37 rows to the ANSI/SAAMI
+Z299 drawings, verifies the dataset's bullet diameter and case length agree with
+the standard, requires the overlay to drive base/neck/rim exactly, keeps the
+inferred fallback inside its documented error band, and covers rebated rims.
 
 ```
 node --test tests/*.test.mjs

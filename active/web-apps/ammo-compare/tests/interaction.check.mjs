@@ -185,6 +185,15 @@ check(
     (await evaluate(`document.querySelector('.empty')?.textContent ?? ''`)).includes('No loads match'),
 );
 
+await evaluate(`(() => { const i = document.getElementById('search'); i.value = '9mm Luger'; i.dispatchEvent(new Event('input')); })()`);
+await sleep(150);
+await evaluate(`document.querySelector('tbody tr.row').click()`);
+await sleep(150);
+check(
+  'details cite SAAMI case dimensions where used',
+  (await evaluate(`document.querySelector('tbody tr.detail')?.textContent ?? ''`)).includes('SAAMI'),
+);
+
 const failures = results.filter((r) => !r.pass);
 for (const r of results) console.log(`${r.pass ? 'PASS' : 'FAIL'}  ${r.name}${r.pass ? '' : `  → ${r.detail ?? ''}`}`);
 console.log(`\n${results.length - failures.length}/${results.length} checks passed`);
