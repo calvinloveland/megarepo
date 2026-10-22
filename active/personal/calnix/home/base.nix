@@ -52,6 +52,10 @@
     enable = true;
     vimAlias = true;
     viAlias = true;
+    # Home Manager 26.05 flipped these defaults; pin the previous behavior
+    # explicitly instead of relying on the legacy stateVersion default.
+    withPython3 = true;
+    withRuby = true;
   };
 
   programs.tmux = {
