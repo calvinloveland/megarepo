@@ -190,6 +190,7 @@ in
     git # version control
     gh # github cli w/ copilot
     codex # OpenAI Codex CLI
+    opencode # AI coding agent (tracked from nixos-unstable)
     wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
     xdg-utils # xdg-open for opening URLs/files with default applications
 
