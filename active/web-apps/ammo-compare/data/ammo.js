@@ -1,17 +1,22 @@
 /**
- * Typical loads, not maximums.
+ * Load data for the comparison table.
  *
- * Values are representative of common commercial ammunition fired from
- * everyday barrel lengths (pistol ~4", rifle ~22-24", shotgun ~28"), which is
- * why the same cartridge can appear faster or slower in other published tables.
- * Energy and power factor are never stored — `lib/ballistics.js` derives them so
- * there is a single source of truth for the math.
+ * The first section is a curated set of typical commercial loads: values are
+ * representative of common ammunition fired from everyday barrel lengths
+ * (pistol ~4", rifle ~22-24", shotgun ~28"). Energy and power factor are never
+ * stored — `lib/ballistics.js` derives them so there is a single source of truth
+ * for the math.
+ *
+ * The extended reference set brings in every cartridge from Wikipedia's
+ * "Table of handgun and rifle cartridges" that has usable published data, plus
+ * current-production rounds and shotgun loads the table does not cover. For
+ * those rows, bullet weight is derived from the published momentum column (or
+ * from velocity and energy when momentum is absent), because Wikipedia reports
+ * independent maxima rather than one coherent load. Optional `introduced`,
+ * `nation`, `diameterIn`, `bc`, `caseLengthMm`, `factoryLoadings`, and `source`
+ * fields preserve the reference metadata for the row-detail view.
  *
  * costPerRound is a rough USD retail figure used only for relative comparison.
- *
- * Coverage is deliberately broad (rimfire through .50 BMG, pistol through 12 ga)
- * because the useful question is usually "how does this compare to what I
- * already shoot", not "how does this compare to its own siblings".
  */
 export const AMMO = [
   // ── rimfire ────────────────────────────────────────────────────────────
@@ -635,7 +640,7 @@ export const AMMO = [
   },
 
   // ── extended reference set: Wikipedia handgun/rifle table ──────────────
-{
+  {
     id: '2-mm-kolibri',
     name: '2 mm Kolibri',
     category: 'pistol',
@@ -2372,7 +2377,7 @@ export const AMMO = [
     notes: 'from Halger Arms Co. of Hamburg',
     introduced: 1920,
     nation: 'Germany',
-    diameterIn: 243,
+    diameterIn: 0.243,
     caseLengthMm: 57,
     factoryLoadings: 0,
     source: 'wikipedia',
@@ -3097,7 +3102,7 @@ export const AMMO = [
     notes: 'Proprietary cartridge',
     introduced: 1910,
     nation: 'UK',
-    diameterIn: 330,
+    diameterIn: 0.33,
     caseLengthMm: 60.1,
     factoryLoadings: 0,
     source: 'wikipedia',
@@ -4645,7 +4650,7 @@ export const AMMO = [
     source: 'wikipedia',
   },
 
-// ── Wikipedia table rows without published velocity/energy ─────────────
+  // ── Wikipedia table rows without published velocity/energy ─────────────
   {
     id: '56x39mm',
     name: '5.6×39mm',

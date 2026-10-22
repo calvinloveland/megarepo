@@ -10,9 +10,10 @@
   <header>
     <h1>Ammo Comparison Table</h1>
     <p class="subtitle">
-      Common centerfire, rimfire, and shotgun loads side by side. Energy and power
-      factor are computed from bullet weight and muzzle velocity, not copied from a
-      chart, so the math always agrees with the numbers in the row.
+      Every cartridge in Wikipedia’s handgun and rifle table, plus shotgun loads and
+      current-production rounds. Energy and power factor are computed from bullet
+      weight and muzzle velocity, not copied from a chart, so the math always agrees
+      with the numbers in the row.
     </p>
   </header>
 
@@ -60,16 +61,23 @@
 
     <footer class="footnotes">
       <p>
-        <strong>How to read this.</strong> Values are typical commercial loads from
-        everyday barrel lengths (pistol ≈ 4″, rifle ≈ 22–24″, shotgun ≈ 28″), so a
-        hotter or slower load of the same cartridge will read differently.
-        Energy is <code>gr × fps² / 450437</code> foot-pounds; power factor is
-        <code>gr × fps / 1000</code>. Shotgun rows use the whole payload, so their
-        power factor is not comparable to a single projectile.
+        <strong>How to read this.</strong> Curated rows are typical commercial loads
+        from everyday barrel lengths (pistol ≈ 4″, rifle ≈ 22–24″, shotgun ≈ 28″), so
+        a hotter or slower load of the same cartridge will read differently. The
+        extended reference rows come from Wikipedia’s cartridge table, which lists
+        independent maxima for velocity and energy; their bullet weight is derived
+        from the published momentum so each row describes one coherent load. Energy
+        is <code>gr × fps² / 450437</code> foot-pounds; power factor is
+        <code>gr × fps / 1000</code>. Energy bars use a logarithmic scale so rimfire
+        and anti-materiel rounds can share one column. Shotgun rows use the whole
+        payload, so their power factor is not comparable to a single projectile.
       </p>
       <p>
         Cost per round is a rough retail estimate for relative comparison only.
-        Click a row for platforms and notes.
+        Click a row for platforms, reference metadata, and notes. Cartridge coverage
+        and reference values adapted from
+        <a href="https://en.wikipedia.org/wiki/Table_of_handgun_and_rifle_cartridges">Wikipedia’s
+        Table of handgun and rifle cartridges</a> (CC BY-SA).
       </p>
     </footer>
   </main>

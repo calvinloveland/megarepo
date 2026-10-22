@@ -6,9 +6,12 @@ and velocity rather than transcribed from a chart.
 
 ![Desktop view](docs/images/desktop.png)
 
+- Every cartridge in Wikipedia's handgun and rifle table, plus shotgun loads and
+  current-production rounds such as 6.5 PRC, 7mm PRC, `.300 PRC`, and `.277 Fury`.
 - Sort any column, filter by category, search across names, uses, and platforms.
 - Toggle imperial (grains · fps · ft·lb) and metric (g · m/s · J) units.
-- Click a row for the platforms and shooting notes behind the numbers.
+- Click a row for platforms, reference metadata (nation, year, bullet diameter,
+  case length, BC), and shooting notes.
 - On a phone it collapses to loads and their energy, with no sideways scrolling.
 
 No build step, no dependencies: plain HTML, CSS, and native ES modules. Registered

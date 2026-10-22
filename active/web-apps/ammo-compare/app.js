@@ -4,6 +4,7 @@ import { derive, fmtInt, fmtCost, fmtEnergy } from './lib/ballistics.js';
 /** Enrich the static load data with derived numbers once, at module load. */
 const ROWS = AMMO.map((load) => ({ ...load, ...derive(load) }));
 const MAX_ENERGY = Math.max(...ROWS.map((r) => r.energyFtLb));
+const MAX_LOG_ENERGY = Math.log1p(MAX_ENERGY);
 const CATEGORIES = ['all', ...new Set(ROWS.map((r) => r.category))];
 
 const state = {
@@ -77,9 +78,13 @@ function recoil(r) {
 
 function matchesQuery(r, q) {
   if (!q) return true;
-  const haystack = [r.name, r.category, r.use, r.notes, ...r.platforms].join(' ').toLowerCase();
-  return q
-    .toLowerCase()
+  // Treat the multiplication sign and the letter x as the same character so
+  // "9x19" finds "9×19mm" and vice versa.
+  const normalize = (s) => String(s).toLowerCase().replace(/[×✕]/g, 'x');
+  const haystack = normalize(
+    [r.name, r.category, r.use, r.notes, r.nation ?? '', ...r.platforms].join(' '),
+  );
+  return normalize(q)
     .split(/\s+/)
     .filter(Boolean)
     .every((term) => haystack.includes(term));
@@ -104,7 +109,10 @@ function visibleRows() {
 
 function rowHtml(r) {
   const open = expanded.has(r.id);
-  const width = Math.max(2, Math.round((r.energyFtLb / MAX_ENERGY) * 100));
+  // Energy spans three orders of magnitude once anti-materiel rounds are in the
+  // set, so the bar is logarithmic; a linear scale would flatten everything
+  // below .50 BMG into an invisible sliver.
+  const width = Math.max(2, Math.round((Math.log1p(r.energyFtLb) / MAX_LOG_ENERGY) * 100));
   return `
     <tr class="row${open ? ' is-open' : ''}" data-id="${r.id}" tabindex="0"
         aria-expanded="${open}" aria-controls="detail-${r.id}">
@@ -126,6 +134,27 @@ function detailHtml(r) {
   const payload = r.pelletLabel
     ? `<dt>Payload</dt><dd>${r.pelletLabel}</dd>`
     : '';
+  const sourceLabel = {
+    wikipedia: 'Wikipedia cartridge table',
+    'wikipedia-estimate': 'Wikipedia table (representative load)',
+    'curated-extra': 'Added for this table',
+  }[r.source] ?? 'Curated for this table';
+  const specs = [
+    ['Momentum', `${r.momentumLbfS.toFixed(2)} lbf·s`],
+    r.introduced && ['Introduced', r.introduced],
+    r.nation && ['Nation', r.nation],
+    r.diameterIn && [
+      'Bullet diameter',
+      `${r.diameterIn}″ (${(r.diameterIn * 25.4).toFixed(2)} mm)`,
+    ],
+    r.caseLengthMm && ['Case length', `${r.caseLengthMm} mm`],
+    r.bc && ['Ballistic coefficient', `${r.bc} (G1)`],
+    Number.isInteger(r.factoryLoadings) && [
+      'Factory loadings',
+      String(r.factoryLoadings),
+    ],
+    ['Source', sourceLabel],
+  ].filter(Boolean);
   return `
     <tr class="detail" id="detail-${r.id}">
       <td colspan="8">
@@ -133,6 +162,7 @@ function detailHtml(r) {
           <dt>Platforms</dt>
           <dd class="badges">${r.platforms.map((p) => `<span class="badge">${p}</span>`).join('')}</dd>
           ${payload}
+          ${specs.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('')}
           <dt>Notes</dt>
           <dd>${r.notes}</dd>
         </dl>

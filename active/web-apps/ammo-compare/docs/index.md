@@ -8,11 +8,15 @@ there so the comparison is quick, not so the page has features.
 
 ## Where the numbers come from
 
-`data/ammo.js` stores only what a load *is*:
+`data/ammo.js` stores what a load *is*:
 
 ```js
 { id, name, category, bulletGr, velocityFps, costPerRound, recoil, use, platforms, notes }
 ```
+
+Reference rows may also carry `introduced`, `nation`, `diameterIn`, `bc`,
+`caseLengthMm`, `factoryLoadings`, and `source`. These are display metadata; they
+never feed the ballistics math.
 
 Derived values are never stored. `lib/ballistics.js` computes them:
 
@@ -21,7 +25,8 @@ Derived values are never stored. `lib/ballistics.js` computes them:
 | Muzzle energy (ft·lb) | `gr × fps² / 450437` | `450437 = 2 · 7000 · 32.174` folds in grains-per-pound and gravity |
 | Muzzle energy (J) | `ft·lb × 1.3558179` | |
 | Power factor | `gr × fps / 1000` | Imperial shooting-sports momentum figure; 125 minor / 165 major |
-| Metric momentum | `kg × m/s` | What the metric toggle shows in that column |
+| Momentum (lbf·s) | `gr × fps / 225218.34` | The `P` column in Wikipedia's cartridge table |
+| Metric momentum | `kg × m/s` | What the metric toggle shows in the power-factor column |
 | Velocity (m/s) | `fps × 0.3048` | |
 | Bullet mass (g) | `gr × 0.06479891` | |
 
@@ -29,11 +34,31 @@ Keeping the math in one module is the point: the UI, the tests, and anything
 added later all read the same implementation, so an energy column can never
 disagree with a velocity column.
 
+## Coverage
+
+The curated section covers the loads someone is most likely to compare. The
+extended reference set adds every cartridge in Wikipedia's [Table of handgun and
+rifle cartridges](https://en.wikipedia.org/wiki/Table_of_handgun_and_rifle_cartridges)
+that has usable published data, plus current-production rounds (`.22 ARC`, 6.5
+PRC, 7mm PRC, `.300 PRC`, `.277 Fury`, 8.6 Blackout, `.400 Legend`) and shotgun
+loads that the Wikipedia table does not include (10 ga, 16 ga, 20 ga target,
+3″ 00 buck, sabot slugs, `.410` slug).
+
+Cost per round for the extended rows is a heuristic based on how many
+manufacturers list the cartridge and how large the case is. It is a ranking aid,
+not a price quote.
+
 ## Data caveats (deliberate, and stated on the page)
 
-- **Typical, not maximum loads.** Pistol ≈ 4″, rifle ≈ 22–24″, shotgun ≈ 28″.
-  The same cartridge in a different barrel reads differently — that is physics,
-  not an error in the table.
+- **Curated rows are typical, not maximum loads.** Pistol ≈ 4″, rifle ≈ 22–24″,
+  shotgun ≈ 28″. The same cartridge in a different barrel reads differently — that
+  is physics, not an error in the table.
+- **Wikipedia rows are built from independent maxima.** The source table reports
+  the highest velocity and the highest energy it found, which may come from
+  different loads. To keep each row physically coherent, bullet weight is derived
+  from the published momentum column (or from velocity and energy when momentum
+  is missing). The resulting energy can therefore differ from the source table's
+  maximum-energy figure.
 - **Shotgun rows use the whole payload** (9 pellets of 00 buck, a 1 oz slug).
   Their energy is real, but their power factor is not comparable to a single
   projectile, and the page says so.
@@ -46,9 +71,10 @@ disagree with a velocity column.
 - Sortable headers use `aria-sort`; the default is energy, descending, because
   that is what most comparisons are actually about. Clicking a header cycles
   descending → ascending; text columns start ascending.
-- Energy cells draw a bar scaled to the highest-energy load in the whole dataset
-  (not the filtered view), so the bar means the same thing no matter what is
-  filtered out.
+- Energy cells draw a logarithmic bar scaled to the highest-energy load in the
+  whole dataset, so the bar means the same thing no matter what is filtered out.
+  A linear scale would collapse everything below `.50 BMG` once the anti-materiel
+  rounds are included.
 - Rows are `tabindex="0"` and toggle detail with Enter/Space as well as click.
 - Empty filter states keep the summary line honest rather than showing a blank
   table.
@@ -68,9 +94,11 @@ to its own row, and the detail rows still work.
 
 - reference energies against hand-computed values (9mm 124/1150 ≈ 364 ft·lb),
 - the `v²` relationship,
-- unit conversions,
+- unit conversions, including momentum in lbf·s,
 - that every load carries the fields the table renders,
 - unique ids (row expansion is keyed on them),
+- that the extended reference set is present (≥290 loads, Wikipedia provenance,
+  plausible bullet weights, spot checks for the long tail),
 - energy ordering that matches shooter intuition (`.22 LR < 9mm < .223`,
   `.308 < .300 Win Mag`, and the 1 oz 12 ga slug outgunning a .30-06).
 

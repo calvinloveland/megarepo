@@ -100,6 +100,10 @@ check(
   (await evaluate(`document.querySelector('tr.detail').textContent`)).includes(slowest.platforms[0]),
   slowest.platforms[0],
 );
+check(
+  'details show reference metadata',
+  (await evaluate(`document.querySelector('tr.detail').textContent`)).includes('Wikipedia cartridge table'),
+);
 check('expanded row is announced', (await evaluate(`document.querySelector('tbody tr.row').getAttribute('aria-expanded')`)) === 'true');
 await evaluate(`document.querySelector('tbody tr.row').click()`);
 await sleep(150);

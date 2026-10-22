@@ -9,6 +9,7 @@
 export const FT_LB_TO_JOULES = 1.3558179483314004;
 export const FPS_TO_MPS = 0.3048;
 export const GRAINS_TO_GRAMS = 0.06479891;
+export const GRAINS_FPS_TO_LBF_S = 7000 * 32.174; // 225,218.34
 
 /**
  * Muzzle energy in foot-pounds: E = m·v² / 2, with the constant folded in.
@@ -34,6 +35,14 @@ export function powerFactor(bulletGr, velocityFps) {
   return (bulletGr * velocityFps) / 1000;
 }
 
+/**
+ * Momentum in pound-force seconds: the figure Wikipedia lists as "P" and a
+ * direct physical basis for recoil and penetration potential.
+ */
+export function momentumLbfS(bulletGr, velocityFps) {
+  return (bulletGr * velocityFps) / GRAINS_FPS_TO_LBF_S;
+}
+
 /** Derived numbers for one load, in both unit systems. */
 export function derive(load) {
   const ftLb = energyFtLb(load.bulletGr, load.velocityFps);
@@ -43,6 +52,7 @@ export function derive(load) {
     velocityMps: load.velocityFps * FPS_TO_MPS,
     bulletGrams: load.bulletGr * GRAINS_TO_GRAMS,
     powerFactor: powerFactor(load.bulletGr, load.velocityFps),
+    momentumLbfS: momentumLbfS(load.bulletGr, load.velocityFps),
   };
 }
 

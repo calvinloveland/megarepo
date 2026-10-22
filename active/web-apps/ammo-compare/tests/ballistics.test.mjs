@@ -2,7 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { AMMO } from '../data/ammo.js';
-import { energyFtLb, ftLbToJoules, powerFactor, derive } from '../lib/ballistics.js';
+import {
+  energyFtLb,
+  ftLbToJoules,
+  powerFactor,
+  momentumLbfS,
+  GRAINS_FPS_TO_LBF_S,
+  derive,
+} from '../lib/ballistics.js';
 
 test('muzzle energy matches the hand-computed reference values', () => {
   // 124 gr at 1,150 fps is the classic 9mm "NATO-ish" load: ~364 ft-lb.
@@ -20,6 +27,12 @@ test('joule conversion uses the standard factor', () => {
 test('power factor is momentum per 1000', () => {
   assert.ok(Math.abs(powerFactor(124, 1150) - 142.6) < 1e-9);
   assert.ok(Math.abs(powerFactor(230, 850) - 195.5) < 1e-9);
+});
+
+test('momentum in lbf·s matches the published figure for a .45 ACP load', () => {
+  // Wikipedia lists 0.868 lbf·s for 230 gr at 850 fps.
+  assert.ok(Math.abs(momentumLbfS(230, 850) - 0.868) < 0.001);
+  assert.ok(Math.abs(momentumLbfS(9.375 * GRAINS_FPS_TO_LBF_S, 1) - 9.375) < 1e-9);
 });
 
 test('derive() returns both unit systems consistently', () => {
@@ -48,11 +61,27 @@ test('load ids stay unique so row expansion is deterministic', () => {
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test('the dataset is broad enough to be a comparison, not a sample', () => {
+test('the dataset covers Wikipedia and then some', () => {
   const byCategory = AMMO.reduce((acc, l) => ({ ...acc, [l.category]: (acc[l.category] ?? 0) + 1 }), {});
-  assert.ok(AMMO.length >= 45, `expected a comprehensive list, got ${AMMO.length}`);
+  assert.ok(AMMO.length >= 290, `expected the extended set, got ${AMMO.length}`);
   for (const category of ['rimfire', 'pistol', 'rifle', 'shotgun']) {
     assert.ok((byCategory[category] ?? 0) >= 3, `${category} needs at least three loads`);
+  }
+  // Spot-check the long tail: an obsolete curiosity, a huge anti-materiel
+  // round, a Swedish service cartridge, and a modern extra that Wikipedia's
+  // handgun/rifle table does not contain.
+  for (const id of ['2-mm-kolibri', '950-jdj', '65x55mm', '400legend']) {
+    assert.ok(AMMO.some((l) => l.id === id), `missing ${id}`);
+  }
+});
+
+test('reference rows carry provenance and plausible bullet weights', () => {
+  const reference = AMMO.filter((l) => l.source?.startsWith('wikipedia'));
+  assert.ok(reference.length >= 220, `expected the Wikipedia set, got ${reference.length}`);
+  for (const load of reference) {
+    assert.ok(load.nation, `${load.id} should record its nation`);
+    assert.ok(load.introduced > 1800, `${load.id} should record an introduction year`);
+    assert.ok(load.bulletGr >= 2 && load.bulletGr <= 4000, `${load.id} bullet weight is implausible`);
   }
 });
 
