@@ -85,6 +85,45 @@ test('reference rows carry provenance and plausible bullet weights', () => {
   }
 });
 
+test('curated rows carry the same reference metadata as the Wikipedia set', () => {
+  const curated = AMMO.filter((l) => !l.source);
+  assert.ok(curated.length >= 45, `expected the curated set, got ${curated.length}`);
+  for (const load of curated) {
+    if (load.category !== 'shotgun') {
+      assert.ok(load.nation, `${load.id} should record its nation`);
+      assert.ok(load.introduced > 1800, `${load.id} should record an introduction year`);
+    }
+    assert.ok(load.diameterIn > 0.1 && load.diameterIn < 1, `${load.id} diameter is implausible`);
+    assert.ok(load.caseLengthMm > 5 && load.caseLengthMm < 120, `${load.id} case length is implausible`);
+  }
+});
+
+test('common bullet weight ranges contain the load they describe', () => {
+  const ranged = AMMO.filter((l) => l.commonGrains);
+  assert.ok(ranged.length >= 40, `expected weight ranges, got ${ranged.length}`);
+  for (const load of ranged) {
+    const [lo, hi] = load.commonGrains;
+    assert.equal(load.commonGrains.length, 2, `${load.id} range needs two bounds`);
+    assert.ok(lo <= hi, `${load.id} range is inverted`);
+    assert.ok(lo >= 2 && hi <= 4000, `${load.id} range is implausible`);
+    assert.ok(
+      load.bulletGr >= lo && load.bulletGr <= hi,
+      `${load.id} load (${load.bulletGr} gr) sits outside its usual range ${lo}–${hi}`,
+    );
+  }
+});
+
+test('introduction years are plausible', () => {
+  const thisYear = new Date().getUTCFullYear();
+  for (const load of AMMO) {
+    if (load.introduced == null) continue;
+    assert.ok(
+      load.introduced >= 1800 && load.introduced <= thisYear,
+      `${load.id} has an implausible year: ${load.introduced}`,
+    );
+  }
+});
+
 test('energy ordering lands where shooters expect it', () => {
   const byId = Object.fromEntries(AMMO.map((l) => [l.id, energyFtLb(l.bulletGr, l.velocityFps)]));
   assert.ok(byId['22lr'] < byId['9mm']);

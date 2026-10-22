@@ -11,9 +11,9 @@
     <h1>Ammo Comparison Table</h1>
     <p class="subtitle">
       Every cartridge in Wikipedia’s handgun and rifle table, plus shotgun loads and
-      current-production rounds. Energy and power factor are computed from bullet
-      weight and muzzle velocity, not copied from a chart, so the math always agrees
-      with the numbers in the row.
+      current-production rounds. Each row carries the cartridge’s origin, age, and
+      bullet dimensions; energy and power factor are computed from bullet weight and
+      muzzle velocity, not copied from a chart.
     </p>
   </header>
 
@@ -40,14 +40,15 @@
     <div class="table-wrap">
       <table id="ammo">
         <caption class="visually-hidden">
-          Comparison of typical ammunition loads by bullet weight, velocity, energy,
-          power factor, recoil, and cost.
+          Comparison of typical ammunition loads by introduction year, bullet
+          weight, velocity, energy, power factor, recoil, and cost.
         </caption>
         <thead>
           <tr>
             <th scope="col" data-sort="name" class="sortable col-load"><button type="button">Load</button></th>
-            <th scope="col" data-sort="bulletGr" class="sortable num"><button type="button">Bullet</button></th>
-            <th scope="col" data-sort="velocityFps" class="sortable num"><button type="button">Velocity</button></th>
+            <th scope="col" data-sort="introduced" class="sortable num col-introduced"><button type="button">Introduced</button></th>
+            <th scope="col" data-sort="bulletGr" class="sortable num col-bullet"><button type="button">Bullet</button></th>
+            <th scope="col" data-sort="velocityFps" class="sortable num col-velocity"><button type="button">Velocity</button></th>
             <th scope="col" data-sort="energy" class="sortable num col-energy"><button type="button">Energy</button></th>
             <th scope="col" data-sort="powerFactor" class="sortable num col-pf"><button type="button">Power factor</button></th>
             <th scope="col" data-sort="recoil" class="sortable col-recoil"><button type="button">Recoil</button></th>
@@ -74,8 +75,11 @@
       </p>
       <p>
         Cost per round is a rough retail estimate for relative comparison only.
-        Click a row for platforms, reference metadata, and notes. Cartridge coverage
-        and reference values adapted from
+        “Introduced” is the year the cartridge was introduced; the line under each
+        name gives its nation, bullet diameter, and case length. Bullet cells show
+        the selected unit plus, where known, the range of weights normally sold for
+        that cartridge. Click a row for platforms, reference metadata, and notes.
+        Cartridge coverage and reference values adapted from
         <a href="https://en.wikipedia.org/wiki/Table_of_handgun_and_rifle_cartridges">Wikipedia’s
         Table of handgun and rifle cartridges</a> (CC BY-SA).
       </p>

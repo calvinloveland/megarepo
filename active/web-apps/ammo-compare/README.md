@@ -8,6 +8,10 @@ and velocity rather than transcribed from a chart.
 
 - Every cartridge in Wikipedia's handgun and rifle table, plus shotgun loads and
   current-production rounds such as 6.5 PRC, 7mm PRC, `.300 PRC`, and `.277 Fury`.
+- Rows carry the cartridge's origin, introduction year, bullet diameter, case
+  length, and the usual bullet-weight range — not just the numbers for one load.
+- Full-width table on a wide screen, with columns shedding in priority order as
+  the window narrows.
 - Sort any column, filter by category, search across names, uses, and platforms.
 - Toggle imperial (grains · fps · ft·lb) and metric (g · m/s · J) units.
 - Click a row for platforms, reference metadata (nation, year, bullet diameter,

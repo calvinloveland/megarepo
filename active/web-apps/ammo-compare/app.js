@@ -19,6 +19,7 @@ const state = {
 const ACCESSORS = {
   name: (r) => r.name.toLowerCase(),
   category: (r) => r.category,
+  introduced: (r) => r.introduced ?? 0,
   bulletGr: (r) => r.bulletGr,
   velocityFps: (r) => r.velocityFps,
   energy: (r) => r.energyFtLb,
@@ -48,9 +49,39 @@ function velocity(r) {
 }
 
 function bullet(r) {
-  return state.units === 'metric'
-    ? `${r.bulletGrams.toFixed(2)} g`
-    : `${r.bulletGr} gr`;
+  const imperial = `${r.bulletGr} gr`;
+  const metric = `${r.bulletGrams.toFixed(2)} g`;
+  const [main, alt] = state.units === 'metric' ? [metric, imperial] : [imperial, metric];
+  return `<span class="val">${main}</span><span class="sub">${alt}${commonWeights(r)}</span>`;
+}
+
+/**
+ * Range of bullet weights normally sold for the cartridge. The row's own
+ * weight is one load; this says how much the cartridge usually varies.
+ */
+function commonWeights(r) {
+  if (!r.commonGrains) return '';
+  const [lo, hi] = r.commonGrains;
+  return ` · ${lo === hi ? lo : `${lo}–${hi}`} gr`;
+}
+
+/** Nation, bullet diameter, and case length under the cartridge name. */
+function loadSubline(r) {
+  const parts = [];
+  if (r.nation) parts.push(r.nation);
+  if (r.diameterIn) {
+    parts.push(
+      state.units === 'metric'
+        ? `${(r.diameterIn * 25.4).toFixed(2)} mm bullet`
+        : `${r.diameterIn}″ bullet`,
+    );
+  }
+  if (r.caseLengthMm) parts.push(`${r.caseLengthMm} mm case`);
+  if (!parts.length) return '';
+  // The year has its own column on wide screens; inline it when that column
+  // is dropped instead of losing the information.
+  const year = r.introduced ? `<span class="year-inline"> · ${r.introduced}</span>` : '';
+  return `<span class="load-sub">${parts.join(' · ')}${year}</span>`;
 }
 
 function energy(r) {
@@ -82,7 +113,7 @@ function matchesQuery(r, q) {
   // "9x19" finds "9×19mm" and vice versa.
   const normalize = (s) => String(s).toLowerCase().replace(/[×✕]/g, 'x');
   const haystack = normalize(
-    [r.name, r.category, r.use, r.notes, r.nation ?? '', ...r.platforms].join(' '),
+    [r.name, r.category, r.use, r.notes, r.nation ?? '', r.introduced ?? '', ...r.platforms].join(' '),
   );
   return normalize(q)
     .split(/\s+/)
@@ -116,16 +147,20 @@ function rowHtml(r) {
   return `
     <tr class="row${open ? ' is-open' : ''}" data-id="${r.id}" tabindex="0"
         aria-expanded="${open}" aria-controls="detail-${r.id}">
-      <th scope="row" class="load"><span class="load-name">${r.name}</span><span class="cat">${r.category}</span></th>
-      <td class="num">${bullet(r)}</td>
-      <td class="num">${velocity(r)}</td>
-      <td class="num energy" data-sort-value="${r.energyFtLb}">
+      <th scope="row" class="load">
+        <span class="load-main"><span class="load-name">${r.name}</span><span class="cat">${r.category}</span></span>
+        ${loadSubline(r)}
+      </th>
+      <td class="num col-introduced">${r.introduced ?? '<span class="none">—</span>'}</td>
+      <td class="num col-bullet">${bullet(r)}</td>
+      <td class="num col-velocity">${velocity(r)}</td>
+      <td class="num energy col-energy" data-sort-value="${r.energyFtLb}">
         <span class="bar" style="--w:${width}"></span>${energy(r)}
       </td>
-      <td class="num">${momentum(r)}</td>
-      <td class="recoil">${recoil(r)}</td>
-      <td class="num">${fmtCost(r.costPerRound)}</td>
-      <td class="use">${r.use}</td>
+      <td class="num col-pf">${momentum(r)}</td>
+      <td class="recoil col-recoil">${recoil(r)}</td>
+      <td class="num col-cost">${fmtCost(r.costPerRound)}</td>
+      <td class="use col-use">${r.use}</td>
     </tr>
     ${open ? detailHtml(r) : ''}`;
 }
@@ -148,6 +183,12 @@ function detailHtml(r) {
       `${r.diameterIn}″ (${(r.diameterIn * 25.4).toFixed(2)} mm)`,
     ],
     r.caseLengthMm && ['Case length', `${r.caseLengthMm} mm`],
+    r.commonGrains && [
+      'Common bullet weights',
+      r.commonGrains[0] === r.commonGrains[1]
+        ? `${r.commonGrains[0]} gr`
+        : `${r.commonGrains[0]}–${r.commonGrains[1]} gr`,
+    ],
     r.bc && ['Ballistic coefficient', `${r.bc} (G1)`],
     Number.isInteger(r.factoryLoadings) && [
       'Factory loadings',
@@ -157,7 +198,7 @@ function detailHtml(r) {
   ].filter(Boolean);
   return `
     <tr class="detail" id="detail-${r.id}">
-      <td colspan="8">
+      <td colspan="9">
         <dl>
           <dt>Platforms</dt>
           <dd class="badges">${r.platforms.map((p) => `<span class="badge">${p}</span>`).join('')}</dd>
@@ -216,7 +257,7 @@ function render() {
   const rows = visibleRows();
   els.rows.innerHTML = rows.length
     ? rows.map(rowHtml).join('')
-    : `<tr><td colspan="8" class="empty">No loads match that filter.</td></tr>`;
+    : `<tr><td colspan="9" class="empty">No loads match that filter.</td></tr>`;
   renderSummary(rows);
   renderChips();
   renderSortIndicators();

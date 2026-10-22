@@ -109,10 +109,26 @@ await evaluate(`document.querySelector('tbody tr.row').click()`);
 await sleep(150);
 check('second click closes details', (await evaluate(`document.querySelectorAll('tbody tr.detail').length`)) === 0);
 
+// Rows carry reference metadata, not just the derived numbers.
+check(
+  'rows show an introduction year',
+  (await evaluate(`document.querySelector('tbody tr.row .col-introduced').textContent`)).trim().length === 4,
+);
+check(
+  'rows show origin and dimensions under the name',
+  (await evaluate(`document.querySelector('tbody tr.row .load-sub').textContent`)).includes('bullet'),
+);
+check(
+  'rows show the usual bullet weight range',
+  (await evaluate(`
+    [...document.querySelectorAll('tbody tr.row .col-bullet .sub')].some((el) => /\\d+(\\.\\d+)?–\\d+(\\.\\d+)? gr/.test(el.textContent))
+  `)) === true,
+);
+
 await evaluate(`(() => { const s = document.getElementById('units'); s.value = 'metric'; s.dispatchEvent(new Event('change')); })()`);
 await sleep(150);
 check('metric mode shows joules', (await evaluate(`document.querySelector('tbody tr.row td.energy').textContent`)).includes('J'));
-check('metric mode shows m/s', (await evaluate(`document.querySelectorAll('tbody tr.row td.num')[1].textContent`)).includes('m/s'));
+check('metric mode shows m/s', (await evaluate(`document.querySelector('tbody tr.row .col-velocity').textContent`)).includes('m/s'));
 
 await evaluate(`(() => { const s = document.getElementById('units'); s.value = 'imperial'; s.dispatchEvent(new Event('change')); })()`);
 await evaluate(`(() => { const i = document.getElementById('search'); i.value = 'shotgun'; i.dispatchEvent(new Event('input')); })()`);

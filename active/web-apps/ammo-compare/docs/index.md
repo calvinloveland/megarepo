@@ -15,8 +15,10 @@ there so the comparison is quick, not so the page has features.
 ```
 
 Reference rows may also carry `introduced`, `nation`, `diameterIn`, `bc`,
-`caseLengthMm`, `factoryLoadings`, and `source`. These are display metadata; they
-never feed the ballistics math.
+`caseLengthMm`, `factoryLoadings`, `commonGrains`, and `source`. These are
+display metadata; they never feed the ballistics math. `commonGrains` is a
+`[low, high]` pair describing the bullet weights normally sold for the
+cartridge — the row's own `bulletGr` always sits inside it.
 
 Derived values are never stored. `lib/ballistics.js` computes them:
 
@@ -66,6 +68,12 @@ not a price quote.
 
 ## Layout and interaction
 
+- The table spans the full window width; it is a reference grid, so there is no
+  reason to squeeze it into a reading column.
+- Each row carries the cartridge's origin, introduction year, bullet diameter,
+  and case length under its name, plus the usual bullet-weight range in the
+  bullet cell. Those fields came from the detail panel because they answer
+  questions people ask while scanning, not after clicking.
 - Sticky header row; the load column stays pinned on narrow screens so you never
   lose track of which row you are reading.
 - Sortable headers use `aria-sort`; the default is energy, descending, because
@@ -75,18 +83,26 @@ not a price quote.
   whole dataset, so the bar means the same thing no matter what is filtered out.
   A linear scale would collapse everything below `.50 BMG` once the anti-materiel
   rounds are included.
+- Scrollbars inside the table and on the page are themed to match the panel;
+  the default light scrollbar reads as a rendering bug on a dark surface.
 - Rows are `tabindex="0"` and toggle detail with Enter/Space as well as click.
 - Empty filter states keep the summary line honest rather than showing a blank
   table.
+
+### Narrower windows
+
+Columns drop in priority order rather than shrinking into unreadable slivers:
+typical use below 1300 px, cost and recoil below 1050 px, introduction year
+below 900 px, and bullet/velocity/power factor on phones.
 
 ### On a phone
 
 ![Mobile view](images/mobile.png)
 
 Below 720 px the table keeps only the load and its energy, which fits without
-sideways scrolling; bullet weight, velocity, power factor, recoil, cost, and use
-reappear as the window widens. The category chips wrap, the unit selector drops
-to its own row, and the detail rows still work.
+sideways scrolling; the name keeps its origin-and-dimensions subline. The
+category chips wrap, the unit selector drops to its own row, and the detail rows
+still work.
 
 ## Tests
 
@@ -99,6 +115,10 @@ to its own row, and the detail rows still work.
 - unique ids (row expansion is keyed on them),
 - that the extended reference set is present (≥290 loads, Wikipedia provenance,
   plausible bullet weights, spot checks for the long tail),
+- that curated rows carry the same origin/year/dimension metadata as the
+  reference set,
+- that every `commonGrains` range is ordered and contains the load it describes,
+- introduction years that fall between 1800 and today,
 - energy ordering that matches shooter intuition (`.22 LR < 9mm < .223`,
   `.308 < .300 Win Mag`, and the 1 oz 12 ga slug outgunning a .30-06).
 
