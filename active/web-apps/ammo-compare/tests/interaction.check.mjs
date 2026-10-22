@@ -3,6 +3,10 @@
  * DevTools Protocol with Node's built-in WebSocket — no Playwright install, and
  * no browser download (NixOS-hostile) required.
  *
+ * It talks only to localhost: the page URL you start with `node server.mjs` and
+ * the Chrome debugging port you pass in CDP_URL. No internet access is used, so
+ * the check runs the same in an offline sandbox.
+ *
  * Usage:
  *   node server.mjs &                                   # 5113
  *   google-chrome --headless=new --no-sandbox \
@@ -17,9 +21,17 @@ const CDP = process.env.CDP_URL ?? 'http://127.0.0.1:9222';
 const APP_URL = process.env.APP_URL ?? 'http://localhost:5113/';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const target = await (
-  await fetch(`${CDP}/json/new?${encodeURIComponent(APP_URL)}`, { method: 'PUT' })
-).json();
+const target = await (async () => {
+  try {
+    return await (
+      await fetch(`${CDP}/json/new?${encodeURIComponent(APP_URL)}`, { method: 'PUT' })
+    ).json();
+  } catch {
+    console.error(`Cannot reach a local Chrome at ${CDP}.`);
+    console.error('Start one first (see the usage block above); this check only uses localhost.');
+    process.exit(2);
+  }
+})();
 const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((resolve, reject) => {
   ws.onopen = resolve;

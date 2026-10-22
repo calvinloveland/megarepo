@@ -70,6 +70,7 @@ test('load ids stay unique so row expansion is deterministic', () => {
 });
 
 test('the dataset covers Wikipedia and then some', () => {
+  // Coverage is asserted against the checked-in dataset, not a live fetch.
   const byCategory = AMMO.reduce((acc, l) => ({ ...acc, [l.category]: (acc[l.category] ?? 0) + 1 }), {});
   assert.ok(AMMO.length >= 290, `expected the extended set, got ${AMMO.length}`);
   for (const category of ['rimfire', 'pistol', 'rifle', 'shotgun']) {
@@ -134,9 +135,10 @@ test('introduction years are plausible', () => {
 
 test('only curated loads carry a price, and it is a plausible retail figure', () => {
   const priced = AMMO.filter((l) => l.costPerRound != null);
-  // The 68 curated loads have current commercial equivalents. Reference rows
-  // are deliberately unpriced: many are obsolete, surplus, or collector-only,
-  // and a made-up dollar figure is worse than an honest blank.
+  // Local data invariant, no network: the 68 curated loads have current
+  // commercial equivalents. Reference rows are deliberately unpriced — many are
+  // obsolete, surplus, or collector-only, and a made-up dollar figure is worse
+  // than an honest blank.
   assert.equal(
     AMMO.filter((l) => l.source?.startsWith('wikipedia') && l.costPerRound != null).length,
     0,

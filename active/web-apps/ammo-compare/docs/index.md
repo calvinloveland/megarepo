@@ -140,6 +140,10 @@ Protocol — no Playwright install and no browser download, which matters on thi
 NixOS host — and asserts filtering, sorting, row expansion, the unit toggle, and
 the empty state:
 
+Both suites are offline. The unit tests import the checked-in dataset directly;
+the browser check talks only to `localhost` (your `server.mjs` and Chrome's
+debugging port). Nothing fetches Wikipedia or any other remote source.
+
 ```
 node server.mjs &
 google-chrome --headless=new --no-sandbox --remote-debugging-port=9222 \
