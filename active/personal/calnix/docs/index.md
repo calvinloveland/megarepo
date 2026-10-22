@@ -182,7 +182,7 @@ The script detects your environment using:
 ## Key Features
 
 ### Shared (All Desktop Hosts)
-- **Development**: Git, GitHub CLI, Docker, Python environment
+- **Development**: Git, GitHub CLI, Docker, Python environment, OpenCode (from nixos-unstable)
 - **Tools**: Fish shell, Neovim, essential CLI utilities
 - **Base System**: Common NixOS configuration
 - **Remote Access**: Key-only OpenSSH over Tailscale, mosh-ready firewall rules, and tmux for persistent CLI sessions

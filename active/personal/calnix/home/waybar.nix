@@ -5,7 +5,7 @@
     enable = true;
     systemd = {
       enable = true;
-      target = "sway-session.target"; # Ensure waybar starts with Sway
+      targets = [ "sway-session.target" ]; # Ensure waybar starts with Sway
     };
     settings = {
       mainBar = {
