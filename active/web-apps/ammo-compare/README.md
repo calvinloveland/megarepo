@@ -12,8 +12,8 @@ and velocity rather than transcribed from a chart.
   length, and the usual bullet-weight range — not just the numbers for one load.
 - Each row also draws a cartridge profile generated from its case length, bullet
   diameter, and bullet weight, so the shapes are data, not bespoke artwork. Case
-  bodies use published SAAMI dimensions for 34 common cartridges; the rest are
-  inferred and documented as schematics.
+  bodies use published SAAMI or C.I.P. dimensions for 39 cartridges (42 rows);
+  the rest are inferred and documented as schematics.
 - Full-width table on a wide screen, with columns shedding in priority order as
   the window narrows.
 - Sort any column, filter by category, search across names, uses, and platforms.

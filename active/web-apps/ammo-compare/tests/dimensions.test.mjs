@@ -1,12 +1,12 @@
 /**
- * SAAMI validation for the cartridge silhouettes.
+ * Published-dimension validation for the cartridge silhouettes.
  *
- * The 37 loads below have published ANSI/SAAMI dimensions. This file checks two
+ * The 42 rows below have ANSI/SAAMI or C.I.P. dimensions. This file checks two
  * things:
  *
- * 1. The dataset's bullet diameter and case length agree with the standard, so
+ * 1. The dataset's bullet diameter and case length agree with the reference, so
  *    the row and its drawing describe the same cartridge.
- * 2. When a SAAMI reference is attached (`load.saami`), the drawing uses the
+ * 2. When a reference is attached (`load.reference`), the drawing uses the
  *    published base, neck, rim, and rim height instead of the inferred values.
  *
  * It also measures the inferred fallback on the same sample, which is the only
@@ -16,15 +16,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { AMMO } from '../data/ammo.js';
-import { SAAMI_DIMENSIONS } from '../data/saami.js';
+import { REFERENCE_DIMENSIONS } from '../data/dimensions.js';
 import { cartridgeGeometry } from '../lib/cartridge-svg.js';
 
 const byId = new Map(AMMO.map((load) => [load.id, load]));
-const references = Object.entries(SAAMI_DIMENSIONS);
+const references = Object.entries(REFERENCE_DIMENSIONS);
 
 const pctError = (actual, expected) => Math.abs(actual - expected) / expected;
 
-test('every SAAMI reference names a real load and is self-consistent', () => {
+test('every reference names a real load and is self-consistent', () => {
   for (const [id, ref] of references) {
     const load = byId.get(id);
     assert.ok(load, `${id} is not in data/ammo.js`);
@@ -38,7 +38,7 @@ test('every SAAMI reference names a real load and is self-consistent', () => {
   }
 });
 
-test('dataset bullet diameters and case lengths match SAAMI', () => {
+test('dataset bullet diameters and case lengths match the references', () => {
   let worstBullet = 0;
   let worstCase = 0;
   for (const [id, ref] of references) {
@@ -51,14 +51,14 @@ test('dataset bullet diameters and case lengths match SAAMI', () => {
   // Bullet diameters are copied from published tables, so they should agree
   // closely. Case lengths use nominal designations in a few rows and run up to
   // a millimetre and a quarter off the standard's maximum-length figure.
-  assert.ok(worstBullet < 0.1, `bullet diameter is ${worstBullet.toFixed(3)} mm off SAAMI`);
-  assert.ok(worstCase < 1.5, `case length is ${worstCase.toFixed(3)} mm off SAAMI`);
+  assert.ok(worstBullet < 0.1, `bullet diameter is ${worstBullet.toFixed(3)} mm off the reference`);
+  assert.ok(worstCase < 1.5, `case length is ${worstCase.toFixed(3)} mm off the reference`);
 });
 
-test('a SAAMI reference replaces every inferred case dimension', () => {
+test('a published reference replaces every inferred case dimension', () => {
   for (const [id, ref] of references) {
     const load = byId.get(id);
-    const drawn = cartridgeGeometry({ ...load, saami: ref });
+    const drawn = cartridgeGeometry({ ...load, reference: ref });
     assert.ok(Math.abs(drawn.baseMm - ref.baseMm) < 0.01, `${id} base`);
     assert.ok(Math.abs(drawn.neckMm - ref.neckMm) < 0.01, `${id} neck`);
     assert.ok(Math.abs(drawn.rimMm - ref.rimMm) < 0.01, `${id} rim`);
@@ -77,7 +77,7 @@ test('the inferred fallback stays inside its documented error band', () => {
     worstRim = Math.max(worstRim, pctError(inferred.rimMm, ref.rimMm));
     worstNeck = Math.max(worstNeck, pctError(inferred.neckMm, ref.neckMm));
   }
-  // Measured on this sample: base 27%, neck 19%. Rows without a SAAMI drawing
+  // Measured on this sample: base 27%, neck 19%. Rows without a published drawing
   // are schematics; the docs state this band rather than implying precision.
   assert.ok(worstBase < 0.3, `inferred base diameter is ${(worstBase * 100).toFixed(1)}% off`);
   assert.ok(worstRim < 0.3, `inferred rim diameter is ${(worstRim * 100).toFixed(1)}% off`);
@@ -87,9 +87,9 @@ test('the inferred fallback stays inside its documented error band', () => {
 test('a rebated rim draws narrower than the case body', () => {
   // .350 Legend and .450 Bushmaster are SAAMI rows where the rim is rebated.
   for (const id of ['350legend', '450bushmaster']) {
-    const ref = SAAMI_DIMENSIONS[id];
+    const ref = REFERENCE_DIMENSIONS[id];
     assert.ok(ref.rimMm < ref.baseMm, `${id} should be rebated`);
-    const drawn = cartridgeGeometry({ ...byId.get(id), saami: ref });
+    const drawn = cartridgeGeometry({ ...byId.get(id), reference: ref });
     assert.ok(drawn.rimMm < drawn.baseMm, `${id} drawing should be rebated`);
   }
 });

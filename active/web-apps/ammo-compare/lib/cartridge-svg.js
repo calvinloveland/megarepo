@@ -57,12 +57,15 @@ function caseLengthMm(load) {
  * and velocity, which separates .223/7.62×39 from .45-70/.450 Bushmaster.
  */
 function isBottleneck(load, bulletMm, caseMm) {
-  return (
-    load.category === 'rifle' &&
-    load.velocityFps >= 2000 &&
-    caseMm / bulletMm >= 3.2 &&
-    bulletMm < 9.0
-  );
+  if (load.category !== 'rifle') return false;
+  // Slenderness separates a necked case from a straight one. Big-bore
+  // straight walls (.45-70, .450 Bushmaster, .350 Legend) are short for their
+  // bullet, while large bottleneck rounds (.50 BMG, 14.5x114) are long. The
+  // velocity floor keeps slow black-powder-style cases out of the necked group.
+  const slender = caseMm / bulletMm;
+  const limit = bulletMm >= 9 ? 5 : 3.2;
+  const minVelocity = bulletMm >= 9 ? 2400 : 2000;
+  return load.velocityFps >= minVelocity && slender >= limit;
 }
 
 function isRimmed(load) {
@@ -77,7 +80,7 @@ export function cartridgeGeometry(load) {
   const category = load.category in CATEGORY_DEFAULTS ? load.category : 'rifle';
   const bulletMm = bulletDiameterMm(load);
   const caseMm = caseLengthMm(load);
-  const ref = load.saami;
+  const ref = load.reference;
 
   // A SAAMI drawing settles the shape outright: if the case is wider at the
   // head than at the mouth it has a shoulder. The fallback has to guess.
@@ -226,20 +229,28 @@ function bulletPath(g) {
 
 function hullMarkup(g) {
   const r = g.baseMm / 2;
-  const head = Math.min(8, g.caseMm * 0.18);
-  const crimp = Math.min(3, g.caseMm * 0.09);
+  const rimR = g.rimMm / 2;
+  const head = Math.min(9, g.caseMm * 0.18);
+  const rimWidth = Math.min(1.6, g.caseMm * 0.03);
+  // A loaded shell ends in a roll crimp, so the mouth is rounded rather than
+  // pointed like a bullet.
+  const roll = Math.min(2.6, r * 0.3);
+  const crimp = Math.min(2.6, g.caseMm * 0.045);
+  const mouth = g.caseMm;
   const hull = [
     `M0,${num(-r)}`,
-    `L${num(g.caseMm - crimp)},${num(-r)}`,
-    `Q${num(g.caseMm)},${num(-r * 0.9)} ${num(g.caseMm)},0`,
-    `Q${num(g.caseMm)},${num(r * 0.9)} ${num(g.caseMm - crimp)},${num(r)}`,
+    `L${num(mouth - roll)},${num(-r)}`,
+    `Q${num(mouth)},${num(-r)} ${num(mouth)},${num(-r + roll)}`,
+    `L${num(mouth)},${num(r - roll)}`,
+    `Q${num(mouth)},${num(r)} ${num(mouth - roll)},${num(r)}`,
     'L0,' + num(r),
     'Z',
   ].join(' ');
-  const headR = g.rimMm / 2;
   return `
     <path class="cart-hull" d="${hull}"/>
-    <rect class="cart-head" x="0" y="${num(-headR)}" width="${num(head)}" height="${num(headR * 2)}" rx="0.3"/>`;
+    <rect class="cart-crimp" x="${num(mouth - roll - crimp)}" y="${num(-r)}" width="${num(crimp)}" height="${num(r * 2)}"/>
+    <rect class="cart-head" x="0" y="${num(-r)}" width="${num(head)}" height="${num(r * 2)}" rx="0.3"/>
+    <rect class="cart-rim" x="0" y="${num(-rimR)}" width="${num(rimWidth)}" height="${num(rimR * 2)}" rx="0.2"/>`;
 }
 
 /**

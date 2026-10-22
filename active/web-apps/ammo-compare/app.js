@@ -1,5 +1,5 @@
 import { AMMO } from './data/ammo.js';
-import { saamiFor } from './data/saami.js';
+import { referenceFor } from './data/dimensions.js';
 import { derive, fmtInt, fmtCost, fmtEnergy } from './lib/ballistics.js';
 import { cartridgeSvg, cartridgeExtents } from './lib/cartridge-svg.js';
 
@@ -7,7 +7,7 @@ import { cartridgeSvg, cartridgeExtents } from './lib/cartridge-svg.js';
 const ROWS = AMMO.map((load) => ({
   ...load,
   ...derive(load),
-  saami: saamiFor(load.id),
+  reference: referenceFor(load.id),
 }));
 
 /** One shared scale, so silhouettes compare across rows. */
@@ -198,9 +198,9 @@ function detailHtml(r) {
       `${r.diameterIn}″ (${(r.diameterIn * 25.4).toFixed(2)} mm)`,
     ],
     r.caseLengthMm && ['Case length', `${r.caseLengthMm} mm`],
-    r.saami && [
+    r.reference && [
       'Case dimensions',
-      `SAAMI ${r.saami.standard} — ${r.saami.baseMm} mm base, ${r.saami.rimMm} mm rim`,
+      `${r.reference.standard} ${r.reference.title} — ${r.reference.baseMm} mm base, ${r.reference.rimMm} mm rim`,
     ],
     r.commonGrains && [
       'Common bullet weights',

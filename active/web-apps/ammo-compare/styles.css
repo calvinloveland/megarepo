@@ -216,11 +216,12 @@ td .sub { display: block; color: var(--dim); font-size: 11px; font-weight: 400; 
 
 /* cartridge silhouettes: one shared scale, derived from the row's dimensions */
 td.col-svg { padding: 4px 6px; }
-.cart { display: block; width: 100%; height: 24px; shape-rendering: geometricPrecision; }
+.cart { display: block; width: 100%; height: 28px; shape-rendering: geometricPrecision; }
 .cart-case { fill: #a8801f; }
 .cart-rim { fill: #7d5d19; }
 .cart-bullet { fill: #cf9a68; }
 .cart-hull { fill: #9d3f30; }
+.cart-crimp { fill: #64251c; }
 .cart-head { fill: #a8801f; }
 
 /* energy cell: bar behind the number */

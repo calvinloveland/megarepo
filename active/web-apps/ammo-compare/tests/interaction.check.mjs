@@ -190,8 +190,8 @@ await sleep(150);
 await evaluate(`document.querySelector('tbody tr.row').click()`);
 await sleep(150);
 check(
-  'details cite SAAMI case dimensions where used',
-  (await evaluate(`document.querySelector('tbody tr.detail')?.textContent ?? ''`)).includes('SAAMI'),
+  'details cite published case dimensions where used',
+  (await evaluate(`document.querySelector('tbody tr.detail')?.textContent ?? ''`)).includes('SAAMI Z299.3'),
 );
 
 const failures = results.filter((r) => !r.pass);
