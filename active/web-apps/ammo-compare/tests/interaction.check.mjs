@@ -130,6 +130,25 @@ await sleep(150);
 check('metric mode shows joules', (await evaluate(`document.querySelector('tbody tr.row td.energy').textContent`)).includes('J'));
 check('metric mode shows m/s', (await evaluate(`document.querySelector('tbody tr.row .col-velocity').textContent`)).includes('m/s'));
 
+// Prices exist only for curated, currently-produced loads; reference rows are
+// deliberately unpriced and must sort to the bottom.
+await clickHeader('costPerRound');
+await sleep(150);
+check(
+  'cost sort starts with a priced load',
+  (await evaluate(`document.querySelector('tbody tr.row .col-cost').textContent`)).includes('$'),
+);
+check(
+  'cost sort sinks unpriced loads',
+  (await evaluate(`[...document.querySelectorAll('tbody tr.row .col-cost')].at(-1).textContent`)).trim() === '—',
+);
+check(
+  'reference rows render an unpriced dash',
+  (await evaluate(`
+    [...document.querySelectorAll('tbody tr.row')].slice(-20).every((row) => row.querySelector('.col-cost').textContent.trim() === '—')
+  `)) === true,
+);
+
 await evaluate(`(() => { const s = document.getElementById('units'); s.value = 'imperial'; s.dispatchEvent(new Event('change')); })()`);
 await evaluate(`(() => { const i = document.getElementById('search'); i.value = 'shotgun'; i.dispatchEvent(new Event('input')); })()`);
 await sleep(150);

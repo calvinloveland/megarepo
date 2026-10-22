@@ -43,7 +43,7 @@ test('derive() returns both unit systems consistently', () => {
 });
 
 test('every load has the fields the table renders', () => {
-  const required = ['id', 'name', 'category', 'bulletGr', 'velocityFps', 'costPerRound', 'recoil', 'use', 'notes'];
+  const required = ['id', 'name', 'category', 'bulletGr', 'velocityFps', 'recoil', 'use', 'notes'];
   for (const load of AMMO) {
     for (const key of required) {
       assert.ok(load[key] !== undefined && load[key] !== null, `${load.id} is missing ${key}`);
@@ -52,7 +52,8 @@ test('every load has the fields the table renders', () => {
     assert.ok(load.bulletGr > 0, `${load.id} bullet weight must be positive`);
     assert.ok(load.velocityFps > 0, `${load.id} velocity must be positive`);
     assert.ok(load.recoil >= 1 && load.recoil <= 5, `${load.id} recoil must be 1-5`);
-    assert.ok(load.costPerRound > 0, `${load.id} cost must be positive`);
+    // costPerRound is optional: reference rows deliberately have no price.
+    if (load.costPerRound != null) assert.ok(load.costPerRound > 0, `${load.id} cost must be positive`);
   }
 });
 
@@ -121,6 +122,23 @@ test('introduction years are plausible', () => {
       load.introduced >= 1800 && load.introduced <= thisYear,
       `${load.id} has an implausible year: ${load.introduced}`,
     );
+  }
+});
+
+test('only curated loads carry a price, and it is a plausible retail figure', () => {
+  const priced = AMMO.filter((l) => l.costPerRound != null);
+  // The 68 curated loads have current commercial equivalents. Reference rows
+  // are deliberately unpriced: many are obsolete, surplus, or collector-only,
+  // and a made-up dollar figure is worse than an honest blank.
+  assert.equal(
+    AMMO.filter((l) => l.source?.startsWith('wikipedia') && l.costPerRound != null).length,
+    0,
+    'reference rows must not carry a price',
+  );
+  assert.ok(priced.length >= 60, `expected the curated prices, got ${priced.length}`);
+  for (const load of priced) {
+    assert.ok(load.costPerRound > 0.03, `${load.id} price is implausibly low`);
+    assert.ok(load.costPerRound < 60, `${load.id} price is implausibly high`);
   }
 });
 

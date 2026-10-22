@@ -11,8 +11,11 @@ there so the comparison is quick, not so the page has features.
 `data/ammo.js` stores what a load *is*:
 
 ```js
-{ id, name, category, bulletGr, velocityFps, costPerRound, recoil, use, platforms, notes }
+{ id, name, category, bulletGr, velocityFps, costPerRound?, recoil, use, platforms, notes }
 ```
+
+`costPerRound` is optional. It is present only for the curated loads that have a
+current commercial equivalent; reference rows are deliberately unpriced.
 
 Reference rows may also carry `introduced`, `nation`, `diameterIn`, `bc`,
 `caseLengthMm`, `factoryLoadings`, `commonGrains`, and `source`. These are
@@ -46,9 +49,11 @@ PRC, 7mm PRC, `.300 PRC`, `.277 Fury`, 8.6 Blackout, `.400 Legend`) and shotgun
 loads that the Wikipedia table does not include (10 ga, 16 ga, 20 ga target,
 3″ 00 buck, sabot slugs, `.410` slug).
 
-Cost per round for the extended rows is a heuristic based on how many
-manufacturers list the cartridge and how large the case is. It is a ranking aid,
-not a price quote.
+Cost per round is only present for the 68 cartridges in the curated sets, where
+a current commercial load exists and a retail estimate is meaningful. The
+reference rows are deliberately unpriced: many are obsolete, surplus, or
+collector-only, so attaching a dollar figure would invent data rather than
+report it. Unpriced rows sort to the bottom in both directions.
 
 ## Data caveats (deliberate, and stated on the page)
 
@@ -64,7 +69,9 @@ not a price quote.
 - **Shotgun rows use the whole payload** (9 pellets of 00 buck, a 1 oz slug).
   Their energy is real, but their power factor is not comparable to a single
   projectile, and the page says so.
-- **Cost per round is a rough retail estimate** used only for relative ranking.
+- **Cost per round is a rough retail estimate**, and only for cartridges that
+  have a current commercial load. Obsolete and collector rounds are unpriced by
+  design; there is no honest single number for them.
 
 ## Layout and interaction
 
@@ -92,8 +99,9 @@ not a price quote.
 ### Narrower windows
 
 Columns drop in priority order rather than shrinking into unreadable slivers:
-typical use below 1300 px, cost and recoil below 1050 px, introduction year
-below 900 px, and bullet/velocity/power factor on phones.
+typical use below 1380 px, cost and recoil below 1200 px, introduction year
+below 950 px, power factor below 860 px, velocity below 760 px, and everything
+but the load and its energy on phones.
 
 ### On a phone
 
@@ -118,6 +126,7 @@ still work.
 - that curated rows carry the same origin/year/dimension metadata as the
   reference set,
 - that every `commonGrains` range is ordered and contains the load it describes,
+- that only curated loads carry a price and reference rows stay unpriced,
 - introduction years that fall between 1800 and today,
 - energy ordering that matches shooter intuition (`.22 LR < 9mm < .223`,
   `.308 < .300 Win Mag`, and the 1 oz 12 ga slug outgunning a .30-06).

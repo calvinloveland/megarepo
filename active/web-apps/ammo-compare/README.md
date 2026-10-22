@@ -14,6 +14,8 @@ and velocity rather than transcribed from a chart.
   the window narrows.
 - Sort any column, filter by category, search across names, uses, and platforms.
 - Toggle imperial (grains · fps · ft·lb) and metric (g · m/s · J) units.
+- Cost is priced only for current commercial loads; obsolete, surplus, and
+  collector cartridges are left blank instead of given an invented figure.
 - Click a row for platforms, reference metadata (nation, year, bullet diameter,
   case length, BC), and shooting notes.
 - On a phone it collapses to loads and their energy, with no sideways scrolling.

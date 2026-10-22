@@ -25,7 +25,7 @@ const ACCESSORS = {
   energy: (r) => r.energyFtLb,
   powerFactor: (r) => r.powerFactor,
   recoil: (r) => r.recoil,
-  costPerRound: (r) => r.costPerRound,
+  costPerRound: (r) => r.costPerRound ?? null,
   use: (r) => r.use.toLowerCase(),
 };
 
@@ -130,6 +130,10 @@ function visibleRows() {
   return filtered.sort((a, b) => {
     const av = get(a);
     const bv = get(b);
+    // Unpriced rows sink to the bottom in both directions: "unknown" is not
+    // cheaper than $0.10, and it is not dearer than $5 either.
+    if (av == null && bv != null) return 1;
+    if (bv == null && av != null) return -1;
     if (av < bv) return -1 * dir;
     if (av > bv) return 1 * dir;
     return a.name.localeCompare(b.name);
@@ -159,7 +163,7 @@ function rowHtml(r) {
       </td>
       <td class="num col-pf">${momentum(r)}</td>
       <td class="recoil col-recoil">${recoil(r)}</td>
-      <td class="num col-cost">${fmtCost(r.costPerRound)}</td>
+      <td class="num col-cost">${r.costPerRound == null ? '<span class="none" title="No current retail price">—</span>' : fmtCost(r.costPerRound)}</td>
       <td class="use col-use">${r.use}</td>
     </tr>
     ${open ? detailHtml(r) : ''}`;
@@ -193,6 +197,12 @@ function detailHtml(r) {
     Number.isInteger(r.factoryLoadings) && [
       'Factory loadings',
       String(r.factoryLoadings),
+    ],
+    [
+      'Cost per round',
+      r.costPerRound == null
+        ? 'No current retail price — obsolete, surplus, or collector-only'
+        : `≈ ${fmtCost(r.costPerRound)} (rough retail estimate)`,
     ],
     ['Source', sourceLabel],
   ].filter(Boolean);
