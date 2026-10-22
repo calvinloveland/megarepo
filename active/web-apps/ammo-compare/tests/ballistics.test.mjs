@@ -1,3 +1,10 @@
+/**
+ * Data and ballistics tests.
+ *
+ * Offline by construction: this file imports the checked-in dataset and math
+ * helpers and asserts against them. It never fetches Wikipedia or anything else,
+ * so `node --test tests/*.test.mjs` behaves identically in a sandbox.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
