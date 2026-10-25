@@ -11,9 +11,10 @@
     <h1>Ammo Comparison Table</h1>
     <p class="subtitle">
       Every cartridge in Wikipedia’s handgun and rifle table, plus shotgun loads and
-      current-production rounds. Each row carries the cartridge’s origin, age, and
-      bullet dimensions; energy and power factor are computed from bullet weight and
-      muzzle velocity, not copied from a chart.
+      current-production rounds. Each row carries the cartridge’s origin, age,
+      designer, bullet dimensions, and a ballistic profile; energy, power factor,
+      effective range, and trajectory are computed from bullet weight and muzzle
+      velocity, not copied from a chart.
     </p>
   </header>
 
@@ -21,7 +22,7 @@
     <section class="controls" aria-label="Table controls">
       <label class="search">
         <span>Filter</span>
-        <input id="search" type="search" placeholder="9mm, shotgun, elk…" autocomplete="off" />
+        <input id="search" type="search" placeholder="9mm, Browning, shotgun…" autocomplete="off" />
       </label>
 
       <div class="chips" id="categories" role="group" aria-label="Category filter"></div>
@@ -40,18 +41,21 @@
     <div class="table-wrap">
       <table id="ammo">
         <caption class="visually-hidden">
-          Comparison of typical ammunition loads by introduction year, bullet
-          weight, velocity, energy, power factor, recoil, and cost, with a
-          silhouette drawn to a shared scale.
+          Comparison of typical ammunition loads by introduction year, designer,
+          bullet weight, velocity, energy, effective range, power factor, recoil,
+          and cost, with a silhouette drawn to a shared scale and an estimated
+          trajectory in each expanded row.
         </caption>
         <thead>
           <tr>
             <th scope="col" data-sort="name" class="sortable col-load"><button type="button">Load</button></th>
             <th scope="col" class="col-svg">Profile</th>
             <th scope="col" data-sort="introduced" class="sortable num col-introduced"><button type="button">Introduced</button></th>
+            <th scope="col" data-sort="designer" class="sortable col-designer"><button type="button">Designer</button></th>
             <th scope="col" data-sort="bulletGr" class="sortable num col-bullet"><button type="button">Bullet</button></th>
             <th scope="col" data-sort="velocityFps" class="sortable num col-velocity"><button type="button">Velocity</button></th>
             <th scope="col" data-sort="energy" class="sortable num col-energy"><button type="button">Energy</button></th>
+            <th scope="col" data-sort="range" class="sortable num col-range"><button type="button" title="Estimated effective range">Eff. range</button></th>
             <th scope="col" data-sort="powerFactor" class="sortable num col-pf"><button type="button">Power factor</button></th>
             <th scope="col" data-sort="recoil" class="sortable col-recoil"><button type="button">Recoil</button></th>
             <th scope="col" data-sort="costPerRound" class="sortable num col-cost"><button type="button">Cost/rd</button></th>
@@ -81,16 +85,32 @@
         surplus, and collector cartridges have no stable price, so their cost is
         left blank rather than invented.
         “Introduced” is the year the cartridge was introduced; the line under each
-        name gives its nation, bullet diameter, and case length. Bullet cells show
-        the selected unit plus, where known, the range of weights normally sold for
-        that cartridge. Click a row for platforms, reference metadata, and notes.
-        The silhouette beside each load is drawn from its case length, bullet
+        name gives its nation, bullet diameter, and case length. “Designer” is the
+        person or organisation named in the cartridge’s Wikipedia infobox; some
+        cartridges were developed by a company or service rather than one inventor,
+        and a dash means no source names one. Bullet cells show the selected unit
+        plus, where known, the range of weights normally sold for that cartridge.
+        Click a row for platforms, reference metadata, notes, and the trajectory
+        table. The silhouette beside each load is drawn from its case length, bullet
         diameter, and bullet weight; common cartridges use published SAAMI or C.I.P.
         case dimensions, the rest use inferred case bodies, and sizes use a compressed
         scale so small rounds stay legible. True dimensions are printed in the row.
         Cartridge coverage and reference values adapted from
         <a href="https://en.wikipedia.org/wiki/Table_of_handgun_and_rifle_cartridges">Wikipedia’s
         Table of handgun and rifle cartridges</a> (CC BY-SA).
+      </p>
+      <p>
+        <strong>Range and trajectory are estimates.</strong> “Eff. range” is the farthest
+        25-yard step at which the load still carries a usable energy floor for its
+        role — 75 ft·lb for rimfire, 300 for pistols, 250 for varmints, and
+        1,000 for other rifles — with a 75%-of-muzzle-energy floor for weak legacy
+        rounds and practical caps for pistol, rimfire, varmint, and anti-materiel
+        loads. Shot shells are pattern-limited (40 yd); slugs use 100 yd, or 150 for
+        sabots. The trajectory table uses a published G1 ballistic coefficient where
+        the data has one and a sectional-density estimate otherwise, with a 50-yard
+        zero for pistols and rimfire and a 100-yard zero for rifles and shotguns.
+        The drag model is deliberately simple: compare loads with it, don’t use it as
+        a dope card.
       </p>
     </footer>
   </main>

@@ -1,12 +1,28 @@
 import { AMMO } from './data/ammo.js';
 import { referenceFor } from './data/dimensions.js';
-import { derive, fmtInt, fmtCost, fmtEnergy } from './lib/ballistics.js';
+import { inventorFor } from './data/inventors.js';
+import {
+  derive,
+  fmtInt,
+  fmtCost,
+  fmtEnergy,
+  FPS_TO_MPS,
+} from './lib/ballistics.js';
 import { cartridgeSvg, cartridgeExtents } from './lib/cartridge-svg.js';
+import {
+  ballisticProfile,
+  sectionalDensity,
+  YD_TO_M,
+  IN_TO_CM,
+} from './lib/trajectory.js';
 
 /** Enrich the static load data with derived numbers once, at module load. */
 const ROWS = AMMO.map((load) => ({
   ...load,
   ...derive(load),
+  ...ballisticProfile(load),
+  designer: inventorFor(load.id),
+  sectionalDensity: sectionalDensity(load.bulletGr, load.diameterIn),
   reference: referenceFor(load.id),
 }));
 
@@ -30,9 +46,11 @@ const ACCESSORS = {
   name: (r) => r.name.toLowerCase(),
   category: (r) => r.category,
   introduced: (r) => r.introduced ?? 0,
+  designer: (r) => r.designer?.name.toLowerCase() ?? null,
   bulletGr: (r) => r.bulletGr,
   velocityFps: (r) => r.velocityFps,
   energy: (r) => r.energyFtLb,
+  range: (r) => r.effectiveRangeYd,
   powerFactor: (r) => r.powerFactor,
   recoil: (r) => r.recoil,
   costPerRound: (r) => r.costPerRound ?? null,
@@ -115,6 +133,20 @@ function recoil(r) {
   return `<span aria-hidden="true">${dots}</span><span class="label">${r.recoil}/5</span>`;
 }
 
+function range(r) {
+  const metric = state.units === 'metric';
+  const value = metric ? r.effectiveRangeYd * YD_TO_M : r.effectiveRangeYd;
+  return `${fmtInt(value)}<span class="unit"> ${metric ? 'm' : 'yd'}</span>`;
+}
+
+const escapeHtml = (s) =>
+  String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function designer(r) {
+  if (!r.designer) return '<span class="none" title="No designer recorded">—</span>';
+  return `<span class="designer-name" title="${escapeHtml(r.designer.name)}">${escapeHtml(r.designer.name)}</span>`;
+}
+
 /* ------------------------------ filtering ------------------------------ */
 
 function matchesQuery(r, q) {
@@ -123,7 +155,16 @@ function matchesQuery(r, q) {
   // "9x19" finds "9×19mm" and vice versa.
   const normalize = (s) => String(s).toLowerCase().replace(/[×✕]/g, 'x');
   const haystack = normalize(
-    [r.name, r.category, r.use, r.notes, r.nation ?? '', r.introduced ?? '', ...r.platforms].join(' '),
+    [
+      r.name,
+      r.category,
+      r.use,
+      r.notes,
+      r.nation ?? '',
+      r.introduced ?? '',
+      r.designer?.name ?? '',
+      ...r.platforms,
+    ].join(' '),
   );
   return normalize(q)
     .split(/\s+/)
@@ -167,17 +208,65 @@ function rowHtml(r) {
       </th>
       <td class="col-svg">${r.silhouette}</td>
       <td class="num col-introduced">${r.introduced ?? '<span class="none">—</span>'}</td>
+      <td class="designer col-designer">${designer(r)}</td>
       <td class="num col-bullet">${bullet(r)}</td>
       <td class="num col-velocity">${velocity(r)}</td>
       <td class="num energy col-energy" data-sort-value="${r.energyFtLb}">
         <span class="bar" style="--w:${width}"></span>${energy(r)}
       </td>
+      <td class="num col-range" title="Estimated effective range">${range(r)}</td>
       <td class="num col-pf">${momentum(r)}</td>
       <td class="recoil col-recoil">${recoil(r)}</td>
       <td class="num col-cost">${r.costPerRound == null ? '<span class="none" title="No current retail price">—</span>' : fmtCost(r.costPerRound)}</td>
       <td class="use col-use">${r.use}</td>
     </tr>
     ${open ? detailHtml(r) : ''}`;
+}
+
+function trajectoryHtml(r) {
+  const metric = state.units === 'metric';
+  const rangeLabel = `${fmtInt(metric ? r.effectiveRangeYd * YD_TO_M : r.effectiveRangeYd)} ${metric ? 'm' : 'yd'}`;
+  if (!r.trajectory) {
+    return `
+      <div class="trajectory">
+        <h3>Estimated trajectory</h3>
+        <p class="trajectory-note">
+          Pattern-limited: this is a shot charge, not a single projectile, so the
+          useful range is about ${rangeLabel} regardless of retained energy. The
+          table compares muzzle energy for the whole payload.
+        </p>
+      </div>`;
+  }
+  const rows = r.trajectory
+    .map((t) => {
+      const distance = metric ? `${fmtInt(t.distanceYd * YD_TO_M)} m` : `${fmtInt(t.distanceYd)} yd`;
+      const velocity = metric ? `${fmtInt(t.velocityFps * FPS_TO_MPS)} m/s` : `${fmtInt(t.velocityFps)} fps`;
+      const energy = metric ? `${fmtInt(t.energyJoules)} J` : `${fmtInt(t.energyFtLb)} ft·lb`;
+      const drop =
+        t.distanceYd === 0
+          ? '—'
+          : metric
+            ? `${fmtInt(t.dropIn * IN_TO_CM)} cm`
+            : `${t.dropIn.toFixed(1)}″`;
+      return `<tr><td>${distance}</td><td>${velocity}</td><td>${energy}</td><td>${drop}</td><td>${t.timeS.toFixed(2)} s</td></tr>`;
+    })
+    .join('');
+  return `
+    <div class="trajectory">
+      <h3>Estimated trajectory</h3>
+      <table>
+        <thead>
+          <tr><th scope="col">Range</th><th scope="col">Velocity</th><th scope="col">Energy</th><th scope="col">Drop</th><th scope="col">Time</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="trajectory-note">
+        ${r.zeroYd}-yard zero, ${r.sightHeightIn}″ sight height, G1 BC
+        ${r.bcValue.toFixed(3)} (${r.bcSource}). Drop is relative to the line of
+        sight. A simplified drag model drives these numbers: use them to compare
+        loads, not as a dope card.
+      </p>
+    </div>`;
 }
 
 function detailHtml(r) {
@@ -189,10 +278,21 @@ function detailHtml(r) {
     'wikipedia-estimate': 'Wikipedia table (representative load)',
     'curated-extra': 'Added for this table',
   }[r.source] ?? 'Curated for this table';
+  const designerLabel = r.designer
+    ? `${escapeHtml(r.designer.name)}${
+        r.designer.page
+          ? ` · <a href="https://en.wikipedia.org/wiki/${encodeURI(
+              r.designer.page.replaceAll(' ', '_'),
+            )}" target="_blank" rel="noopener">Wikipedia</a>`
+          : ''
+      }`
+    : null;
   const specs = [
     ['Momentum', `${r.momentumLbfS.toFixed(2)} lbf·s`],
     r.introduced && ['Introduced', r.introduced],
     r.nation && ['Nation', r.nation],
+    ['Typical use', r.use],
+    designerLabel && ['Designer', designerLabel],
     r.diameterIn && [
       'Bullet diameter',
       `${r.diameterIn}″ (${(r.diameterIn * 25.4).toFixed(2)} mm)`,
@@ -208,7 +308,25 @@ function detailHtml(r) {
         ? `${r.commonGrains[0]} gr`
         : `${r.commonGrains[0]}–${r.commonGrains[1]} gr`,
     ],
-    r.bc && ['Ballistic coefficient', `${r.bc} (G1)`],
+    // A shot charge has many projectiles; one sectional density or BC would
+    // misrepresent it, so those figures are shown only for single projectiles.
+    ...(r.trajectory
+      ? [
+          ['Sectional density', `${r.sectionalDensity.toFixed(3)} lb/in²`],
+          [
+            'Ballistic coefficient',
+            `${r.bcValue.toFixed(3)} G1 — ${
+              r.bcSource === 'estimated' ? 'estimated from sectional density' : 'published value'
+            }`,
+          ],
+        ]
+      : []),
+    [
+      'Effective range',
+      `≈ ${fmtInt(r.effectiveRangeYd)} yd (${fmtInt(r.effectiveRangeYd * YD_TO_M)} m) — estimated ${
+        r.category === 'shotgun' ? 'practical' : 'energy-limited'
+      } range`,
+    ],
     Number.isInteger(r.factoryLoadings) && [
       'Factory loadings',
       String(r.factoryLoadings),
@@ -223,7 +341,7 @@ function detailHtml(r) {
   ].filter(Boolean);
   return `
     <tr class="detail" id="detail-${r.id}">
-      <td colspan="10">
+      <td colspan="12">
         <dl>
           <dt>Platforms</dt>
           <dd class="badges">${r.platforms.map((p) => `<span class="badge">${p}</span>`).join('')}</dd>
@@ -232,6 +350,7 @@ function detailHtml(r) {
           <dt>Notes</dt>
           <dd>${r.notes}</dd>
         </dl>
+        ${trajectoryHtml(r)}
       </td>
     </tr>`;
 }
@@ -282,7 +401,7 @@ function render() {
   const rows = visibleRows();
   els.rows.innerHTML = rows.length
     ? rows.map(rowHtml).join('')
-    : `<tr><td colspan="10" class="empty">No loads match that filter.</td></tr>`;
+    : `<tr><td colspan="12" class="empty">No loads match that filter.</td></tr>`;
   renderSummary(rows);
   renderChips();
   renderSortIndicators();
@@ -315,7 +434,10 @@ els.table.querySelectorAll('th[data-sort]').forEach((th) => {
     } else {
       state.sortKey = key;
       // Text columns read best A→Z; numeric columns worst→best.
-      state.sortDir = key === 'name' || key === 'use' || key === 'category' ? 'asc' : 'desc';
+      state.sortDir =
+        key === 'name' || key === 'use' || key === 'category' || key === 'designer'
+          ? 'asc'
+          : 'desc';
     }
     render();
   });

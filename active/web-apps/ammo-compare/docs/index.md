@@ -18,10 +18,12 @@ there so the comparison is quick, not so the page has features.
 current commercial equivalent; reference rows are deliberately unpriced.
 
 Reference rows may also carry `introduced`, `nation`, `diameterIn`, `bc`,
-`caseLengthMm`, `factoryLoadings`, `commonGrains`, and `source`. These are
-display metadata; they never feed the ballistics math. `commonGrains` is a
-`[low, high]` pair describing the bullet weights normally sold for the
-cartridge — the row's own `bulletGr` always sits inside it.
+`caseLengthMm`, `factoryLoadings`, `commonGrains`, and `source`. `commonGrains`
+is a `[low, high]` pair describing the bullet weights normally sold for the
+cartridge — the row's own `bulletGr` always sits inside it. `data/inventors.js`
+adds the designer/developing organisation from the English Wikipedia infobox;
+it is a separate overlay so the automated source stays auditable and the core
+load data is not rewritten by a scraper.
 
 Derived values are never stored. `lib/ballistics.js` computes them:
 
@@ -38,6 +40,24 @@ Derived values are never stored. `lib/ballistics.js` computes them:
 Keeping the math in one module is the point: the UI, the tests, and anything
 added later all read the same implementation, so an energy column can never
 disagree with a velocity column.
+
+`lib/trajectory.js` carries the exterior-ballistics model. Its inputs are the
+row's bullet weight, diameter, muzzle velocity, and class; a published G1 BC is
+used where the data has one (85 rows), otherwise the BC is estimated as
+sectional density divided by a shape form factor. Velocity decays
+exponentially, `v(x) = v0 · exp(-k·x)` with `k = 0.000438 · BC^-0.53`, fitted
+to published G1 tables. Time of flight, retained energy, and drop relative to
+the line of sight follow from that curve. Pistols and rimfires use a 50-yard
+zero and a 1″ sight height; rifles and shotguns use 100 yards and 1.5″.
+
+The **Eff. range** column is the farthest 25-yard step at which the load still
+carries a role energy floor: 75 ft·lb for rimfire, 300 for pistols, 250 for
+varmints, and 1,000 for other rifles. The floor is capped at 75% of muzzle
+energy so weak legacy rounds still get a finite answer, and practical caps keep
+pistol, rimfire, varmint, and anti-materiel figures in the range people actually
+shoot. Shot shells are pattern-limited (40 yd), slugs use 100 yd, and sabots
+150 yd. These are comparison estimates, not manufacturer claims; the page says
+so in the footnote and on every expanded row.
 
 `lib/cartridge-svg.js` turns the same stored dimensions into the row profiles. It
 estimates projectile length from bullet mass and lead density, infers a neck from
@@ -56,6 +76,11 @@ that has usable published data, plus current-production rounds (`.22 ARC`, 6.5
 PRC, 7mm PRC, `.300 PRC`, `.277 Fury`, 8.6 Blackout, `.400 Legend`) and shotgun
 loads that the Wikipedia table does not include (10 ga, 16 ga, 20 ga target,
 3″ 00 buck, sabot slugs, `.410` slug).
+
+Designer coverage is 270 of 295 loads. The rest are mostly shot shells (which
+have no single designer), obscure military experiments, and a few wildcats whose
+Wikipedia infobox leaves the field blank; those rows show a dash rather than a
+guess. `+P` rows inherit their parent cartridge's designer.
 
 Cost per round is only present for the 68 cartridges in the curated sets, where
 a current commercial load exists and a retail estimate is meaningful. The
@@ -127,8 +152,15 @@ gap.
   reason to squeeze it into a reading column.
 - Each row carries the cartridge's origin, introduction year, bullet diameter,
   and case length under its name, plus the usual bullet-weight range in the
-  bullet cell. Those fields came from the detail panel because they answer
-  questions people ask while scanning, not after clicking.
+  bullet cell. The designer and estimated effective range have their own
+  columns; sorting by range answers "what actually reaches" faster than reading
+  295 rows.
+- The expanded row adds a trajectory table (range, velocity, energy, drop, time)
+  sampled out to the effective range, plus sectional density, the BC and its
+  provenance, the designer link, and the usual reference metadata. Shot charges
+  get a pattern-limit note instead of a single-projectile table.
+
+![Expanded row with the trajectory table](images/detail.png)
 - The profile column draws each cartridge from its stored dimensions and bullet
   mass: case length sets the body, bullet diameter sets the neck and width, and
   mass divided by lead density estimates projectile length. Where SAAMI or C.I.P.
@@ -157,9 +189,10 @@ gap.
 ### Narrower windows
 
 Columns drop in priority order rather than shrinking into unreadable slivers:
-typical use below 1380 px, cost and recoil below 1200 px, introduction year
-below 950 px, power factor below 860 px, velocity below 760 px, and everything
-but the load and its energy on phones.
+typical use below 1500 px, cost and recoil below 1200 px, designer below
+1050 px, introduction year below 950 px, power factor below 860 px, velocity
+and range below 760 px, and everything but the load and its energy on phones.
+The detail row still carries every dropped field.
 
 ### On a phone
 
@@ -196,6 +229,18 @@ dimensions, bottleneck and rim inference land on the right cartridges, shotgun
 hulls contain no protruding bullet, and missing metadata falls back instead of
 producing `NaN`.
 
+`tests/trajectory.test.mjs` checks the exterior-ballistics model: published BCs
+win over estimates, estimated BCs stay in band, velocity/time/energy are
+monotonic and consistent, each class crosses its zero at the right distance,
+effective ranges land in the expected order (`.22 LR < .223`, `9mm < .308 <
+.50 BMG`), shot shells are pattern-limited, and every one of the 295 loads
+produces finite samples.
+
+`tests/inventors.test.mjs` keeps the designer overlay honest: every key is a
+real load, coverage stays above 260 rows, +P aliases match their parent, the
+well-known cartridges name their designers, and no value leaks wiki markup or
+HTML entities.
+
 `tests/dimensions.test.mjs` is the accuracy check: it maps 42 rows to ANSI/SAAMI
 Z299 and C.I.P. TDCC drawings, verifies the dataset's bullet diameter and case
 length agree with the reference, requires the overlay to drive base/neck/rim
@@ -209,7 +254,8 @@ node --test tests/*.test.mjs
 `tests/interaction.check.mjs` drives the real page over the Chrome DevTools
 Protocol — no Playwright install and no browser download, which matters on this
 NixOS host — and asserts filtering, sorting, row expansion, the unit toggle,
-silhouette rendering, and the empty state:
+silhouette rendering, designer/range columns, trajectory tables, designer
+search, and the empty state:
 
 Both suites are offline. The unit tests import the checked-in dataset directly;
 the browser check talks only to `localhost` (your `server.mjs` and Chrome's

@@ -16,6 +16,7 @@
  */
 import { AMMO } from '../data/ammo.js';
 import { derive } from '../lib/ballistics.js';
+import { INVENTORS } from '../data/inventors.js';
 
 const CDP = process.env.CDP_URL ?? 'http://127.0.0.1:9222';
 const APP_URL = process.env.APP_URL ?? 'http://localhost:5113/';
@@ -64,6 +65,14 @@ async function evaluate(expression) {
 }
 
 await send('Runtime.enable');
+// The table sheds columns below 1500 px; use a desktop viewport so the
+// designer and range columns are present for these checks.
+await send('Emulation.setDeviceMetricsOverride', {
+  width: 1440,
+  height: 1000,
+  deviceScaleFactor: 1,
+  mobile: false,
+});
 await sleep(1200);
 
 const results = [];
@@ -144,11 +153,28 @@ check(
     [...document.querySelectorAll('tbody tr.row .col-bullet .sub')].some((el) => /\\d+(\\.\\d+)?–\\d+(\\.\\d+)? gr/.test(el.textContent))
   `)) === true,
 );
+check(
+  'rows name a designer',
+  (await evaluate(`[...document.querySelectorAll('tbody tr.row .col-designer')].filter((el) => el.textContent.trim() !== '—').length`)) >= 250,
+);
+check(
+  'rows show an estimated effective range',
+  (await evaluate(`document.querySelector('tbody tr.row .col-range').textContent`)).includes('yd'),
+);
+
+await clickHeader('range');
+await sleep(120);
+check(
+  'range sort starts with the longest reach',
+  (await evaluate(`document.querySelector('tbody tr.row .col-range').textContent`)).includes('2,500'),
+  await evaluate(`document.querySelector('tbody tr.row .col-range').textContent`),
+);
 
 await evaluate(`(() => { const s = document.getElementById('units'); s.value = 'metric'; s.dispatchEvent(new Event('change')); })()`);
 await sleep(150);
 check('metric mode shows joules', (await evaluate(`document.querySelector('tbody tr.row td.energy').textContent`)).includes('J'));
 check('metric mode shows m/s', (await evaluate(`document.querySelector('tbody tr.row .col-velocity').textContent`)).includes('m/s'));
+check('metric mode converts effective range to metres', (await evaluate(`document.querySelector('tbody tr.row .col-range').textContent`)).includes('m'));
 
 // Prices exist only for curated, currently-produced loads; reference rows are
 // deliberately unpriced and must sort to the bottom.
@@ -177,6 +203,19 @@ const shotgunCount = AMMO.filter(
 ).length;
 check('search matches category and platform text', (await rowCount()) === shotgunCount, `${await rowCount()} vs ${shotgunCount}`);
 
+await evaluate(`(() => { const i = document.getElementById('search'); i.value = 'Browning'; i.dispatchEvent(new Event('input')); })()`);
+await sleep(150);
+const browningCount = AMMO.filter((l) => /browning/i.test(INVENTORS[l.id]?.name ?? '')).length;
+check(
+  'search matches a designer name',
+  (await rowCount()) >= browningCount,
+  `${await rowCount()} vs ${browningCount} designer matches`,
+);
+check(
+  'designer search surfaces named designers',
+  (await evaluate(`[...document.querySelectorAll('tbody tr.row .col-designer')].some((el) => /Browning/i.test(el.textContent))`)) === true,
+);
+
 await evaluate(`(() => { const i = document.getElementById('search'); i.value = 'zzzz'; i.dispatchEvent(new Event('input')); })()`);
 await sleep(150);
 check(
@@ -192,6 +231,18 @@ await sleep(150);
 check(
   'details cite published case dimensions where used',
   (await evaluate(`document.querySelector('tbody tr.detail')?.textContent ?? ''`)).includes('SAAMI Z299.3'),
+);
+check(
+  'details name the designer',
+  (await evaluate(`document.querySelector('tbody tr.detail')?.textContent ?? ''`)).includes('Designer'),
+);
+check(
+  'details explain the ballistic coefficient',
+  (await evaluate(`document.querySelector('tbody tr.detail')?.textContent ?? ''`)).includes('G1'),
+);
+check(
+  'details include a trajectory table',
+  (await evaluate(`document.querySelectorAll('tbody tr.detail .trajectory tbody tr').length`)) >= 4,
 );
 
 const failures = results.filter((r) => !r.pass);
