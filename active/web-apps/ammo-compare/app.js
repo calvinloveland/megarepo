@@ -15,6 +15,17 @@ import {
   YD_TO_M,
   IN_TO_CM,
 } from './lib/trajectory.js';
+import {
+  CASE_CRITERIA,
+  CASE_SCOPES,
+  autoCaseFor,
+  resultFor,
+  scopeOptionsFor,
+  scopeRows,
+  percentileScores,
+  caseScore,
+  rankCase,
+} from './lib/case.js';
 
 /** Enrich the static load data with derived numbers once, at module load. */
 const ROWS = AMMO.map((load) => ({
@@ -39,7 +50,18 @@ const state = {
   sortKey: 'energy',
   sortDir: 'desc',
   units: 'imperial',
+  // Non-null while a "make the case" weighting owns the table ordering.
+  caseMode: null,
 };
+
+/** Percentile scores are recomputed once per comparison scope, then reused. */
+const CASE_PERCENTILES = new Map();
+function casePercentiles(scope) {
+  if (!CASE_PERCENTILES.has(scope)) {
+    CASE_PERCENTILES.set(scope, percentileScores(ROWS, scope));
+  }
+  return CASE_PERCENTILES.get(scope);
+}
 
 /** Numeric-aware accessors: sorting and rendering both read from these. */
 const ACCESSORS = {
@@ -64,6 +86,14 @@ const els = {
   units: document.getElementById('units'),
   categories: document.getElementById('categories'),
   table: document.getElementById('ammo'),
+  controls: document.getElementById('controls'),
+  casePanel: document.getElementById('case-panel'),
+  caseName: document.getElementById('case-name'),
+  caseStatus: document.getElementById('case-status'),
+  caseScope: document.getElementById('case-scope'),
+  caseNote: document.getElementById('case-note'),
+  caseWeights: document.getElementById('case-weights'),
+  caseClear: document.getElementById('case-clear'),
 };
 
 const expanded = new Set();
@@ -173,6 +203,25 @@ function matchesQuery(r, q) {
 }
 
 function visibleRows() {
+  if (state.caseMode) {
+    const { id, scope } = state.caseMode;
+    const result = resultFor(id, scope);
+    if (!result) return [];
+    const percentiles = casePercentiles(scope);
+    return scopeRows(ROWS, scope)
+      .map((row) => ({ row, score: caseScore(percentiles.get(row.id), result.weights) }))
+      .sort((a, b) => {
+        if (a.score > b.score) return -1;
+        if (a.score < b.score) return 1;
+        // The selected load wins only a true tie; a failed case must not be
+        // dressed up as a win in the table order.
+        if (a.row.id === id) return -1;
+        if (b.row.id === id) return 1;
+        return a.row.name.localeCompare(b.row.name);
+      })
+      .map((entry) => entry.row);
+  }
+
   const filtered = ROWS.filter(
     (r) => (state.category === 'all' || r.category === state.category) && matchesQuery(r, state.query),
   );
@@ -195,15 +244,21 @@ function visibleRows() {
 
 function rowHtml(r) {
   const open = expanded.has(r.id);
+  const cased = state.caseMode?.id === r.id;
   // Energy spans three orders of magnitude once anti-materiel rounds are in the
   // set, so the bar is logarithmic; a linear scale would flatten everything
   // below .50 BMG into an invisible sliver.
   const width = Math.max(2, Math.round((Math.log1p(r.energyFtLb) / MAX_LOG_ENERGY) * 100));
   return `
-    <tr class="row${open ? ' is-open' : ''}" data-id="${r.id}" tabindex="0"
+    <tr class="row${open ? ' is-open' : ''}${cased ? ' is-case' : ''}" data-id="${r.id}" tabindex="0"
         aria-expanded="${open}" aria-controls="detail-${r.id}">
       <th scope="row" class="load">
-        <span class="load-main"><span class="load-name">${r.name}</span><span class="cat">${r.category}</span></span>
+        <span class="load-main">
+          <span class="load-name">${r.name}</span><span class="cat">${r.category}</span>
+          <button type="button" class="case-btn${cased ? ' is-active' : ''}" data-case="${r.id}"
+                  title="Make the case for ${escapeHtml(r.name)}"
+                  aria-label="Make the case for ${escapeHtml(r.name)}">Case</button>
+        </span>
         ${loadSubline(r)}
       </th>
       <td class="col-svg">${r.silhouette}</td>
@@ -350,6 +405,9 @@ function detailHtml(r) {
           <dt>Notes</dt>
           <dd>${r.notes}</dd>
         </dl>
+        <div class="detail-actions">
+          <button type="button" class="case-btn case-btn-wide" data-case="${r.id}">Make the case for this load</button>
+        </div>
         ${trajectoryHtml(r)}
       </td>
     </tr>`;
@@ -362,15 +420,17 @@ function renderChips() {
       : ROWS.filter((r) => r.category === cat && matchesQuery(r, state.query)).length;
     const active = state.category === cat;
     return `<button type="button" class="chip" data-category="${cat}"
-              aria-pressed="${active}">${cat === 'all' ? 'All' : cat}${
-      count ? `<span class="count">${count}</span>` : ''
-    }</button>`;
+              aria-pressed="${active}"${state.caseMode ? ' disabled' : ''}>${
+      cat === 'all' ? 'All' : cat
+    }${count ? `<span class="count">${count}</span>` : ''}</button>`;
   }).join('');
 }
 
 function renderSortIndicators() {
   els.table.querySelectorAll('th[data-sort]').forEach((th) => {
-    if (th.dataset.sort === state.sortKey) {
+    if (state.caseMode) {
+      th.removeAttribute('aria-sort');
+    } else if (th.dataset.sort === state.sortKey) {
       th.setAttribute('aria-sort', state.sortDir === 'asc' ? 'ascending' : 'descending');
     } else {
       th.removeAttribute('aria-sort');
@@ -379,6 +439,16 @@ function renderSortIndicators() {
 }
 
 function renderSummary(rows) {
+  if (state.caseMode) {
+    const row = ROWS.find((r) => r.id === state.caseMode.id);
+    const result = resultFor(state.caseMode.id, state.caseMode.scope);
+    const meta = CASE_SCOPES[state.caseMode.scope];
+    const verdict = result?.feasible ? 'ranked #1' : `closest found #${result?.rank ?? '—'}`;
+    els.summary.innerHTML =
+      `The case for <strong>${row?.name ?? 'this load'}</strong> · ` +
+      `${rows.length} ${scopeNoun(meta)} · ${verdict}`;
+    return;
+  }
   if (!rows.length) {
     els.summary.innerHTML = 'No loads match that filter.';
     return;
@@ -397,6 +467,141 @@ function renderSummary(rows) {
     `median ${medianLabel}`;
 }
 
+/* ------------------------------- the case ------------------------------ */
+
+function startCase(id) {
+  const auto = autoCaseFor(id);
+  if (!auto) return;
+  const previous = state.caseMode?.previous ?? {
+    query: state.query,
+    category: state.category,
+    sortKey: state.sortKey,
+    sortDir: state.sortDir,
+  };
+  state.caseMode = { id, scope: auto.scope, previous };
+  // The case owns the comparison set, so the ordinary filters are paused and
+  // cleared. They are restored by Clear case.
+  state.query = '';
+  state.category = 'all';
+  expanded.clear();
+  render();
+  els.casePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearCase() {
+  if (!state.caseMode) return;
+  const previous = state.caseMode.previous;
+  state.caseMode = null;
+  Object.assign(state, previous);
+  render();
+}
+
+const scopeNoun = (meta) => (meta?.label ?? 'loads').replace(/^All /i, '').toLowerCase();
+
+function caseNote(row, scope, result, ranking) {
+  const meta = CASE_SCOPES[scope];
+  const anyFeasible = scopeOptionsFor(row.id).some(
+    (option) => resultFor(row.id, option.scope)?.feasible,
+  );
+
+  if (!result.feasible) {
+    if (result.rank === 1) {
+      return `No strict weighting separates ${row.name} from the next load; the table shows the tie.`;
+    }
+    let note =
+      `No non-negative weighting of the eight numeric columns puts ${row.name} first ` +
+      `among ${meta.label.toLowerCase()}. The table shows a closest case found by the search.`;
+    if (ranking?.blockers.length) {
+      note += ` Still ahead: ${ranking.blockers.join(', ')}.`;
+    }
+    note += anyFeasible
+      ? ' Try another comparison set.'
+      : ' None of the available comparison sets can put it first.';
+    return note;
+  }
+
+  if (scope === 'all') {
+    return `This weighting puts ${row.name} first against all ${meta.count} loads.`;
+  }
+  const all = resultFor(row.id, 'all');
+  const ignition = row.category === 'rimfire' ? 'rimfire' : 'centerfire';
+  const ignitionResult = resultFor(row.id, ignition);
+  if (all && !all.feasible) {
+    return (
+      `No weighting puts it first against all ${CASE_SCOPES.all.count} loads. ` +
+      `This case narrows the field to ${meta.label.toLowerCase()}.`
+    );
+  }
+  if (ignitionResult && !ignitionResult.feasible && scope === row.category) {
+    return (
+      `No weighting works against all loads or ${ignition} loads. ` +
+      `This case narrows the field to ${meta.label.toLowerCase()}.`
+    );
+  }
+  return `This weighting puts it first among ${meta.label.toLowerCase()}.`;
+}
+
+function renderCasePanel() {
+  const active = state.caseMode;
+  els.casePanel.hidden = !active;
+  els.controls.classList.toggle('is-paused', Boolean(active));
+  els.search.disabled = Boolean(active);
+  els.table.classList.toggle('case-mode', Boolean(active));
+  if (!active) return;
+
+  const row = ROWS.find((r) => r.id === active.id);
+  const result = resultFor(active.id, active.scope);
+  if (!row || !result) return;
+  const meta = CASE_SCOPES[active.scope];
+  const ranking = rankCase(
+    ROWS,
+    active.scope,
+    result.weights,
+    active.id,
+    casePercentiles(active.scope),
+  );
+
+  els.caseName.textContent = row.name;
+  els.caseScope.innerHTML = scopeOptionsFor(row.id)
+    .map(
+      (option) =>
+        `<option value="${option.scope}"${option.scope === active.scope ? ' selected' : ''}>` +
+        `${option.label} (${option.count})</option>`,
+    )
+    .join('');
+
+  if (result.feasible) {
+    els.caseStatus.className = 'case-status is-feasible';
+    els.caseStatus.textContent = `#1 of ${meta.count} ${scopeNoun(meta)}`;
+  } else if (result.rank === 1) {
+    els.caseStatus.className = 'case-status is-infeasible';
+    els.caseStatus.textContent = 'No strict weighting · tied for #1';
+  } else {
+    els.caseStatus.className = 'case-status is-infeasible';
+    els.caseStatus.textContent =
+      `No weighting puts it first · closest found #${result.rank} of ${meta.count}`;
+  }
+
+  els.caseNote.textContent = caseNote(row, active.scope, result, ranking);
+
+  const ordered = CASE_CRITERIA.map((criterion, index) => ({
+    ...criterion,
+    weight: result.weights[index],
+  })).sort((a, b) => b.weight - a.weight);
+  els.caseWeights.innerHTML = ordered
+    .map((criterion) => {
+      const percent = criterion.weight * 100;
+      const label = percent < 0.5 ? '<1%' : `${percent >= 10 ? percent.toFixed(0) : percent.toFixed(1)}%`;
+      return `
+        <div class="case-weight" title="${escapeHtml(criterion.label)}: ${percent.toFixed(1)}%">
+          <span class="cw-label">${escapeHtml(criterion.label)}</span>
+          <span class="cw-bar"><span style="--w:${Math.max(percent, 0).toFixed(2)}%"></span></span>
+          <span class="cw-pct">${label}</span>
+        </div>`;
+    })
+    .join('');
+}
+
 function render() {
   const rows = visibleRows();
   els.rows.innerHTML = rows.length
@@ -405,11 +610,14 @@ function render() {
   renderSummary(rows);
   renderChips();
   renderSortIndicators();
+  renderCasePanel();
+  els.search.value = state.query;
 }
 
 /* ------------------------------- events ------------------------------- */
 
 els.search.addEventListener('input', (e) => {
+  if (state.caseMode) return;
   state.query = e.target.value.trim();
   render();
 });
@@ -420,14 +628,26 @@ els.units.addEventListener('change', (e) => {
 });
 
 els.categories.addEventListener('click', (e) => {
+  if (state.caseMode) return;
   const chip = e.target.closest('.chip');
   if (!chip) return;
   state.category = chip.dataset.category;
   render();
 });
 
+els.caseScope.addEventListener('change', (e) => {
+  if (!state.caseMode) return;
+  const scope = e.target.value;
+  if (!resultFor(state.caseMode.id, scope)) return;
+  state.caseMode.scope = scope;
+  render();
+});
+
+els.caseClear.addEventListener('click', clearCase);
+
 els.table.querySelectorAll('th[data-sort]').forEach((th) => {
   th.addEventListener('click', () => {
+    if (state.caseMode) return;
     const key = th.dataset.sort;
     if (state.sortKey === key) {
       state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
@@ -454,16 +674,28 @@ function toggleRow(row) {
 }
 
 els.rows.addEventListener('click', (e) => {
+  const caseButton = e.target.closest('[data-case]');
+  if (caseButton) {
+    e.preventDefault();
+    e.stopPropagation();
+    startCase(caseButton.dataset.case);
+    return;
+  }
   const row = e.target.closest('tr.row');
   if (row) toggleRow(row);
 });
 
 els.rows.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (e.target.closest('[data-case]')) return;
   const row = e.target.closest('tr.row');
   if (!row) return;
   e.preventDefault();
   toggleRow(row);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state.caseMode) clearCase();
 });
 
 render();

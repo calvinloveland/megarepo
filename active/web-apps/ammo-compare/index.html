@@ -14,12 +14,13 @@
       current-production rounds. Each row carries the cartridge’s origin, age,
       designer, bullet dimensions, and a ballistic profile; energy, power factor,
       effective range, and trajectory are computed from bullet weight and muzzle
-      velocity, not copied from a chart.
+      velocity, not copied from a chart. The Case action finds a weighting of the
+      numeric columns that puts a chosen load first.
     </p>
   </header>
 
   <main>
-    <section class="controls" aria-label="Table controls">
+    <section class="controls" id="controls" aria-label="Table controls">
       <label class="search">
         <span>Filter</span>
         <input id="search" type="search" placeholder="9mm, Browning, shotgun…" autocomplete="off" />
@@ -34,6 +35,33 @@
           <option value="metric">grams · m/s · joules</option>
         </select>
       </label>
+    </section>
+
+    <section class="case-panel" id="case-panel" hidden aria-label="Weighting case">
+      <div class="case-head">
+        <div class="case-title">
+          <span class="case-kicker">The case for</span>
+          <strong id="case-name"></strong>
+          <span class="case-status" id="case-status" aria-live="polite"></span>
+        </div>
+        <button type="button" class="case-clear" id="case-clear">Clear case</button>
+      </div>
+      <div class="case-controls">
+        <label class="case-scope">
+          <span>Compare against</span>
+          <select id="case-scope"></select>
+        </label>
+        <p class="case-note" id="case-note"></p>
+      </div>
+      <div class="case-weights" id="case-weights"></div>
+      <p class="case-foot">
+        Weights are chosen to be as even as possible while still winning by a safety
+        margin. If no weighting wins, these are the closest weights found. Newer
+        design, heavier bullet, velocity, energy, range, and power factor score
+        higher; recoil and cost score lower. Unpriced loads count as the most
+        expensive when cost carries weight. Clear the case to use the filters and
+        column sorting again.
+      </p>
     </section>
 
     <p class="summary" id="summary" aria-live="polite"></p>
@@ -98,6 +126,18 @@
         Cartridge coverage and reference values adapted from
         <a href="https://en.wikipedia.org/wiki/Table_of_handgun_and_rifle_cartridges">Wikipedia’s
         Table of handgun and rifle cartridges</a> (CC BY-SA).
+      </p>
+      <p>
+        <strong>Make the case.</strong> The Case button finds a non-negative weighting
+        of the eight numeric columns that puts the selected load first. Weights are
+        chosen to be as even as possible while retaining a safety margin, and the table
+        then shows the comparison set sorted by the weighted percentile score. When no
+        weighting can win against all loads, the case tries centerfire or rimfire and
+        then the load’s own category; the “Compare against” menu exposes each set.
+        If no weighting wins anywhere, the feature reports the closest case found
+        instead of pretending the load is first. Newer design and heavier bullet are treated as
+        “more is better”; recoil and cost are “less is better.” A blank cost is treated
+        as the most expensive value so unpriced surplus does not win by default.
       </p>
       <p>
         <strong>Range and trajectory are estimates.</strong> “Eff. range” is the farthest

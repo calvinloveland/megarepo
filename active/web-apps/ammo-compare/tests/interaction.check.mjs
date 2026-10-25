@@ -245,6 +245,139 @@ check(
   (await evaluate(`document.querySelectorAll('tbody tr.detail .trajectory tbody tr').length`)) >= 4,
 );
 
+/* ------------------------------ make the case ------------------------------ */
+
+const setSearch = (query) =>
+  evaluate(`(() => {
+    const input = document.getElementById('search');
+    input.value = ${JSON.stringify(query)};
+    input.dispatchEvent(new Event('input'));
+  })()`);
+const caseButtonFor = (id) =>
+  evaluate(`document.querySelector('tbody tr.row[data-id="${id}"] .case-btn').click()`);
+const caseStatus = () => evaluate(`document.getElementById('case-status').textContent`);
+const clearCase = () => evaluate(`document.getElementById('case-clear').click()`);
+
+await setSearch('9mm Luger');
+await sleep(150);
+await caseButtonFor('9mm');
+await sleep(350);
+check('case panel opens from a row', (await evaluate(`document.getElementById('case-panel').hidden`)) === false);
+check('case panel names the selected load', (await evaluate(`document.getElementById('case-name').textContent`)) === '9mm Luger');
+check('9mm case falls back to centerfire', (await evaluate(`document.getElementById('case-scope').value`)) === 'centerfire');
+check('9mm is first among centerfire loads', (await firstLoadName()) === '9mm Luger', await firstLoadName());
+check('9mm case shows 284 centerfire loads', (await rowCount()) === 284, `${await rowCount()} rows`);
+check('9mm case explains the narrower field', (await evaluate(`document.getElementById('case-note').textContent`)).includes('narrows the field to centerfire loads'));
+check('9mm case shows eight weighted columns', (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 8);
+check('9mm case gives cost the largest weight', (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Low cost');
+check('case mode pauses search', (await evaluate(`document.getElementById('search').disabled`)) === true);
+check('case mode pauses category chips', (await evaluate(`[...document.querySelectorAll('.chip')].every((chip) => chip.disabled)`)) === true);
+check('case mode names the case in the summary', (await evaluate(`document.getElementById('summary').textContent`)).includes('centerfire'));
+check('case mode clears the open row', (await evaluate(`document.querySelectorAll('tbody tr.detail').length`)) === 0);
+check('case mode removes the ordinary sort arrow', (await evaluate(`document.querySelectorAll('th[aria-sort]').length`)) === 0);
+
+await evaluate(`(() => {
+  const select = document.getElementById('case-scope');
+  select.value = 'all';
+  select.dispatchEvent(new Event('change'));
+})()`);
+await sleep(300);
+check('case scope can be widened to all loads', (await rowCount()) === AMMO.length, `${await rowCount()} rows`);
+check('9mm admits it cannot win against all loads', (await caseStatus()).includes('No weighting puts it first'), await caseStatus());
+check('9mm reports its closest all-load rank', (await caseStatus()).includes('closest found #2'), await caseStatus());
+check('the closest all-load table is not forced to 9mm', (await firstLoadName()) !== '9mm Luger', await firstLoadName());
+
+await evaluate(`(() => {
+  const select = document.getElementById('case-scope');
+  select.value = 'centerfire';
+  select.dispatchEvent(new Event('change'));
+})()`);
+await sleep(250);
+check('case scope can be narrowed back to centerfire', (await firstLoadName()) === '9mm Luger');
+
+await clearCase();
+await sleep(200);
+check('clear case hides the panel', (await evaluate(`document.getElementById('case-panel').hidden`)) === true);
+check('clear case re-enables search', (await evaluate(`document.getElementById('search').disabled`)) === false);
+check('clear case restores the search that was active', (await rowCount()) === 2, `${await rowCount()} rows`);
+check('clear case restores normal sorting', (await firstLoadName()) === '9mm Luger +P');
+
+await setSearch('.223 Rem');
+await sleep(150);
+await caseButtonFor('223');
+await sleep(300);
+check('.223 can win against every load', (await caseStatus()) === '#1 of 295 loads', await caseStatus());
+check('.223 is actually first', (await firstLoadName()).startsWith('.223 Rem'), await firstLoadName());
+check('.223 case spans range and cost', (await evaluate(`document.querySelectorAll('.case-weight .cw-label')[0].textContent`)) === 'Low cost');
+await clearCase();
+await sleep(150);
+
+await setSearch('.45 ACP');
+await sleep(150);
+await caseButtonFor('45acp');
+await sleep(300);
+check('.45 ACP falls back to pistols', (await evaluate(`document.getElementById('case-scope').value`)) === 'pistol');
+check('.45 ACP is first among pistols', (await firstLoadName()) === '.45 ACP', await firstLoadName());
+check('.45 ACP notes the narrower field', (await evaluate(`document.getElementById('case-note').textContent`)).includes('pistol loads'));
+await clearCase();
+await sleep(150);
+
+await setSearch('.380 ACP');
+await sleep(150);
+await caseButtonFor('380acp');
+await sleep(300);
+check('.380 ACP has no winning scope', (await caseStatus()).includes('No weighting puts it first'), await caseStatus());
+check('.380 ACP reports its closest pistol rank', (await caseStatus()).includes('closest found #3'), await caseStatus());
+check('.380 ACP keeps its true table position', (await firstLoadName()) !== '.380 ACP', await firstLoadName());
+check('.380 ACP says the available sets are exhausted', (await evaluate(`document.getElementById('case-note').textContent`)).includes('None of the available comparison sets'));
+
+await clearCase();
+await sleep(150);
+await setSearch('.308 Win');
+await sleep(150);
+await evaluate(`document.querySelector('tbody tr.row[data-id="308"]').click()`);
+await sleep(150);
+await evaluate(`document.querySelector('tbody tr.detail [data-case]').click()`);
+await sleep(300);
+check('detail button starts a case', (await evaluate(`document.getElementById('case-name').textContent`)) === '.308 Win / 7.62 NATO');
+check('.308 wins against every load', (await caseStatus()) === '#1 of 295 loads', await caseStatus());
+check('.308 case uses all loads', (await evaluate(`document.getElementById('case-scope').value`)) === 'all');
+check('detail button closes the old detail row', (await evaluate(`document.querySelectorAll('tbody tr.detail').length`)) === 0);
+
+await send('Emulation.setDeviceMetricsOverride', {
+  width: 720,
+  height: 1000,
+  deviceScaleFactor: 1,
+  mobile: true,
+});
+await sleep(250);
+check(
+  'case panel fits a phone viewport',
+  (await evaluate(`document.documentElement.scrollWidth <= window.innerWidth && document.getElementById('case-panel').hidden === false`)) === true,
+);
+await send('Emulation.setDeviceMetricsOverride', {
+  width: 420,
+  height: 900,
+  deviceScaleFactor: 1,
+  mobile: true,
+});
+await sleep(250);
+check(
+  'case panel fits a narrow phone viewport',
+  (await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`)) === true,
+);
+
+// Leave the page in its normal desktop state for any later checks.
+await send('Emulation.setDeviceMetricsOverride', {
+  width: 1440,
+  height: 1000,
+  deviceScaleFactor: 1,
+  mobile: false,
+});
+await sleep(150);
+await clearCase();
+await sleep(150);
+
 const failures = results.filter((r) => !r.pass);
 for (const r of results) console.log(`${r.pass ? 'PASS' : 'FAIL'}  ${r.name}${r.pass ? '' : `  → ${r.detail ?? ''}`}`);
 console.log(`\n${results.length - failures.length}/${results.length} checks passed`);

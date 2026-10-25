@@ -348,7 +348,7 @@ apps:
 
   - id: ammo-compare
     name: Ammo Comparison Table
-    description: Typical centerfire, rimfire, and shotgun loads compared by derived muzzle energy, power factor, recoil, and cost
+    description: Typical centerfire, rimfire, and shotgun loads compared by derived energy, range, designer, and cost, with a per-row “make the case” weighting
     icon: 🎯
     subdomain: ammo
     path: ../ammo-compare

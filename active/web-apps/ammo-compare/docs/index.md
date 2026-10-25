@@ -203,6 +203,98 @@ sideways scrolling; the name keeps its origin-and-dimensions subline. The
 category chips wrap, the unit selector drops to its own row, and the detail rows
 still work.
 
+## Make the case
+
+Sorting answers “which load has the most velocity, energy, or range?” The Case
+action asks a different question: is there a non-negative weighting of the
+numeric columns that puts *this* load first? Every row has a Case button, and
+the expanded detail has a “Make the case for this load” button. The panel shows
+the weights, the comparison set, the resulting rank, and the rows still ahead
+when the case loses.
+
+The eight columns are the numeric table columns: introduction year, bullet
+weight, velocity, energy, effective range, power factor, recoil, and cost.
+Higher is better for year, bullet weight, velocity, energy, range, and power
+factor; lower is better for recoil and cost. Each column becomes a percentile
+within the comparison set, so the weights are shares of a rank argument rather
+than physical units. A missing year is treated as oldest; a missing price is
+treated as most expensive. The latter matters because 227 reference loads are
+deliberately unpriced.
+
+| Comparison set | Rows |
+|---|---:|
+| All loads | 295 |
+| Centerfire loads | 284 |
+| Rimfire loads | 11 |
+| Pistol loads | 64 |
+| Rifle loads | 208 |
+| Shotgun loads | 12 |
+
+The default is the broadest set in which the load can win: all loads first,
+then centerfire (or rimfire), then its own category. That is why 9mm Luger
+opens against centerfire loads rather than all loads: no weighting puts it
+first across the whole table, but excluding rimfire makes a case possible. The
+“Compare against” menu exposes the same sets, so the failure against all loads
+is visible rather than hidden. If no set can put the load first, the panel says
+so and reports the closest case found; it never silently forces the selected
+row to the top. A tie between closest sets goes to the narrower set, which is
+usually the more useful comparison.
+
+As of the checked-in dataset, **96 of 295 loads have a strict case** in their
+auto-selected set. The rest report a closest case instead of pretending.
+
+![The case for 9mm Luger](images/case.png)
+
+### How the weights are found
+
+`tools/build-cases.py` precomputes the weightings into `data/cases.js`; the
+browser only evaluates the stored weights against the same percentile scale.
+For each load and comparison set:
+
+1. A max-margin linear program finds the largest possible score gap. If the
+   gap is below 0.0001, there is no strict case.
+2. If a case exists, a second optimization maximizes weight entropy subject to
+   a margin of at least half the maximum gap (capped at one percentile point).
+   That picks the most even mix that still wins by a safety margin, instead of
+   putting 100% on one column or settling for a numerical tie.
+3. If no case exists, a deterministic Dirichlet search over the weight simplex,
+   followed by local perturbations, finds a low-rank weighting. The UI calls
+   this “closest found”; rank minimization over a step function is not an LP, so
+   it is a search result, not a proof of optimality.
+4. Weights are rounded to eight decimals. `tests/cases.test.mjs` recomputes every
+   stored rank and margin with the browser math, so generator/browser drift
+   fails offline.
+
+The current data produces these illustrative cases (weights rounded):
+
+| Load | Set | Result | Largest weights |
+|---|---|---|---|
+| `.223 Rem` | all | #1 | cost 29%, recoil 25%, range 11% |
+| `9mm Luger` | centerfire | #1 | cost 63%, recoil 28%, bullet 6% |
+| `9mm Luger` | all (override) | closest found #2 | cost 84%, energy 12%, recoil 4% |
+| `.45 ACP` | pistol | #1 | cost 42%, bullet 28%, recoil 15% |
+| `.357 Magnum` | pistol | #1 | range 28%, recoil 24%, cost 20% |
+| `.380 ACP` | pistol | no winner; closest found #3 | cost 79%, velocity 12%, recoil 9% |
+| `.50 BMG` | all | #1 | near-even: cost 15%, other columns 10–13% |
+
+The weights are not a claim that cost matters 63% “in reality.” They are the
+least-contrived weighting that makes the selected load win this particular
+comparison, and the panel shows them so the argument can be inspected. Two
+other caveats are deliberate: effective range is an estimate from the
+trajectory model, and “newer design” / “heavier bullet” are directional
+preferences, not performance metrics.
+
+Regenerate the file after changing the load data or criteria:
+
+```
+nix-shell -p python3Packages.scipy python3Packages.numpy --run \
+  "python3 tools/build-cases.py"
+```
+
+The generator shells out to `node tools/export-case-rows.mjs` for the enriched
+rows, so Node and SciPy are both required. The app itself stays dependency-free
+and the generated file is checked in.
+
 ## Tests
 
 `tests/ballistics.test.mjs` (node:test, no dependencies) checks:
@@ -247,6 +339,14 @@ length agree with the reference, requires the overlay to drive base/neck/rim
 exactly, keeps the inferred fallback inside its documented error band, and
 covers rebated rims.
 
+`tests/cases.test.mjs` checks the generated weighting table: every load has a
+case and every referenced scope is known; all 874 load/scope results have
+non-negative weights that sum to one; the browser percentile math reproduces
+every stored rank and margin; feasible results are strictly #1; the known
+fallbacks are `.223`/all, 9mm/centerfire, `.45 ACP` and `.357 Magnum`/pistol,
+and `.50 BMG`/all; and `.380 ACP` has no winning scope and reports its closest
+pistol rank.
+
 ```
 node --test tests/*.test.mjs
 ```
@@ -255,7 +355,9 @@ node --test tests/*.test.mjs
 Protocol — no Playwright install and no browser download, which matters on this
 NixOS host — and asserts filtering, sorting, row expansion, the unit toggle,
 silhouette rendering, designer/range columns, trajectory tables, designer
-search, and the empty state:
+search, the empty state, and the Make the case flow (9mm's centerfire fallback,
+widening it back to all loads, `.223`/all, `.45 ACP`/pistol, `.380 ACP` with no
+winner, clear/restore, and a phone-width panel).
 
 Both suites are offline. The unit tests import the checked-in dataset directly;
 the browser check talks only to `localhost` (your `server.mjs` and Chrome's
