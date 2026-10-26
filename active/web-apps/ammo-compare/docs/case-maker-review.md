@@ -211,3 +211,23 @@ Not worth porting: its relationship-graph derivation engine. This line already d
 power factor, momentum, trajectory, and geometry from stored primitives in
 `lib/ballistics.js`, `lib/trajectory.js`, and `lib/cartridge-svg.js`, with SAAMI/C.I.P.
 validation behind the silhouettes; a second derivation graph would duplicate the concept.
+
+## Status of these findings
+
+Applied in the commits that follow this review:
+
+| Finding | Fix |
+|---|---|
+| P1 single-column fallback | `dominantCriterion()` in `lib/case.js`; the panel note now says “This is not an even argument: Low cost carries 100 % of the weight”, and the panel footer explains that the fallback optimises rank, not balance. The generator is unchanged, so the ranks and the 104/295 figure are untouched. |
+| P1 tie hoisted to the top | `rankCase()` returns `tiedWith`; `visibleRows()` now returns `rankCase(...).sorted`, so the selected row keeps its place among its ties and the note names them (“.38 Super, .357 SIG, 10mm Auto and 26 others”). The table scroller moves to the selected row so it stays visible without reordering the evidence. |
+| P2 controls contradict the table | In case mode the chip row marks the case's category (or nothing for centerfire) instead of a stale “All 295”. |
+| P2 focus lost on start | `startCase()` focuses the “Compare against” menu after rendering, and honours `prefers-reduced-motion` for both scrolls. |
+| P2 duplicated ordering | `visibleRows()` delegates to `rankCase()`; `scopeRows` / `caseScore` are no longer imported by `app.js`. |
+| P2 outside the check runner | `scripts/check_all.py ammo-compare` runs `check_web_app.py ammo-compare` (new `check_node_static` checker: `node --check` over every module plus the unit suite). The docs show the `nix-shell -p chromium` invocation for the browser suite. |
+
+Still open, deliberately: the generator-side max-entropy refinement (P1, second bullet), the
+`--check` / `--scope` flags, the 11 m regeneration time, the eager 33 KB gzip of
+`data/cases.js`, and the feature ports listed above. Tests now cover the two honesty rules:
+`tests/cases.test.mjs` (51 unit tests) and `tests/interaction.check.mjs` (90 browser checks,
+including the tie disclosure, the one-column disclosure, chip state, focus, and the
+scroll-into-view behaviour).

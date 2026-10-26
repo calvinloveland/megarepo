@@ -246,6 +246,24 @@ usually the more useful comparison.
 As of the checked-in dataset, **104 of 295 loads have a strict case** in their
 auto-selected set. The rest report a closest case instead of pretending.
 
+Two honesty rules govern that fallback, because it is what most loads get:
+
+- **A tie is a tie.** 12 load/scope results can only tie for first, and the
+  ranking keeps the selected row in name order among the loads it ties with
+  rather than floating it to the top. The panel names the tied loads (for
+  `.44 Magnum`/pistol that is 29 other cartridges) and says the tie is not a
+  win. The table scroller is moved to the selected row so it stays visible
+  without reordering the evidence.
+- **A corner is labelled.** Rank minimisation over a step function lands on a
+  vertex of the weight simplex for 172 of the 659 infeasible results — 76 of
+  them in an auto-selected set. When one criterion carries at least 90 % of the
+  weight the note says so (“Eff. range carries 100 % of the weight”) instead of
+  implying the weights are an even-handed argument. `6.5×55mm`/rifle is the
+  clear example: the closest case found is rank 30 of 208 and is, in effect, a
+  cost sort.
+
+![A tie for first: .44 Magnum only wins if effective range carries all the weight](images/case-tie.png)
+
 Compact case length also resolves the .380 ACP question. Across the shared
 eight criteria, 9mm Luger dominates .380 ACP: it is at least as good on every
 one and better on most. No reweighting can overcome that. But .380 ACP exists
@@ -289,13 +307,16 @@ The current data produces these illustrative cases (weights rounded):
 | `.380 ACP` | pistol | #1 | compact case 59%, bullet 19%, cost 13% |
 | `.50 BMG` | all | #1 | near-even: cost 15%, other columns 10–13% |
 
-The weights are not a claim that cost matters 63% “in reality.” They are the
+The weights are not a claim that cost matters 63 % “in reality.” They are the
 least-contrived weighting that makes the selected load win this particular
 comparison, and the panel shows them so the argument can be inspected. Three
 other caveats are deliberate: effective range is an estimate from the
 trajectory model; “newer design” / “heavier bullet” are directional
 preferences, not performance metrics; and compact case length is a proxy for
-pocket-pistol fit, not a claim that shorter is always better.
+pocket-pistol fit, not a claim that shorter is always better. The eight shared
+criteria are also collinear — velocity, energy, power factor, and bullet weight
+are all functions of two underlying numbers — so a weight is a share of a rank
+argument, not an independent measure of importance.
 
 Regenerate the file after changing the load data or criteria:
 
@@ -358,7 +379,10 @@ non-negative weights that sum to one; the browser percentile math reproduces
 every stored rank and margin; feasible results are strictly #1; the known
 fallbacks are `.223`/all, 9mm/centerfire, `.45 ACP` and `.357 Magnum`/pistol,
 and `.50 BMG`/all; and `.380 ACP` wins the pistol case through the compact-case
-criterion while remaining unable to win all or centerfire.
+criterion while remaining unable to win all or centerfire. It also pins the two
+honesty rules: `.44 Magnum`/pistol is reported as a 29-way tie with nothing
+hoisted above its ties, and `dominantCriterion` flags the single-column
+fallback while leaving 9mm's 63 % cost weighting unflagged.
 
 ```
 node --test tests/*.test.mjs
@@ -370,16 +394,22 @@ NixOS host — and asserts filtering, sorting, row expansion, the unit toggle,
 silhouette rendering, designer/range columns, trajectory tables, designer
 search, the empty state, and the Make the case flow (9mm's centerfire fallback,
 widening it back to all loads, `.223`/all, `.45 ACP`/pistol, `.380 ACP`'s
-compact-case pistol win and its all-load failure, clear/restore, and a
-phone-width panel).
+compact-case pistol win and its all-load failure, clear/restore, a phone-width
+panel, and the tie/one-column disclosures plus the focus and chip state that
+case mode owns).
 
 Both suites are offline. The unit tests import the checked-in dataset directly;
 the browser check talks only to `localhost` (your `server.mjs` and Chrome's
 debugging port). Nothing fetches Wikipedia or any other remote source.
 
 ```
-node server.mjs &
-google-chrome --headless=new --no-sandbox --remote-debugging-port=9222 \
-  --user-data-dir=/tmp/ammo-chrome about:blank &
-APP_URL=http://localhost:5113/ node tests/interaction.check.mjs
+# chromium is not on PATH on a stock calnix host; pull it from nixpkgs.
+nix-shell -p chromium --run '
+  (node server.mjs > /tmp/srv.log 2>&1 &) ;
+  (chromium --headless=new --no-sandbox --disable-gpu --remote-debugging-port=9222 \
+     --user-data-dir=/tmp/ammo-chrome about:blank > /tmp/chrome.log 2>&1 &) ;
+  sleep 6 ; APP_URL=http://localhost:5113/ node tests/interaction.check.mjs'
 ```
+
+Kill the headless browser and the server when you are done with them; they
+outlive the shell that started them (`kill <pid>` from `ps`, not `pkill`).

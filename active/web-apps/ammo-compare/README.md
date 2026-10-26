@@ -29,7 +29,9 @@ side by side, with muzzle energy, power factor, effective range, and trajectory
   pistol comparisons — and sorts the comparison set by the weighted percentile
   score, putting the selected load first when a weighting exists. It falls back
   to centerfire/rimfire and then the load's category, shows the weights, and
-  reports the closest case found when no weighting can win.
+  reports the closest case found when no weighting can win — naming the loads it
+  only ties with, and saying so when the winning weighting is really a single
+  column.
 - Toggle imperial (grains · fps · ft·lb) and metric (g · m/s · J) units.
 - Cost is priced only for current commercial loads; obsolete, surplus, and
   collector cartridges are left blank instead of given an invented figure.
@@ -45,6 +47,7 @@ not run it.) Registered in the megarepo launcher as `ammo-compare` on port 5113.
 ```
 node server.mjs                    # http://localhost:5113
 node --test tests/*.test.mjs       # ballistics, data integrity, case weights
+python3 scripts/check_all.py ammo-compare   # same checks, from the repo root
 ```
 
 The interaction checks need a running server and a remote-debugging Chrome; see
