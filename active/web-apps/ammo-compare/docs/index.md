@@ -329,24 +329,23 @@ so and reports the closest case found; it never silently forces the selected
 row to the top. A tie between closest sets goes to the narrower set, which is
 usually the more useful comparison.
 
-As of the checked-in dataset, **104 of 295 loads have a strict case** in their
+As of the checked-in dataset, **114 of 295 loads have a strict case** in their
 auto-selected set. The rest report a closest case instead of pretending.
 
 Two honesty rules govern that fallback, because it is what most loads get:
 
-- **A tie is a tie.** 12 load/scope results can only tie for first, and the
+- **A tie is a tie.** 14 load/scope results can only tie for first, and the
   ranking keeps the selected row in name order among the loads it ties with
   rather than floating it to the top. The panel names the tied loads (for
   `.44 Magnum`/pistol that is 29 other cartridges) and says the tie is not a
   win. The table scroller is moved to the selected row so it stays visible
   without reordering the evidence.
 - **A corner is labelled.** Rank minimisation over a step function lands on a
-  vertex of the weight simplex for 172 of the 659 infeasible results — 76 of
-  them in an auto-selected set. When one criterion carries at least 90 % of the
-  weight the note says so (“Eff. range carries 100 % of the weight”) instead of
-  implying the weights are an even-handed argument. `6.5×55mm`/rifle is the
-  clear example: the closest case found is rank 30 of 208 and is, in effect, a
-  cost sort.
+  vertex of the weight simplex for 67 of the 639 infeasible results — 43 of them
+  in an auto-selected set. When one criterion carries at least 90 % of the weight
+  the note says so (“Eff. range carries 100 % of the weight”) instead of implying
+  the weights are an even-handed argument. `.44 Magnum`/pistol is the clear
+  example: it ties for first only if effective range carries everything.
 
 ![A tie for first: .44 Magnum only wins if effective range carries all the weight](images/case-tie.png)
 
@@ -359,40 +358,37 @@ cannot win against all loads or all centerfire loads. That is the honest result:
 a cartridge can be the right choice for a small gun without beating 9mm on
 ballistic output.
 
-The stored weighting shows what that argument actually rests on: compact case
-length 59 %, heavier bullet 19 %, cost 13 %, low recoil 4 %, and under 2 % for
-the rest. Ablating one criterion at a time says the same thing — drop compact
-case and .380 ACP falls to rank 34 of 64; drop cost and it falls to rank 5; drop
-anything else and it stays first. On its own, compactness (17.3 mm, tied with
-.32 ACP and .32 NAA, behind .25 ACP and .32 S&W) is only good enough for rank 4.
-The 19 % on bullet weight is slack rather than support: .380 ACP sits at the
-25th percentile there, but so do the loads it has to beat, so the entropy step
-can spend weight on it without losing the margin. The win is real and narrow —
-a one-percentile-point gap over 9mm Luger +P and .25 ACP.
+The stored weighting shows what that argument actually rests on: **low recoil
+27 %, heavier bullet 23 %, compact case 19 %, low cost 12 %**, and under 9 % for
+the rest. Ablating one criterion at a time says the same thing — drop recoil and
+.380 ACP falls to rank 25 of 64; drop compact case and it falls to rank 10; drop
+cost and it falls to rank 4. On its own, compactness (17.3 mm, tied with .32 ACP
+and .32 NAA, behind .25 ACP and .32 S&W) is only good enough for rank 4, and
+recoil alone is rank 12 — the case needs both, which is the argument people
+actually make: a small pistol you will carry and can shoot well. The win is real
+and narrow, a one-percentile-point gap over 9mm Luger +P and .25 ACP.
 
-### What the model cannot see about that choice
+### What the model still cannot see about that choice
 
-The weighting agrees with two of the real reasons people carry .380 — it is
-small, and nobody is buying it for muzzle energy — and it is wrong about a
-third. Worth stating plainly, because the Case panel is an argument, not a
-model of buyer preference:
+Recoil is now derived, so the column finally separates .380 ACP (1.37 ft·lb, 2/5)
+from 9mm Luger (3.22 ft·lb, 3/5), and the .380 case now leads on it. What remains
+outside the model:
 
-- **Recoil is a property of the cartridge *and* the gun.** The table stores a
-  1–5 dot score, and .380 ACP and 9mm Luger both read 2/5; 28 of the 64 pistol
-  loads sit at that same score. Free recoil energy (`p²/2mg`) tells the story
-  the dots cannot: .380 in a 9.5 oz LCP is ≈4.6 ft·lb, 9mm in a 17.8 oz P365 is
-  ≈5.8, and 9mm in a 30 oz G19 is ≈3.4. The .380 advantage is real against the
-  smallest 9mms and disappears against a mid-size one — which is exactly why the
-  criterion that buyers weigh most is the coarsest column here.
+- **Gun mass is one reference per class, not the gun you would carry.** The
+  column is free recoil in a 2 lb pistol; the same cartridge in a 9.5 oz LCP is
+  ≈4.6 ft·lb, and 9mm in a 17.8 oz P365 is ≈5.8. So .380's advantage is real
+  against the smallest 9 mms and disappears against a mid-size one, and the same
+  frame offered in both calibres (P365 vs P365-380, G42 vs G43) is invisible here.
 - **Cost argues the other way in the real market.** .380 ACP is priced at $0.40
   and 9mm Luger at $0.28 in this dataset (the right ordering), yet .380 still
   scores the 94th cost percentile because 42 of the 64 pistol rows are unpriced
   obsolete or collector rounds. Against the alternative someone actually
-  considers, cost is a point against .380, not for it. That is 13 % of the case.
-- **Legality and platform fit are outside the model entirely.** Where 9×19 is
-  restricted for civilians — Mexico permits .380 ACP and not 9mm Parabellum;
-  Italy treats 9×19 as a military calibre — .380 is chosen for reasons no
-  weighting can express. The same goes for the pistol that actually fits a
+  considers, cost is a point against .380, not for it. That is 12 % of the case.
+- **Legality is a filter, not a weight.** It is in the table now — Mexico permits
+  .380 ACP and not 9mm Parabellum, Italy treats 9×19 as a military calibre — but
+  the Case feature does not trade it against energy, because it is a gate rather
+  than a preference. Choosing a jurisdiction narrows the table; it does not
+  re-solve the weighting. The same goes for the pistol that actually fits a
   pocket, its capacity, and how much blast and flash it makes indoors.
 
 So read the .380 case as “the most favourable honest framing of this load among
@@ -425,13 +421,13 @@ The current data produces these illustrative cases (weights rounded):
 
 | Load | Set | Result | Largest weights |
 |---|---|---|---|
-| `.223 Rem` | all | #1 | cost 29%, recoil 25%, range 11% |
-| `9mm Luger` | centerfire | #1 | cost 63%, recoil 28%, bullet 6% |
-| `9mm Luger` | all (override) | closest found #2 | cost 84%, energy 12%, recoil 4% |
-| `.45 ACP` | pistol | #1 | bullet 28%, cost 25%, compact case 21%, recoil 9% |
-| `.357 Magnum` | pistol | #1 | range 28%, recoil 24%, cost 20%, power factor 11% |
-| `.380 ACP` | pistol | #1 | compact case 59%, bullet 19%, cost 13% |
-| `.50 BMG` | all | #1 | near-even: cost 15%, other columns 10–13% |
+| `.223 Rem` | all | #1 | cost 31 %, recoil 22 %, bullet 14 %, range 13 % |
+| `9mm Luger` | centerfire | #1 | cost 76 %, recoil 13 %, bullet 7 % |
+| `9mm Luger` | all (override) | closest found #2 | cost 93 %, energy 5 % |
+| `.45 ACP` | all | #1 | cost 50 %, bullet 22 %, recoil 14 %, range 12 % |
+| `.357 Magnum` | pistol | tied #1 | range 100 % (the only weighting that reaches the top) |
+| `.380 ACP` | pistol | #1 | recoil 27 %, bullet 23 %, compact case 19 %, cost 12 % |
+| `.50 BMG` | all | #1 | near-even: bullet 18 %, energy 16 %, range 15 %, cost 15 %, recoil 13 % |
 
 The weights are not a claim that cost matters 63 % “in reality.” They are the
 least-contrived weighting that makes the selected load win this particular
@@ -503,12 +499,30 @@ covers rebated rims.
 case and every referenced scope is known; all 874 load/scope results have
 non-negative weights that sum to one; the browser percentile math reproduces
 every stored rank and margin; feasible results are strictly #1; the known
-fallbacks are `.223`/all, 9mm/centerfire, `.45 ACP` and `.357 Magnum`/pistol,
-and `.50 BMG`/all; and `.380 ACP` wins the pistol case through the compact-case
-criterion while remaining unable to win all or centerfire. It also pins the two
-honesty rules: `.44 Magnum`/pistol is reported as a 29-way tie with nothing
-hoisted above its ties, and `dominantCriterion` flags the single-column
-fallback while leaving 9mm's 63 % cost weighting unflagged.
+fallbacks are `.223`/all, 9mm/centerfire, `.45 ACP`/all, `.357 Magnum`/pistol,
+and `.50 BMG`/all; and `.380 ACP` wins the pistol case with recoil as its
+largest weight while remaining unable to win all or centerfire. It also pins the
+two honesty rules: `.44 Magnum`/pistol is reported as a 29-way tie with nothing
+hoisted above its ties, and `dominantCriterion` flags the single-column fallback
+while leaving 9mm's 76 % cost weighting unflagged. One test exists only because a
+bug got through: **no stored weighting may be degenerate** — every weighting has
+to spread the scores across its comparison set, which is what caught power factor
+and recoil turning out to be the same measurement.
+
+`tests/recoil.test.mjs` checks the derived recoil column: every load produces a
+finite energy from its own momentum, the energy is impulse²/(2·m·g), halving the
+gun mass doubles the energy, the ordering matches shooter intuition
+(`.22 LR < .380 < 9mm < .357 < .44`, `.223 < .308 < .50 BMG`), the dot scale is
+driven by fixed bounds rather than dataset quantiles, `.380 ACP` and 9mm Luger
+land on different dots, and no load has quietly regained a hand-typed `recoil`
+field.
+
+`tests/legality.test.mjs` keeps the jurisdiction overlay honest: every
+jurisdiction is documented and dated, rules and exceptions only name known loads
+and codes, `.380 ACP` is unrestricted while 9mm is restricted in Mexico and
+Italy, Mexico separates `.38 Special` from `.357 Magnum` despite the shared
+bullet diameter, `.308 Win` stays legal where `.303 British` does not, Canada
+catches only the small calibres, and the filter never invents or drops rows.
 
 ```
 node --test tests/*.test.mjs
@@ -518,9 +532,12 @@ node --test tests/*.test.mjs
 Protocol — no Playwright install and no browser download, which matters on this
 NixOS host — and asserts filtering, sorting, row expansion, the unit toggle,
 silhouette rendering, designer/range columns, trajectory tables, designer
-search, the empty state, and the Make the case flow (9mm's centerfire fallback,
-widening it back to all loads, `.223`/all, `.45 ACP`/pistol, `.380 ACP`'s
-compact-case pistol win and its all-load failure, clear/restore, a phone-width
+search, the empty state, derived recoil (units, reference gun, the
+`.380`/9mm separation, sorting both ways), the jurisdiction filter (badge, count,
+summary, `.380` survives Mexico while 9mm does not, chips respect it, case mode
+parks and restores it), and the Make the case flow (9mm's centerfire fallback,
+widening it back to all loads, `.223`/all, `.45 ACP`/all, `.380 ACP`'s
+recoil-led pistol win and its all-load failure, clear/restore, a phone-width
 panel, and the tie/one-column disclosures plus the focus and chip state that
 case mode owns).
 

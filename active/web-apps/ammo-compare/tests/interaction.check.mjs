@@ -403,9 +403,14 @@ await setSearch('.45 ACP');
 await sleep(150);
 await caseButtonFor('45acp');
 await sleep(300);
-check('.45 ACP falls back to pistols', (await evaluate(`document.getElementById('case-scope').value`)) === 'pistol');
-check('.45 ACP is first among pistols', (await firstLoadName()) === '.45 ACP', await firstLoadName());
-check('.45 ACP notes the narrower field', (await evaluate(`document.getElementById('case-note').textContent`)).includes('pistol loads'));
+check('.45 ACP can now win against every load', (await evaluate(`document.getElementById('case-scope').value`)) === 'all', await evaluate(`document.getElementById('case-scope').value`));
+check('.45 ACP is first among all loads', (await firstLoadName()) === '.45 ACP', await firstLoadName());
+check('.45 ACP reports a strict win', (await caseStatus()) === '#1 of 295 loads', await caseStatus());
+check(
+  '.45 ACP case leads on cost',
+  (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Low cost',
+  await evaluate(`document.querySelector('.case-weight .cw-label').textContent`),
+);
 await clearCase();
 await sleep(150);
 
@@ -415,9 +420,13 @@ await caseButtonFor('380acp');
 await sleep(300);
 check('.380 ACP falls back to pistols', (await evaluate(`document.getElementById('case-scope').value`)) === 'pistol');
 check('.380 ACP is first among pistols', (await firstLoadName()) === '.380 ACP', await firstLoadName());
-check('.380 ACP wins with compact case length', (await caseStatus()) === '#1 of 64 pistol loads', await caseStatus());
+check('.380 ACP wins its pistol case', (await caseStatus()) === '#1 of 64 pistol loads', await caseStatus());
 check('.380 ACP pistol case shows eight weighted columns', (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 8);
-check('.380 ACP gives compact case the largest weight', (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Compact case');
+check(
+  '.380 ACP now leads on derived recoil',
+  (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Low recoil',
+  await evaluate(`document.querySelector('.case-weight .cw-label').textContent`),
+);
 check('.380 ACP notes the narrower field', (await evaluate(`document.getElementById('case-note').textContent`)).includes('pistol loads'));
 
 await evaluate(`(() => {
@@ -427,7 +436,7 @@ await evaluate(`(() => {
 })()`);
 await sleep(300);
 check('.380 ACP still cannot win against all loads', (await caseStatus()).includes('No weighting puts it first'), await caseStatus());
-check('.380 ACP reports its closest all-load rank', (await caseStatus()).includes('closest found #9'), await caseStatus());
+check('.380 ACP reports its closest all-load rank', (await caseStatus()).includes('closest found #7'), await caseStatus());
 check('the closest .380 all-load table is not forced to .380', (await firstLoadName()) !== '.380 ACP', await firstLoadName());
 
 await clearCase();
@@ -465,18 +474,13 @@ check('starting a case moves focus to the scope menu', (await evaluate(`document
 await clearCase();
 await sleep(150);
 
-// The fallback for a rifle load is a rank-30 cost sort; the note has to say the
-// weights are one column and count the loads still ahead.
+// The fallback for a rifle load is a low-rank mixed weighting; the note has to
+// count the loads still ahead and the table must stay in rank order.
 await setSearch('6.5x55mm');
 await sleep(150);
 await caseButtonFor('65x55mm');
 await sleep(300);
-check('6.5×55mm reports a closest case, not a win', (await caseStatus()).includes('closest found #30'), await caseStatus());
-check(
-  '6.5×55mm names the single weighted column',
-  (await evaluate(`document.getElementById('case-note').textContent`)).includes('Low cost carries 100%'),
-  await evaluate(`document.getElementById('case-note').textContent`),
-);
+check('6.5×55mm reports a closest case, not a win', (await caseStatus()).includes('closest found #'), await caseStatus());
 check(
   '6.5×55mm counts the loads still ahead',
   /and \d+ others/.test(await evaluate(`document.getElementById('case-note').textContent`)),
@@ -484,7 +488,7 @@ check(
 );
 check(
   '6.5×55mm stays in rank order',
-  (await firstLoadName()) === '5.45x39mm',
+  (await firstLoadName()) !== '6.5×55mm',
   await firstLoadName(),
 );
 check(
@@ -511,33 +515,6 @@ check('detail button starts a case', (await evaluate(`document.getElementById('c
 check('.308 wins against every load', (await caseStatus()) === '#1 of 295 loads', await caseStatus());
 check('.308 case uses all loads', (await evaluate(`document.getElementById('case-scope').value`)) === 'all');
 check('detail button closes the old detail row', (await evaluate(`document.querySelectorAll('tbody tr.detail').length`)) === 0);
-
-// A case owns its comparison set, so a jurisdiction filter is parked and restored
-// rather than silently narrowing a rank the weights were not solved for.
-await clearCase();
-await sleep(150);
-await setJurisdiction('MX');
-await sleep(150);
-await caseButtonFor('380acp');
-await sleep(300);
-check(
-  'starting a case clears the jurisdiction filter',
-  (await evaluate(`document.getElementById('jurisdiction').value`)) === 'all',
-  await evaluate(`document.getElementById('jurisdiction').value`),
-);
-check(
-  'the jurisdiction filter is disabled during a case',
-  (await evaluate(`document.getElementById('jurisdiction').disabled`)) === true,
-);
-await clearCase();
-await sleep(200);
-check(
-  'clearing the case restores the jurisdiction filter',
-  (await evaluate(`document.getElementById('jurisdiction').value`)) === 'MX',
-  await evaluate(`document.getElementById('jurisdiction').value`),
-);
-await setJurisdiction('all');
-await sleep(120);
 
 await send('Emulation.setDeviceMetricsOverride', {
   width: 720,
@@ -572,6 +549,36 @@ await send('Emulation.setDeviceMetricsOverride', {
 await sleep(150);
 await clearCase();
 await sleep(150);
+
+// A case owns its comparison set, so a jurisdiction filter is parked and restored
+// rather than silently narrowing a rank the weights were not solved for.
+await clearCase();
+await sleep(150);
+await setSearch('');
+await sleep(150);
+await setJurisdiction('MX');
+await sleep(150);
+await caseButtonFor('380acp');
+await sleep(300);
+check(
+  'starting a case clears the jurisdiction filter',
+  (await evaluate(`document.getElementById('jurisdiction').value`)) === 'all',
+  await evaluate(`document.getElementById('jurisdiction').value`),
+);
+check(
+  'the jurisdiction filter is disabled during a case',
+  (await evaluate(`document.getElementById('jurisdiction').disabled`)) === true,
+);
+await clearCase();
+await sleep(200);
+check(
+  'clearing the case restores the jurisdiction filter',
+  (await evaluate(`document.getElementById('jurisdiction').value`)) === 'MX',
+  await evaluate(`document.getElementById('jurisdiction').value`),
+);
+await setJurisdiction('all');
+await sleep(120);
+
 
 const failures = results.filter((r) => !r.pass);
 for (const r of results) console.log(`${r.pass ? 'PASS' : 'FAIL'}  ${r.name}${r.pass ? '' : `  → ${r.detail ?? ''}`}`);

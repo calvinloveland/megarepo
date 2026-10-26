@@ -242,3 +242,47 @@ from momentum and a stated reference gun mass per category (≈10 oz pocket pist
 ≈17 oz compact, ≈30 oz full size) would break the tie, make the .380-vs-9mm
 trade-off visible, and give the weighting something real to optimise — the same
 “derive, never store” rule the rest of the table already follows.
+
+### Follow-up: recoil and legality (after the review)
+
+The review's last open item — "recoil is the only hand-typed column" — turned out
+to be load-bearing, and closing it exposed a real bug.
+
+**Recoil is now derived** (`lib/recoil.js`): impulse `gr × fps / 7000`, free
+recoil `impulse² / (2 · gun lb · 32.174)`, one reference gun mass per class
+(5 lb rimfire, 2 lb pistol, 8 lb rifle, 7.5 lb shotgun), dot levels from fixed
+bounds (`0.5 / 2 / 5 / 12 ft·lb`). The hand-typed 1–5 field is gone from all 295
+rows and a test fails if one comes back.
+
+The first regeneration then produced `.357 Magnum` “tied for first” with **all 63
+other pistol loads**. Cause: recoil energy is momentum squared over twice the gun
+mass, so inside a class — where the reference mass is fixed — recoil and power
+factor are the same measurement, and weighting both creates a null direction that
+scores every load identically. An SVD of the centred percentile matrix confirmed
+it was the only null direction in every category scope.
+
+Fixes, all in the generator plus one regression test:
+
+- `powerFactor` is no longer a Case criterion (it stays a displayed column).
+- `best_effort_weights()` rejects candidates whose scores barely spread
+  (`MIN_SPREAD = 1e-3`).
+- `tests/cases.test.mjs` asserts **every** stored weighting spreads its
+  comparison set, which is the guard that would have caught this immediately.
+
+Effect on the data: 114/295 loads have a strict case (was 104), rank-1 ties fell
+from 160 to 14, one-hot fallbacks from 172/659 to 67/639. The `.380 ACP` case now
+leads on recoil (27 %) rather than compact case (59 %), which matches how people
+actually describe the choice, and `.45 ACP` can now make its case against all
+loads instead of only pistols.
+
+**Legality is in the table** (`data/legality.js`, `lib/legality.js`): rules per
+(jurisdiction, statutory test) plus exceptions where a diameter rule and the
+statute disagree, a `MX`/`IT`/`CA` badge on restricted rows, the statute in the
+row detail, and a “Legal for civilians in” filter. It is deliberately **not** a
+Case criterion — it is a gate, not a preference — and case mode parks and
+restores the filter rather than narrowing a rank the weights were not solved for.
+`tests/legality.test.mjs` pins the two cases that justify the overlay: .380 ACP
+is unrestricted where 9mm is not, and .38 Special is unrestricted where .357
+Magnum is not.
+
+Suite sizes after this work: 66 unit tests, 108 browser checks.
