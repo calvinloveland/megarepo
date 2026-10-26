@@ -146,14 +146,38 @@ export function rankCase(rows, scope, weights, selectedId, percentiles = null) {
   const above = scored.filter(
     (entry) => entry.row.id !== selectedId && entry.score > selected.score + 1e-9,
   );
+  // Rows that score exactly the same as the selection. They share its rank, and
+  // the panel has to name them: a tie is not a win, and the table must not
+  // pretend otherwise by floating the selected row to the top.
+  const tied = scored.filter(
+    (entry) =>
+      entry.row.id !== selectedId && Math.abs(entry.score - selected.score) <= 1e-9,
+  );
   return {
     rank: above.length + 1,
     selected,
     sorted,
     percentiles: scores,
+    tiedWith: tied.map((entry) => entry.row.name),
     blockers: above
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
       .map((entry) => entry.row.name),
   };
+}
+
+/**
+ * The criterion carrying almost all of a weighting, if there is one.
+ *
+ * The fallback search minimises rank, so its answer is often a vertex of the
+ * weight simplex — a single-column sort dressed up as a case. Callers use this
+ * to say so instead of implying the weights are an even-handed argument.
+ */
+export function dominantCriterion(criteria, weights, threshold = 0.9) {
+  let best = 0;
+  for (let i = 1; i < weights.length; i += 1) {
+    if (weights[i] > weights[best]) best = i;
+  }
+  if (!(weights[best] >= threshold)) return null;
+  return { criterion: criteria[best], weight: weights[best] };
 }
