@@ -284,6 +284,35 @@ The 19 % on bullet weight is slack rather than support: .380 ACP sits at the
 can spend weight on it without losing the margin. The win is real and narrow —
 a one-percentile-point gap over 9mm Luger +P and .25 ACP.
 
+### What the model cannot see about that choice
+
+The weighting agrees with two of the real reasons people carry .380 — it is
+small, and nobody is buying it for muzzle energy — and it is wrong about a
+third. Worth stating plainly, because the Case panel is an argument, not a
+model of buyer preference:
+
+- **Recoil is a property of the cartridge *and* the gun.** The table stores a
+  1–5 dot score, and .380 ACP and 9mm Luger both read 2/5; 28 of the 64 pistol
+  loads sit at that same score. Free recoil energy (`p²/2mg`) tells the story
+  the dots cannot: .380 in a 9.5 oz LCP is ≈4.6 ft·lb, 9mm in a 17.8 oz P365 is
+  ≈5.8, and 9mm in a 30 oz G19 is ≈3.4. The .380 advantage is real against the
+  smallest 9mms and disappears against a mid-size one — which is exactly why the
+  criterion that buyers weigh most is the coarsest column here.
+- **Cost argues the other way in the real market.** .380 ACP is priced at $0.40
+  and 9mm Luger at $0.28 in this dataset (the right ordering), yet .380 still
+  scores the 94th cost percentile because 42 of the 64 pistol rows are unpriced
+  obsolete or collector rounds. Against the alternative someone actually
+  considers, cost is a point against .380, not for it. That is 13 % of the case.
+- **Legality and platform fit are outside the model entirely.** Where 9×19 is
+  restricted for civilians — Mexico permits .380 ACP and not 9mm Parabellum;
+  Italy treats 9×19 as a military calibre — .380 is chosen for reasons no
+  weighting can express. The same goes for the pistol that actually fits a
+  pocket, its capacity, and how much blast and flash it makes indoors.
+
+So read the .380 case as “the most favourable honest framing of this load among
+pistol loads”, which is what it claims to be. It is not evidence that the
+weights reproduce why a person picks a calibre.
+
 ![The case for 9mm Luger](images/case.png)
 
 ### How the weights are found

@@ -231,3 +231,14 @@ Still open, deliberately: the generator-side max-entropy refinement (P1, second 
 `tests/cases.test.mjs` (51 unit tests) and `tests/interaction.check.mjs` (90 browser checks,
 including the tie disclosure, the one-column disclosure, chip state, focus, and the
 scroll-into-view behaviour).
+
+### One model gap the .380 example exposes
+
+`recoil` is the only criterion still hand-typed rather than derived: a 1–5 dot
+score that puts 28 of the 64 pistol loads at 2/5, .380 ACP and 9mm Luger among
+them. It is also the criterion buyers weigh most, so the Case feature can only
+give it 3.7 % of the weight without the data arguing back. Deriving free recoil
+from momentum and a stated reference gun mass per category (≈10 oz pocket pistol,
+≈17 oz compact, ≈30 oz full size) would break the tie, make the .380-vs-9mm
+trade-off visible, and give the weighting something real to optimise — the same
+“derive, never store” rule the rest of the table already follows.
