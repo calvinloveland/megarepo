@@ -3,12 +3,14 @@
 **Reviewed:** `origin/main` @ `813c034f`, the case-maker work synced from the 1337book host
 (`c898461a` export script → `cf9a78f9` feature → `4c2fde69`, `813c034f` follow-ups).
 
-> **Branch note.** This file lives on the local branch, which does *not* contain that code.
-> Local `main` and `origin/main` diverged after `e68586b9`: local main took the
-> `data/cartridges.js` + `lib/schema.js` / `lib/relationships.js` rewrite (214 cartridges),
-> origin/main kept `data/ammo.js` and added silhouettes, trajectory, designers, and this
-> Case feature (295 loads). Nothing here was merged; the review is written against
-> `origin/main` so it is ready when the two lines are reconciled.
+> **Branch note (resolved).** The project briefly existed in two incompatible lines after
+> `e68586b9`: the `data/cartridges.js` + `lib/schema.js` / `lib/relationships.js` rewrite
+> (214 cartridges, 2026-10-21, unpushed) and this one (`data/ammo.js` + silhouettes,
+> trajectory, designers, Case; 295 loads, 2026-10-25). This line was adopted as `main` — it is
+> newer, has more coverage, more tests (49 unit + 79 browser), and the feature under review.
+> The other line is preserved on branch `ammo-compare/schema-line` (`b4c2c436`); its unique
+> features (CSV export, column presets, shift-click secondary sort) are listed under
+> “Still to port” at the end.
 
 ## Verdict
 
@@ -192,3 +194,20 @@ Suggest adding that to `docs/index.md#tests` and adding
 - Offline-only tests, no runtime dependencies, CDP instead of Playwright.
 - The documentation states its own caveats (typical loads, independent maxima, pattern-limited
   shot, estimated BCs, degenerate cost weighting) — rare and worth preserving.
+
+## Still to port from `ammo-compare/schema-line`
+
+These exist only on the archived branch and are worth bringing over when there is appetite:
+
+- **CSV export of the current view** (`lib/csv.js` there) — built from the same column schema,
+  so it cannot drift from what is on screen.
+- **Column show/hide with presets** (`lib/schema.js` presets) and **shift-click secondary
+  sort** (`lib/table.js`) — the reference grid is 12 columns wide and sheds them only by
+  viewport width today.
+- **Unit-aware tooltips on unlabelled quantity cells**, which that line added last
+  (`b7beaf72`); this line labels every cell inline instead.
+
+Not worth porting: its relationship-graph derivation engine. This line already derives energy,
+power factor, momentum, trajectory, and geometry from stored primitives in
+`lib/ballistics.js`, `lib/trajectory.js`, and `lib/cartridge-svg.js`, with SAAMI/C.I.P.
+validation behind the silhouettes; a second derivation graph would duplicate the concept.
