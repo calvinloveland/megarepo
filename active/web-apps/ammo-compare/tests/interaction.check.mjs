@@ -345,6 +345,75 @@ check('the closest .380 all-load table is not forced to .380', (await firstLoadN
 
 await clearCase();
 await sleep(150);
+
+// A load that can only tie must not be presented as a win: no hoisting, and the
+// loads it ties with are named.
+await setSearch('.44 Magnum');
+await sleep(150);
+await caseButtonFor('44mag');
+await sleep(300);
+check('.44 Magnum only ties for first', (await caseStatus()).includes('tied for #1'), await caseStatus());
+check(
+  '.44 Magnum is not floated above its ties',
+  (await firstLoadName()) !== '.44 Magnum',
+  await firstLoadName(),
+);
+check(
+  '.44 Magnum case names the loads it ties with',
+  (await evaluate(`document.getElementById('case-note').textContent`)).includes('It ties with'),
+  await evaluate(`document.getElementById('case-note').textContent`),
+);
+check(
+  '.44 Magnum case admits the weighting is one column',
+  (await evaluate(`document.getElementById('case-note').textContent`)).includes('not an even argument'),
+  await evaluate(`document.getElementById('case-note').textContent`),
+);
+check(
+  'case mode marks the pistol chip instead of All',
+  (await evaluate(`document.querySelector('.chip[aria-pressed="true"]')?.dataset.category`)) === 'pistol',
+  await evaluate(`document.querySelector('.chip[aria-pressed="true"]')?.dataset.category`),
+);
+check('starting a case moves focus to the scope menu', (await evaluate(`document.activeElement.id`)) === 'case-scope', await evaluate(`document.activeElement.id`));
+
+await clearCase();
+await sleep(150);
+
+// The fallback for a rifle load is a rank-30 cost sort; the note has to say the
+// weights are one column and count the loads still ahead.
+await setSearch('6.5x55mm');
+await sleep(150);
+await caseButtonFor('65x55mm');
+await sleep(300);
+check('6.5×55mm reports a closest case, not a win', (await caseStatus()).includes('closest found #30'), await caseStatus());
+check(
+  '6.5×55mm names the single weighted column',
+  (await evaluate(`document.getElementById('case-note').textContent`)).includes('Low cost carries 100%'),
+  await evaluate(`document.getElementById('case-note').textContent`),
+);
+check(
+  '6.5×55mm counts the loads still ahead',
+  /and \d+ others/.test(await evaluate(`document.getElementById('case-note').textContent`)),
+  await evaluate(`document.getElementById('case-note').textContent`),
+);
+check(
+  '6.5×55mm stays in rank order',
+  (await firstLoadName()) === '5.45x39mm',
+  await firstLoadName(),
+);
+check(
+  'the selected row is scrolled into view inside the table',
+  (await evaluate(`(() => {
+    const wrap = document.getElementById('ammo').closest('.table-wrap');
+    const row = document.querySelector('tr.row.is-case');
+    if (!wrap || !row) return false;
+    const w = wrap.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    return r.top >= w.top - 1 && r.bottom <= w.bottom + 1;
+  })()`)) === true,
+);
+
+await clearCase();
+await sleep(150);
 await setSearch('.308 Win');
 await sleep(150);
 await evaluate(`document.querySelector('tbody tr.row[data-id="308"]').click()`);

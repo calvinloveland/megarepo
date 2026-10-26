@@ -11,6 +11,7 @@ import {
   autoCaseFor,
   caseScore,
   criteriaForScope,
+  dominantCriterion,
   percentileScores,
   rankCase,
   resultFor,
@@ -167,4 +168,48 @@ test('rankCase exposes the closest case and its blockers', () => {
   assert.equal(ranking.rank, 9);
   assert.ok(ranking.blockers.length > 0);
   assert.ok(ranking.sorted.some((entry) => entry.row.id === '380acp'));
+});
+
+test('a tie is reported as a tie, not as a win', () => {
+  // .44 Magnum can only tie for first among pistols, and it does so on 100 %
+  // effective range. The ranking must name the loads it ties with, and must not
+  // put the selection ahead of them.
+  const result = resultFor('44mag', 'pistol');
+  assert.equal(result.feasible, false);
+  assert.equal(result.rank, 1);
+  assert.equal(result.weights[4], 1);
+
+  const ranking = rankCase(ROWS, 'pistol', result.weights, '44mag');
+  assert.equal(ranking.tiedWith.length, 29);
+  assert.ok(ranking.tiedWith.includes('.38 Super'));
+  assert.ok(ranking.tiedWith.includes('.357 Magnum'));
+
+  // Name order among equal scores: the selection is not hoisted to the top.
+  assert.equal(ranking.sorted[0].row.name, '.221 Remington Fireball');
+  const position = ranking.sorted.findIndex((entry) => entry.row.id === '44mag');
+  assert.ok(position > 0, 'selected row is first in the sorted list');
+  assert.ok(ranking.sorted.every((entry, index, all) =>
+    index === 0 || all[index - 1].score >= entry.score - 1e-9));
+
+  // A strict win has nothing to tie with.
+  const feasible = rankCase(ROWS, 'centerfire', resultFor('9mm', 'centerfire').weights, '9mm');
+  assert.deepEqual(feasible.tiedWith, []);
+});
+
+test('a single-column weighting is flagged as not an even argument', () => {
+  const pistol = criteriaForScope('pistol');
+  const dominant = dominantCriterion(pistol, resultFor('44mag', 'pistol').weights);
+  assert.ok(dominant, 'expected a dominant criterion');
+  assert.equal(dominant.criterion.key, 'effectiveRangeYd');
+  assert.equal(dominant.weight, 1);
+
+  const even = dominantCriterion(
+    criteriaForScope('centerfire'),
+    resultFor('9mm', 'centerfire').weights,
+  );
+  assert.equal(even, null, '9mm keeps cost at 63 %, below the dominance threshold');
+
+  const spread = dominantCriterion(pistol, [0.3, 0.2, 0.1, 0.1, 0.1, 0.1, 0.05, 0.04, 0.01]);
+  assert.equal(spread, null);
+  assert.equal(dominantCriterion(pistol, [0.5, 0.5, 0, 0, 0, 0, 0, 0, 0], 0.45)?.weight, 0.5);
 });

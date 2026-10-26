@@ -56,7 +56,9 @@
       <div class="case-weights" id="case-weights"></div>
       <p class="case-foot">
         Weights are chosen to be as even as possible while still winning by a safety
-        margin. If no weighting wins, these are the closest weights found. Newer
+        margin. When no weighting wins, these are the closest weights found, and the
+        search optimises rank rather than balance — so the result is sometimes a single
+        column carrying all of the weight, and the note above says so when it is. Newer
         design, heavier bullet, velocity, energy, range, and power factor score
         higher; recoil and cost score lower. Pistol comparisons also score compact
         case length, because shorter cartridges fit smaller frames; that criterion
@@ -138,7 +140,9 @@
         weighting can win against all loads, the case tries centerfire or rimfire and
         then the load’s own category; the “Compare against” menu exposes each set.
         If no weighting wins anywhere, the feature reports the closest case found
-        instead of pretending the load is first. Newer design and heavier bullet are treated as
+        instead of pretending the load is first, and says when that weighting is
+        really a single column. A load that only ties for first keeps its place in
+        the ranking: it is never floated above the loads it ties with. Newer design and heavier bullet are treated as
         “more is better”; recoil and cost are “less is better.” A blank cost is treated
         as the most expensive value so unpriced surplus does not win by default.
       </p>

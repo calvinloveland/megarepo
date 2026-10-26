@@ -21,10 +21,9 @@ import {
   autoCaseFor,
   resultFor,
   scopeOptionsFor,
-  scopeRows,
   criteriaForScope,
+  dominantCriterion,
   percentileScores,
-  caseScore,
   rankCase,
 } from './lib/case.js';
 
@@ -208,19 +207,12 @@ function visibleRows() {
     const { id, scope } = state.caseMode;
     const result = resultFor(id, scope);
     if (!result) return [];
-    const percentiles = casePercentiles(scope);
-    return scopeRows(ROWS, scope)
-      .map((row) => ({ row, score: caseScore(percentiles.get(row.id), result.weights) }))
-      .sort((a, b) => {
-        if (a.score > b.score) return -1;
-        if (a.score < b.score) return 1;
-        // The selected load wins only a true tie; a failed case must not be
-        // dressed up as a win in the table order.
-        if (a.row.id === id) return -1;
-        if (b.row.id === id) return 1;
-        return a.row.name.localeCompare(b.row.name);
-      })
-      .map((entry) => entry.row);
+    // The case owns the ordering, and the panel's own ranking is the only order
+    // that matches the rank it reports. The selected row is deliberately *not*
+    // floated above rows that score the same: a tie is not a win, and the table
+    // must not look like one. The panel names the tied loads instead.
+    const ranking = rankCase(ROWS, scope, result.weights, id, casePercentiles(scope));
+    return ranking ? ranking.sorted.map((entry) => entry.row) : [];
   }
 
   const filtered = ROWS.filter(
@@ -415,11 +407,17 @@ function detailHtml(r) {
 }
 
 function renderChips() {
+  // In case mode the table is the case's comparison set, so the chip row has to
+  // describe that set rather than the paused filter. Centerfire is not a chip
+  // category, so it leaves the row unselected instead of faking an "All" press.
+  const scopeCategory = state.caseMode
+    ? (state.caseMode.scope === 'centerfire' ? null : state.caseMode.scope)
+    : null;
   els.categories.innerHTML = CATEGORIES.map((cat) => {
     const count = cat === 'all'
       ? ROWS.filter((r) => matchesQuery(r, state.query)).length
       : ROWS.filter((r) => r.category === cat && matchesQuery(r, state.query)).length;
-    const active = state.category === cat;
+    const active = state.caseMode ? cat === scopeCategory : state.category === cat;
     return `<button type="button" class="chip" data-category="${cat}"
               aria-pressed="${active}"${state.caseMode ? ' disabled' : ''}>${
       cat === 'all' ? 'All' : cat
@@ -486,7 +484,29 @@ function startCase(id) {
   state.category = 'all';
   expanded.clear();
   render();
-  els.casePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  els.casePanel.scrollIntoView({
+    behavior: reduceMotion ? 'auto' : 'smooth',
+    block: 'nearest',
+  });
+  // The table scrolls the selected row into the middle of its own viewport; if
+  // that still lands under the fold, nudge the page by the minimum needed rather
+  // than hiding the panel that explains the case.
+  const caseRow = els.rows.querySelector('tr.row.is-case');
+  if (caseRow) {
+    // Capped: on a short viewport the panel alone fills the screen, and the
+    // explanation matters more than the row it explains.
+    const overhang = Math.min(
+      caseRow.getBoundingClientRect().bottom - window.innerHeight + 16,
+      96,
+    );
+    if (overhang > 0) {
+      window.scrollBy({ top: overhang, behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+  }
+  // render() replaced the table body, which destroys the button that was just
+  // activated, so focus would otherwise fall back to <body>.
+  els.caseScope.focus({ preventScroll: true });
 }
 
 function clearCase() {
@@ -499,23 +519,50 @@ function clearCase() {
 
 const scopeNoun = (meta) => (meta?.label ?? 'loads').replace(/^All /i, '').toLowerCase();
 
+/** "A, B, C and 26 others" — long tie lists need a count, not a wall of names. */
+function nameList(names, limit = 3) {
+  if (names.length <= limit) return names.join(', ');
+  const rest = names.length - limit;
+  return `${names.slice(0, limit).join(', ')} and ${rest} other${rest === 1 ? '' : 's'}`;
+}
+
 function caseNote(row, scope, result, ranking) {
   const meta = CASE_SCOPES[scope];
   const anyFeasible = scopeOptionsFor(row.id).some(
     (option) => resultFor(row.id, option.scope)?.feasible,
   );
+  // A fallback weighting is often a simplex vertex: one column carrying
+  // everything. Say so, because "weights chosen to be as even as possible" only
+  // describes the feasible branch.
+  const dominant = dominantCriterion(criteriaForScope(scope), result.weights);
+  const narrow = dominant
+    ? ` This is not an even argument: ${dominant.criterion.label} carries ` +
+      `${Math.round(dominant.weight * 100)}% of the weight.`
+    : '';
 
   if (!result.feasible) {
     if (result.rank === 1) {
-      return `No strict weighting separates ${row.name} from the next load; the table shows the tie.`;
+      const tied = ranking?.tiedWith ?? [];
+      const tieNote = tied.length ? ` It ties with ${nameList(tied)}.` : '';
+      return (
+        `No strict weighting separates ${row.name} from the next load, so it only ties ` +
+        `for first.${tieNote}${narrow}`
+      );
     }
     let note =
       `No non-negative weighting of the ${criteriaForScope(scope).length} numeric columns ` +
       `puts ${row.name} first among ${meta.label.toLowerCase()}. ` +
       `The table shows a closest case found by the search.`;
     if (ranking?.blockers.length) {
-      note += ` Still ahead: ${ranking.blockers.join(', ')}.`;
+      const ahead = ranking.rank - 1;
+      note +=
+        ` Still ahead: ${ranking.blockers.join(', ')}` +
+        (ahead > ranking.blockers.length
+          ? ` and ${ahead - ranking.blockers.length} others`
+          : '') +
+        '.';
     }
+    note += narrow;
     note += anyFeasible
       ? ' Try another comparison set.'
       : ' None of the available comparison sets can put it first.';
@@ -523,7 +570,7 @@ function caseNote(row, scope, result, ranking) {
   }
 
   if (scope === 'all') {
-    return `This weighting puts ${row.name} first against all ${meta.count} loads.`;
+    return `This weighting puts ${row.name} first against all ${meta.count} loads.${narrow}`;
   }
   const all = resultFor(row.id, 'all');
   const ignition = row.category === 'rimfire' ? 'rimfire' : 'centerfire';
@@ -531,16 +578,16 @@ function caseNote(row, scope, result, ranking) {
   if (all && !all.feasible) {
     return (
       `No weighting puts it first against all ${CASE_SCOPES.all.count} loads. ` +
-      `This case narrows the field to ${meta.label.toLowerCase()}.`
+      `This case narrows the field to ${meta.label.toLowerCase()}.${narrow}`
     );
   }
   if (ignitionResult && !ignitionResult.feasible && scope === row.category) {
     return (
       `No weighting works against all loads or ${ignition} loads. ` +
-      `This case narrows the field to ${meta.label.toLowerCase()}.`
+      `This case narrows the field to ${meta.label.toLowerCase()}.${narrow}`
     );
   }
-  return `This weighting puts it first among ${meta.label.toLowerCase()}.`;
+  return `This weighting puts it first among ${meta.label.toLowerCase()}.${narrow}`;
 }
 
 function renderCasePanel() {
@@ -604,6 +651,17 @@ function renderCasePanel() {
         </div>`;
     })
     .join('');
+
+  // The selected row is no longer floated to the top, so bring it into view
+  // inside the table's own scroll container without moving the page away from
+  // the panel above it.
+  const wrap = els.table.closest('.table-wrap');
+  const caseRow = els.rows.querySelector('tr.row.is-case');
+  if (wrap && caseRow) {
+    const offset =
+      caseRow.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop;
+    wrap.scrollTop = Math.max(0, offset - wrap.clientHeight / 2 + caseRow.offsetHeight / 2);
+  }
 }
 
 function render() {
