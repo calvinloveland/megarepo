@@ -273,6 +273,17 @@ cannot win against all loads or all centerfire loads. That is the honest result:
 a cartridge can be the right choice for a small gun without beating 9mm on
 ballistic output.
 
+The stored weighting shows what that argument actually rests on: compact case
+length 59 %, heavier bullet 19 %, cost 13 %, low recoil 4 %, and under 2 % for
+the rest. Ablating one criterion at a time says the same thing — drop compact
+case and .380 ACP falls to rank 34 of 64; drop cost and it falls to rank 5; drop
+anything else and it stays first. On its own, compactness (17.3 mm, tied with
+.32 ACP and .32 NAA, behind .25 ACP and .32 S&W) is only good enough for rank 4.
+The 19 % on bullet weight is slack rather than support: .380 ACP sits at the
+25th percentile there, but so do the loads it has to beat, so the entropy step
+can spend weight on it without losing the margin. The win is real and narrow —
+a one-percentile-point gap over 9mm Luger +P and .25 ACP.
+
 ![The case for 9mm Luger](images/case.png)
 
 ### How the weights are found
