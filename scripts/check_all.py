@@ -46,6 +46,7 @@ ALL_CHECKS: list[dict] = [
     {"name": "vernissage", "script": "check_web_app", "args": ["vernissage"]},
     {"name": "vroomon", "script": "check_web_app", "args": ["vroomon"]},
     {"name": "steampunk-tetris", "script": "check_web_app", "args": ["steampunk-tetris"]},
+    {"name": "ammo-compare", "script": "check_web_app", "args": ["ammo-compare"]},
     {"name": "gamebase", "script": "check_web_app", "args": ["gamebase"]},
     {"name": "docker", "script": "build_docker", "args": []},
     {"name": "docs", "script": "build_docs", "args": []},

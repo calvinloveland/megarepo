@@ -50,6 +50,10 @@ KNOWN_APPS = {
         "dir": REPO_ROOT / "active" / "games" / "steampunk-tetris",
         "server_script": "server.mjs",
     },
+    "ammo-compare": {
+        "dir": REPO_ROOT / "active" / "web-apps" / "ammo-compare",
+        "server_script": "server.mjs",
+    },
 }
 
 
@@ -104,6 +108,26 @@ def check_node_sim(app: dict, args: argparse.Namespace) -> int:
         exit_code |= run(["node", "--check", path], app_dir, f"node --check {path}")
 
     exit_code |= run(["npm", "test"], app_dir, "unit tests")
+    return exit_code
+
+
+def check_node_static(app: dict, args: argparse.Namespace) -> int:
+    """Dependency-free static app: syntax-check every module, then run node's
+    test runner over tests/*.test.mjs. No install step and no lockfile — the app
+    ships plain ES modules, and the browser suite (tests/interaction.check.mjs)
+    needs a Chrome the runner cannot assume, so it stays a manual check."""
+    app_dir: Path = app["dir"]
+    exit_code = 0
+
+    targets = ["server.mjs"]
+    for pattern in ("app.js", "lib/*.js", "data/*.js", "tools/*.mjs"):
+        targets += sorted(str(p.relative_to(app_dir)) for p in app_dir.glob(pattern))
+    for target in targets:
+        exit_code |= run(["node", "--check", target], app_dir, f"node --check {target}")
+
+    # node --test takes one glob pattern; a list of paths gets comma-joined by
+    # Node 24 and reported as "Could not find 'a.test.mjs, b.test.mjs'".
+    exit_code |= run(["node", "--test", "tests/*.test.mjs"], app_dir, "unit tests")
     return exit_code
 
 
@@ -231,6 +255,7 @@ def check() -> int:
         "vroomon": check_vroomon,
         "gamebase": check_python_flask,
         "steampunk-tetris": check_steampunk_tetris,
+        "ammo-compare": check_node_static,
     }
     exit_code = checkers[args.app_name](app, args)
 
