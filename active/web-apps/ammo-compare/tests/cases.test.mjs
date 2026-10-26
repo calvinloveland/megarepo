@@ -33,7 +33,7 @@ const expectedCriteria = [
   'energyFtLb',
   'effectiveRangeYd',
   'powerFactor',
-  'recoil',
+  'recoilFtLb',
   'costPerRound',
   'caseLengthMm',
 ];

@@ -39,7 +39,7 @@ CRITERIA = [
     ("energyFtLb", "Energy", "Energy", +1),
     ("effectiveRangeYd", "Eff. range", "Range", +1),
     ("powerFactor", "Power factor", "Power factor", +1),
-    ("recoil", "Low recoil", "Low recoil", -1),
+    ("recoilFtLb", "Low recoil", "Low recoil", -1),
     ("costPerRound", "Low cost", "Low cost", -1),
     ("caseLengthMm", "Compact case", "Compact case", -1, ("pistol",), True),
 ]

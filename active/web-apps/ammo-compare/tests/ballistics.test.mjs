@@ -50,7 +50,7 @@ test('derive() returns both unit systems consistently', () => {
 });
 
 test('every load has the fields the table renders', () => {
-  const required = ['id', 'name', 'category', 'bulletGr', 'velocityFps', 'recoil', 'use', 'notes'];
+  const required = ['id', 'name', 'category', 'bulletGr', 'velocityFps', 'use', 'notes'];
   for (const load of AMMO) {
     for (const key of required) {
       assert.ok(load[key] !== undefined && load[key] !== null, `${load.id} is missing ${key}`);
@@ -58,7 +58,9 @@ test('every load has the fields the table renders', () => {
     assert.ok(Array.isArray(load.platforms) && load.platforms.length > 0, `${load.id} needs platforms`);
     assert.ok(load.bulletGr > 0, `${load.id} bullet weight must be positive`);
     assert.ok(load.velocityFps > 0, `${load.id} velocity must be positive`);
-    assert.ok(load.recoil >= 1 && load.recoil <= 5, `${load.id} recoil must be 1-5`);
+    // Recoil is derived in lib/recoil.js; storing a rating again would bring back
+    // the hand-typed column this replaced.
+    assert.equal(load.recoil, undefined, `${load.id} still stores a hand-typed recoil rating`);
     // costPerRound is optional: reference rows deliberately have no price.
     if (load.costPerRound != null) assert.ok(load.costPerRound > 0, `${load.id} cost must be positive`);
   }

@@ -35,6 +35,13 @@
           <option value="metric">grams · m/s · joules</option>
         </select>
       </label>
+
+      <label class="jurisdiction">
+        <span>Legal for civilians in</span>
+        <select id="jurisdiction">
+          <option value="all">Anywhere (no filter)</option>
+        </select>
+      </label>
     </section>
 
     <section class="case-panel" id="case-panel" hidden aria-label="Weighting case">
@@ -89,7 +96,7 @@
             <th scope="col" data-sort="energy" class="sortable num col-energy"><button type="button">Energy</button></th>
             <th scope="col" data-sort="range" class="sortable num col-range"><button type="button" title="Estimated effective range">Eff. range</button></th>
             <th scope="col" data-sort="powerFactor" class="sortable num col-pf"><button type="button">Power factor</button></th>
-            <th scope="col" data-sort="recoil" class="sortable col-recoil"><button type="button">Recoil</button></th>
+            <th scope="col" data-sort="recoilFtLb" class="sortable col-recoil"><button type="button" title="Free recoil energy in a reference gun for the load's class">Recoil</button></th>
             <th scope="col" data-sort="costPerRound" class="sortable num col-cost"><button type="button">Cost/rd</button></th>
             <th scope="col" data-sort="use" class="sortable col-use"><button type="button">Typical use</button></th>
           </tr>

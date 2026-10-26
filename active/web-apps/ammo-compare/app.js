@@ -15,6 +15,13 @@ import {
   YD_TO_M,
   IN_TO_CM,
 } from './lib/trajectory.js';
+import { recoilProfile } from './lib/recoil.js';
+import {
+  JURISDICTIONS,
+  matchesJurisdiction,
+  restrictionsFor,
+  jurisdictionNames,
+} from './lib/legality.js';
 import {
   CASE_CRITERIA,
   CASE_SCOPES,
@@ -32,6 +39,7 @@ const ROWS = AMMO.map((load) => ({
   ...load,
   ...derive(load),
   ...ballisticProfile(load),
+  ...recoilProfile(load),
   designer: inventorFor(load.id),
   sectionalDensity: sectionalDensity(load.bulletGr, load.diameterIn),
   reference: referenceFor(load.id),
@@ -47,6 +55,7 @@ const CATEGORIES = ['all', ...new Set(ROWS.map((r) => r.category))];
 const state = {
   query: '',
   category: 'all',
+  jurisdiction: 'all',
   sortKey: 'energy',
   sortDir: 'desc',
   units: 'imperial',
@@ -63,6 +72,12 @@ function casePercentiles(scope) {
   return CASE_PERCENTILES.get(scope);
 }
 
+/** The jurisdiction currently filtering the table, or null for no filter. */
+const legalJurisdiction = () =>
+  state.jurisdiction === 'all'
+    ? null
+    : (JURISDICTIONS.find((jurisdiction) => jurisdiction.code === state.jurisdiction) ?? null);
+
 /** Numeric-aware accessors: sorting and rendering both read from these. */
 const ACCESSORS = {
   name: (r) => r.name.toLowerCase(),
@@ -74,7 +89,7 @@ const ACCESSORS = {
   energy: (r) => r.energyFtLb,
   range: (r) => r.effectiveRangeYd,
   powerFactor: (r) => r.powerFactor,
-  recoil: (r) => r.recoil,
+  recoilFtLb: (r) => r.recoilFtLb,
   costPerRound: (r) => r.costPerRound ?? null,
   use: (r) => r.use.toLowerCase(),
 };
@@ -84,6 +99,7 @@ const els = {
   summary: document.getElementById('summary'),
   search: document.getElementById('search'),
   units: document.getElementById('units'),
+  jurisdiction: document.getElementById('jurisdiction'),
   categories: document.getElementById('categories'),
   table: document.getElementById('ammo'),
   controls: document.getElementById('controls'),
@@ -157,10 +173,16 @@ function momentum(r) {
 }
 
 function recoil(r) {
+  const metric = state.units === 'metric';
+  const value = metric ? r.recoilJoules : r.recoilFtLb;
   const dots = Array.from({ length: 5 }, (_, i) =>
-    i < r.recoil ? '●' : '<span class="off">●</span>',
+    i < r.recoilLevel ? '●' : '<span class="off">●</span>',
   ).join('');
-  return `<span aria-hidden="true">${dots}</span><span class="label">${r.recoil}/5</span>`;
+  const label = `${value < 10 ? value.toFixed(1) : fmtInt(value)}${metric ? ' J' : ' ft·lb'}`;
+  return (
+    `<span aria-hidden="true">${dots}</span>` +
+    `<span class="label" title="Free recoil energy in ${r.recoilGunLabel}">${label}</span>`
+  );
 }
 
 function range(r) {
@@ -216,7 +238,10 @@ function visibleRows() {
   }
 
   const filtered = ROWS.filter(
-    (r) => (state.category === 'all' || r.category === state.category) && matchesQuery(r, state.query),
+    (r) =>
+      (state.category === 'all' || r.category === state.category) &&
+      matchesJurisdiction(r, state.jurisdiction) &&
+      matchesQuery(r, state.query),
   );
   const get = ACCESSORS[state.sortKey] ?? ACCESSORS.energy;
   const dir = state.sortDir === 'asc' ? 1 : -1;
@@ -238,6 +263,14 @@ function visibleRows() {
 function rowHtml(r) {
   const open = expanded.has(r.id);
   const cased = state.caseMode?.id === r.id;
+  // Restrictions are a property of the cartridge, so the badge rides with the
+  // load rather than taking a column of its own.
+  const restrictions = restrictionsFor(r);
+  const lawBadge = restrictions.length
+    ? `<span class="law-badge" title="${escapeHtml(
+        restrictions.map((x) => `${x.label} (${x.scope}): ${x.note}`).join(' '),
+      )}">${restrictions.map((x) => x.code).join(' ')}</span>`
+    : '';
   // Energy spans three orders of magnitude once anti-materiel rounds are in the
   // set, so the bar is logarithmic; a linear scale would flatten everything
   // below .50 BMG into an invisible sliver.
@@ -250,7 +283,7 @@ function rowHtml(r) {
           <span class="load-name">${r.name}</span><span class="cat">${r.category}</span>
           <button type="button" class="case-btn${cased ? ' is-active' : ''}" data-case="${r.id}"
                   title="Make the case for ${escapeHtml(r.name)}"
-                  aria-label="Make the case for ${escapeHtml(r.name)}">Case</button>
+                  aria-label="Make the case for ${escapeHtml(r.name)}">Case</button>${lawBadge}
         </span>
         ${loadSubline(r)}
       </th>
@@ -318,6 +351,7 @@ function trajectoryHtml(r) {
 }
 
 function detailHtml(r) {
+  const restrictions = restrictionsFor(r);
   const payload = r.pelletLabel
     ? `<dt>Payload</dt><dd>${r.pelletLabel}</dd>`
     : '';
@@ -337,6 +371,14 @@ function detailHtml(r) {
     : null;
   const specs = [
     ['Momentum', `${r.momentumLbfS.toFixed(2)} lbf·s`],
+    [
+      'Free recoil',
+      `${r.recoilFtLb < 10 ? r.recoilFtLb.toFixed(2) : fmtInt(r.recoilFtLb)} ft·lb ` +
+        `(${r.recoilJoules < 10 ? r.recoilJoules.toFixed(1) : fmtInt(r.recoilJoules)} J) ` +
+        `from ${r.recoilGunLabel}; impulse ${r.recoilImpulseLbfS.toFixed(1)} lbf·s. ` +
+        `Recoil energy scales inversely with gun weight — half the weight, twice the kick. ` +
+        `Propellant gas is ignored, so magnum rifle and shotgun figures run low.`,
+    ],
     r.introduced && ['Introduced', r.introduced],
     r.nation && ['Nation', r.nation],
     ['Typical use', r.use],
@@ -385,6 +427,12 @@ function detailHtml(r) {
         ? 'No current retail price — obsolete, surplus, or collector-only'
         : `≈ ${fmtCost(r.costPerRound)} (rough retail estimate)`,
     ],
+    [
+      'Legality',
+      restrictions.length
+        ? restrictions.map((x) => `${x.label} (${x.scope}): ${x.note}`).join(' ')
+        : 'No restriction recorded for Mexico, Italy, or Canada.',
+    ],
     ['Source', sourceLabel],
   ].filter(Boolean);
   return `
@@ -415,8 +463,13 @@ function renderChips() {
     : null;
   els.categories.innerHTML = CATEGORIES.map((cat) => {
     const count = cat === 'all'
-      ? ROWS.filter((r) => matchesQuery(r, state.query)).length
-      : ROWS.filter((r) => r.category === cat && matchesQuery(r, state.query)).length;
+      ? ROWS.filter((r) => matchesJurisdiction(r, state.jurisdiction) && matchesQuery(r, state.query)).length
+      : ROWS.filter(
+          (r) =>
+            r.category === cat &&
+            matchesJurisdiction(r, state.jurisdiction) &&
+            matchesQuery(r, state.query),
+        ).length;
     const active = state.caseMode ? cat === scopeCategory : state.category === cat;
     return `<button type="button" class="chip" data-category="${cat}"
               aria-pressed="${active}"${state.caseMode ? ' disabled' : ''}>${
@@ -438,8 +491,7 @@ function renderSortIndicators() {
 }
 
 function renderSummary(rows) {
-  if (state.caseMode) {
-    const row = ROWS.find((r) => r.id === state.caseMode.id);
+  if (state.caseMode) {    const row = ROWS.find((r) => r.id === state.caseMode.id);
     const result = resultFor(state.caseMode.id, state.caseMode.scope);
     const meta = CASE_SCOPES[state.caseMode.scope];
     const verdict = result?.feasible ? 'ranked #1' : `closest found #${result?.rank ?? '—'}`;
@@ -461,8 +513,9 @@ function renderSummary(rows) {
   const median = energies[Math.floor(energies.length / 2)];
   const medianLabel = metric ? `${fmtInt(median * 1.3558179483314004)} J` : `${fmtInt(median)} ft·lb`;
   els.summary.innerHTML =
-    `Showing <strong>${rows.length}</strong> of ${ROWS.length} loads · ` +
-    `highest <strong>${hottest.name}</strong> at ${hottestLabel} · ` +
+    `Showing <strong>${rows.length}</strong> of ${ROWS.length} loads` +
+    (legalJurisdiction() ? ` legal for civilians in <strong>${legalJurisdiction().label}</strong>` : '') +
+    ` · highest <strong>${hottest.name}</strong> at ${hottestLabel} · ` +
     `median ${medianLabel}`;
 }
 
@@ -474,14 +527,18 @@ function startCase(id) {
   const previous = state.caseMode?.previous ?? {
     query: state.query,
     category: state.category,
+    jurisdiction: state.jurisdiction,
     sortKey: state.sortKey,
     sortDir: state.sortDir,
   };
   state.caseMode = { id, scope: auto.scope, previous };
   // The case owns the comparison set, so the ordinary filters are paused and
-  // cleared. They are restored by Clear case.
+  // cleared. They are restored by Clear case. A jurisdiction filter is cleared
+  // too: the stored weights were solved over the whole scope, so narrowing the
+  // field afterwards would report a rank the weighting was never built for.
   state.query = '';
   state.category = 'all';
+  state.jurisdiction = 'all';
   expanded.clear();
   render();
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -674,6 +731,8 @@ function render() {
   renderSortIndicators();
   renderCasePanel();
   els.search.value = state.query;
+  els.jurisdiction.value = state.jurisdiction;
+  els.jurisdiction.disabled = Boolean(state.caseMode);
 }
 
 /* ------------------------------- events ------------------------------- */
@@ -686,6 +745,12 @@ els.search.addEventListener('input', (e) => {
 
 els.units.addEventListener('change', (e) => {
   state.units = e.target.value;
+  render();
+});
+
+els.jurisdiction.addEventListener('change', (e) => {
+  if (state.caseMode) return;
+  state.jurisdiction = e.target.value;
   render();
 });
 
@@ -759,5 +824,15 @@ els.rows.addEventListener('keydown', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && state.caseMode) clearCase();
 });
+
+els.jurisdiction.insertAdjacentHTML(
+  'beforeend',
+  JURISDICTIONS.map(
+    (jurisdiction) =>
+      `<option value="${jurisdiction.code}">${escapeHtml(jurisdiction.label)} (${escapeHtml(
+        jurisdiction.scope,
+      )})</option>`,
+  ).join(''),
+);
 
 render();

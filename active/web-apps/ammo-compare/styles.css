@@ -327,6 +327,21 @@ td.num, th.num { text-align: right; }
 }
 .case-btn:hover { color: var(--accent); border-color: var(--accent); }
 .case-btn.is-active { color: #1b1300; background: var(--accent); border-color: var(--accent-soft); }
+/* Jurisdiction codes ride with the load instead of taking a column. */
+.law-badge {
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid rgba(214, 96, 96, .45);
+  border-radius: 999px;
+  color: #e08b8b;
+  font-size: 9.5px;
+  line-height: 15px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: help;
+}
+.law-badge:hover { border-color: #e08b8b; color: #f0a6a6; }
 .case-btn-wide {
   margin: 12px 0 0;
   padding: 5px 10px;

@@ -17,6 +17,8 @@
 import { AMMO } from '../data/ammo.js';
 import { derive } from '../lib/ballistics.js';
 import { INVENTORS } from '../data/inventors.js';
+import { recoilProfile } from '../lib/recoil.js';
+import { matchesJurisdiction, restrictionsFor } from '../lib/legality.js';
 
 const CDP = process.env.CDP_URL ?? 'http://127.0.0.1:9222';
 const APP_URL = process.env.APP_URL ?? 'http://localhost:5113/';
@@ -104,6 +106,87 @@ check(
   (await evaluate(`new Set([...document.querySelectorAll('td.col-svg svg')].map((s) => s.getAttribute('viewBox'))).size`)) === 1,
 );
 check('default sort is energy, highest first', (await firstLoadName()) === hottest.name, await firstLoadName());
+
+/* --------------------------------- recoil --------------------------------- */
+
+const recoilOf = (id) =>
+  evaluate(`(() => {
+    const cell = document.querySelector('tbody tr.row[data-id="${id}"] td.col-recoil');
+    return {
+      label: cell.querySelector('.label').textContent,
+      filled: 5 - cell.querySelectorAll('span.off').length,
+      title: cell.querySelector('.label').title,
+    };
+  })()`);
+const recoil380 = await recoilOf('380acp');
+const recoil9mm = await recoilOf('9mm');
+check('recoil is shown in derived units', /ft·lb$/.test(recoil380.label), recoil380.label);
+check('recoil names the reference gun', /2 lb pistol/.test(recoil380.title), recoil380.title);
+check(
+  'recoil now separates .380 ACP from 9mm',
+  recoil380.filled < recoil9mm.filled,
+  `.380 ${recoil380.filled}/5 vs 9mm ${recoil9mm.filled}/5`,
+);
+check(
+  'derived recoil matches the library',
+  recoil9mm.label === `${recoilProfile(AMMO.find((l) => l.id === '9mm')).recoilFtLb.toFixed(1)} ft·lb`,
+  recoil9mm.label,
+);
+await clickHeader('recoilFtLb');
+await sleep(150);
+check(
+  'recoil sorts hardest first',
+  (await firstLoadName()) === AMMO.map((l) => ({ ...l, ...recoilProfile(l) })).reduce((a, b) => (b.recoilFtLb > a.recoilFtLb ? b : a)).name,
+  await firstLoadName(),
+);
+await clickHeader('recoilFtLb');
+await sleep(150);
+check('recoil sorts gentlest first', (await firstLoadName()) === '2 mm Kolibri', await firstLoadName());
+
+/* ------------------------------- jurisdiction ------------------------------ */
+
+const setJurisdiction = (code) =>
+  evaluate(`(() => {
+    const select = document.getElementById('jurisdiction');
+    select.value = ${JSON.stringify(code)};
+    select.dispatchEvent(new Event('change'));
+  })()`);
+
+check(
+  'restricted rows carry a jurisdiction badge',
+  (await evaluate(`document.querySelector('tbody tr.row[data-id="9mm"] .law-badge')?.textContent`)) === 'MX IT',
+  await evaluate(`document.querySelector('tbody tr.row[data-id="9mm"] .law-badge')?.textContent`),
+);
+check(
+  'unrestricted rows carry no badge',
+  (await evaluate(`document.querySelector('tbody tr.row[data-id="380acp"] .law-badge')`)) === null,
+);
+
+await setJurisdiction('MX');
+await sleep(200);
+const legalInMx = AMMO.filter((load) => matchesJurisdiction(load, 'MX')).length;
+check('jurisdiction filter counts legal loads', (await rowCount()) === legalInMx, `${await rowCount()} vs ${legalInMx}`);
+check(
+  'jurisdiction filter names the jurisdiction',
+  (await evaluate(`document.getElementById('summary').textContent`)).includes('Mexico'),
+  await evaluate(`document.getElementById('summary').textContent`),
+);
+check(
+  '.380 ACP survives the Mexico filter',
+  (await evaluate(`document.querySelector('tbody tr.row[data-id="380acp"]') !== null`)) === true,
+);
+check(
+  '9mm does not survive the Mexico filter',
+  (await evaluate(`document.querySelector('tbody tr.row[data-id="9mm"]') === null`)) === true,
+);
+check(
+  'category chips respect the jurisdiction filter',
+  (await evaluate(`[...document.querySelectorAll('.chip')].every((chip) => !chip.querySelector('.count') || Number(chip.querySelector('.count').textContent) <= ${legalInMx})`)) === true,
+);
+
+await setJurisdiction('all');
+await sleep(150);
+check('clearing the jurisdiction filter restores every load', (await rowCount()) === AMMO.length, `${await rowCount()} rows`);
 
 await clickChip('pistol');
 await sleep(150);
@@ -243,6 +326,10 @@ check(
 check(
   'details include a trajectory table',
   (await evaluate(`document.querySelectorAll('tbody tr.detail .trajectory tbody tr').length`)) >= 4,
+);
+check(
+  'details cite the jurisdiction that restricts the load',
+  (await evaluate(`document.querySelector('tbody tr.detail')?.textContent ?? ''`)).includes('Art. 10'),
 );
 
 /* ------------------------------ make the case ------------------------------ */
@@ -424,6 +511,33 @@ check('detail button starts a case', (await evaluate(`document.getElementById('c
 check('.308 wins against every load', (await caseStatus()) === '#1 of 295 loads', await caseStatus());
 check('.308 case uses all loads', (await evaluate(`document.getElementById('case-scope').value`)) === 'all');
 check('detail button closes the old detail row', (await evaluate(`document.querySelectorAll('tbody tr.detail').length`)) === 0);
+
+// A case owns its comparison set, so a jurisdiction filter is parked and restored
+// rather than silently narrowing a rank the weights were not solved for.
+await clearCase();
+await sleep(150);
+await setJurisdiction('MX');
+await sleep(150);
+await caseButtonFor('380acp');
+await sleep(300);
+check(
+  'starting a case clears the jurisdiction filter',
+  (await evaluate(`document.getElementById('jurisdiction').value`)) === 'all',
+  await evaluate(`document.getElementById('jurisdiction').value`),
+);
+check(
+  'the jurisdiction filter is disabled during a case',
+  (await evaluate(`document.getElementById('jurisdiction').disabled`)) === true,
+);
+await clearCase();
+await sleep(200);
+check(
+  'clearing the case restores the jurisdiction filter',
+  (await evaluate(`document.getElementById('jurisdiction').value`)) === 'MX',
+  await evaluate(`document.getElementById('jurisdiction').value`),
+);
+await setJurisdiction('all');
+await sleep(120);
 
 await send('Emulation.setDeviceMetricsOverride', {
   width: 720,

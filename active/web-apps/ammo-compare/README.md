@@ -10,7 +10,9 @@ side by side, with muzzle energy, power factor, effective range, and trajectory
   current-production rounds such as 6.5 PRC, 7mm PRC, `.300 PRC`, and `.277 Fury`.
 - Rows carry the cartridge's origin, introduction year, designer, bullet
   diameter, case length, estimated effective range, and the usual bullet-weight
-  range — not just the numbers for one load.
+  range — not just the numbers for one load. Recoil is derived from bullet
+  momentum and a reference gun mass per class, so .380 ACP and 9mm Luger no
+  longer share the same dot score.
 - Each row also draws a cartridge profile generated from its case length, bullet
   diameter, and bullet weight, so the shapes are data, not bespoke artwork. Case
   bodies use published SAAMI or C.I.P. dimensions for 39 cartridges (42 rows);
@@ -35,6 +37,10 @@ side by side, with muzzle energy, power factor, effective range, and trajectory
 - Toggle imperial (grains · fps · ft·lb) and metric (g · m/s · J) units.
 - Cost is priced only for current commercial loads; obsolete, surplus, and
   collector cartridges are left blank instead of given an invented figure.
+- **Legality:** restricted rows carry a jurisdiction badge, the detail row gives
+  the statute, and the “Legal for civilians in” control filters to Mexico, Italy,
+  or Canada. It is a hard filter, not a Case weight, and a summary rather than
+  legal advice.
 - Click a row for platforms, reference metadata (nation, year, designer, bullet
   diameter, case length, sectional density, BC), the trajectory table, and
   shooting notes.

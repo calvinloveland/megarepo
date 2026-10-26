@@ -10,6 +10,7 @@
 import { AMMO } from '../data/ammo.js';
 import { derive } from '../lib/ballistics.js';
 import { effectiveRangeYd } from '../lib/trajectory.js';
+import { recoilProfile } from '../lib/recoil.js';
 
 const rows = AMMO.map((load) => {
   const derived = derive(load);
@@ -23,7 +24,7 @@ const rows = AMMO.map((load) => {
     energyFtLb: derived.energyFtLb,
     effectiveRangeYd: effectiveRangeYd(load),
     powerFactor: derived.powerFactor,
-    recoil: load.recoil,
+    recoilFtLb: recoilProfile(load).recoilFtLb,
     costPerRound: load.costPerRound ?? null,
     caseLengthMm: load.caseLengthMm ?? null,
   };

@@ -11,11 +11,15 @@ there so the comparison is quick, not so the page has features.
 `data/ammo.js` stores what a load *is*:
 
 ```js
-{ id, name, category, bulletGr, velocityFps, costPerRound?, recoil, use, platforms, notes }
+{ id, name, category, bulletGr, velocityFps, costPerRound?, use, platforms, notes }
 ```
 
 `costPerRound` is optional. It is present only for the curated loads that have a
 current commercial equivalent; reference rows are deliberately unpriced.
+
+Recoil is **not** stored. It used to be a hand-typed 1-5 rating, which scored
+.380 ACP and 9mm Luger identically at 2/5; it is now derived in `lib/recoil.js`
+(see below), like energy and trajectory.
 
 Reference rows may also carry `introduced`, `nation`, `diameterIn`, `bc`,
 `caseLengthMm`, `factoryLoadings`, `commonGrains`, and `source`. `commonGrains`
@@ -40,6 +44,34 @@ Derived values are never stored. `lib/ballistics.js` computes them:
 Keeping the math in one module is the point: the UI, the tests, and anything
 added later all read the same implementation, so an energy column can never
 disagree with a velocity column.
+
+`lib/recoil.js` carries the recoil model. A cartridge does not have a recoil; a
+cartridge *in a gun* does, so the column stores the free recoil energy in a
+reference gun for the load's class:
+
+| Value | Formula | Notes |
+|---|---|---|
+| Recoil impulse (lbf·s) | `gr × fps / 7000` | The momentum the hand or shoulder absorbs |
+| Free recoil (ft·lb) | `impulse² / (2 · gun lb · 32.174)` | Energy scales inversely with gun weight |
+| Free recoil (J) | `ft·lb × 1.3558179` | |
+| Dot level (1-5) | bounds `0.5 / 2 / 5 / 12 ft·lb` | Fixed bounds, so a dot keeps its meaning as rows are added |
+
+| Class | Reference gun | Why |
+|---|---|---|
+| Rimfire | 5 lb | A .22 rifle; rimfire pistols are lighter, so their recoil is understated |
+| Pistol | 2 lb | A service or compact pistol (~32 oz) |
+| Rifle | 8 lb | A 22–24″ sporter with a scope |
+| Shotgun | 7.5 lb | A 28″ field gun |
+
+Two simplifications, both stated on the page: propellant gas momentum is ignored
+(a few percent for pistols, understating magnum rifle and shotgun recoil by
+roughly a fifth to a third), and one reference mass stands in for a whole class
+the same way the barrel lengths do. The row detail prints the energy, the
+impulse, and the reference gun so the assumption is never hidden.
+
+The payoff is resolution where it matters: .380 ACP (1.37 ft·lb) and 9mm Luger
+(3.22 ft·lb) are now 2/5 and 3/5 instead of both 2/5, and the 28-way tie at 2/5
+that the hand-typed column produced is gone.
 
 `lib/trajectory.js` carries the exterior-ballistics model. Its inputs are the
 row's bullet weight, diameter, muzzle velocity, and class; a published G1 BC is
@@ -128,6 +160,46 @@ drawings. The test enforces 0.1 mm on bullet diameter, 1.5 mm on case length, an
 a 30% band on the inferred base and rim so a regression cannot quietly widen the
 gap.
 
+## Legality
+
+Legality is not a trade-off like cost or recoil — a load may be possessed by a
+civilian in a jurisdiction or it may not, and the answer comes from statute, not
+physics — so it is deliberately **not** a Case criterion. It is a hard filter and
+a row annotation instead.
+
+`data/legality.js` holds one rule per (jurisdiction, statutory test) plus the
+exceptions where the statute and a diameter rule disagree:
+
+| Jurisdiction | Scope | Basis | Rule |
+|---|---|---|---|
+| Mexico | civilian possession | Ley Federal de Armas de Fuego, Art. 10 | Pistols outside .22/.25/.32/.380 are reserved; rifles above .30 calibre are reserved |
+| Italy | civilian ownership | L. 110/1975 and the military-calibre list | 9×19 Parabellum is a military calibre; 9×21 IMI is the legal substitute |
+| Canada | prohibited firearms | Criminal Code s.84(1) | Handguns in .25 or .32 calibre are prohibited outright |
+
+Mexico is the reason the overlay is written by calibre designation rather than
+bullet diameter. .380 ACP and 9mm Parabellum both use a .355″ bullet, but only
+.380 is on the permitted list — and .38 Special revolvers are permitted while
+.357 Magnum, the same .357″ bullet, is not. Those two pairs are the exceptions
+table, and the tests pin them:
+
+```js
+'38sp': { MX: null },          // Art. 10 lists .38 Special revolvers
+'32-20-winchester': { MX: null } // a permitted revolver calibre, not a rifle one
+```
+
+On the page, restricted rows carry a small jurisdiction badge (`MX IT`) with the
+reason in its tooltip, the detail row spells out each jurisdiction's rule, and
+the **“Legal for civilians in”** control filters the table to loads that pass
+that jurisdiction's rules. Category chips count only the loads that pass, so the
+counts never contradict the rows.
+
+Two limits worth stating. Long-gun and shotgun rules are modelled only where they
+are a simple calibre test (Mexico's .30-calibre line); transport, carry, magazine
+and feature restrictions are not modelled at all, and Canada's barrel-length rule
+is a property of the firearm rather than the cartridge. And this is a summary for
+comparison, **not legal advice** — each jurisdiction records its source and the
+month it was last checked, so the summary can be re-read against the statute.
+
 ## Data caveats (deliberate, and stated on the page)
 
 - **Curated rows are typical, not maximum loads.** Pistol ≈ 4″, rifle ≈ 22–24″,
@@ -145,6 +217,12 @@ gap.
 - **Cost per round is a rough retail estimate**, and only for cartridges that
   have a current commercial load. Obsolete and collector rounds are unpriced by
   design; there is no honest single number for them.
+- **Recoil is a cartridge-plus-gun figure.** The column is free recoil energy in a
+  reference gun for the class, not a rating of how a particular pistol feels.
+  Propellant gas is ignored, which understates magnum rifle and shotgun recoil.
+- **Legality is a curated summary, not legal advice.** It covers three
+  jurisdictions, records the statute it was read from, and depends on the firearm
+  as well as the cartridge.
 
 ## Layout and interaction
 
@@ -213,8 +291,8 @@ the weights, the comparison set, the resulting rank, and the rows still ahead
 when the case loses.
 
 The shared criteria are the eight numeric table columns: introduction year,
-bullet weight, velocity, energy, effective range, power factor, recoil, and
-cost. Pistol comparisons add a ninth, compact case length, because shorter
+bullet weight, velocity, energy, effective range, power factor, derived free
+recoil, and cost. Pistol comparisons add a ninth, compact case length, because shorter
 cartridges are what let small pistols exist; that criterion is deliberately not
 used against rifles or shotguns. Higher is better for year, bullet weight,
 velocity, energy, range, and power factor; lower is better for recoil, cost, and
