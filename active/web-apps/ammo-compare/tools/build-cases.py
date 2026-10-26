@@ -2,10 +2,12 @@
 """Generate the precomputed "make the case" weightings.
 
 For every load and every comparison scope we look for a non-negative weighting
-of the eight numeric columns that puts the selected load first. When a strict
-win exists, the weights are the maximum-entropy point inside a safety-margin
-region, so the case is not just "sort by one column". When it does not, a
-deterministic search finds a low-rank "closest found" weighting.
+of the numeric columns that puts the selected load first. Eight criteria are
+shared by every scope; pistol comparisons add compact case length because
+cartridge size is what makes small pistols possible. When a strict win exists,
+the weights are the maximum-entropy point inside a safety-margin region, so the
+case is not just "sort by one column". When it does not, a deterministic search
+finds a low-rank "closest found" weighting.
 
 The app is dependency-free; this generator is not run at runtime. Regenerate it
 after changing the load data or the criteria:
