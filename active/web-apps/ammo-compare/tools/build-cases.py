@@ -29,7 +29,9 @@ from scipy.optimize import linprog, minimize
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "cases.js"
 
-# Keep this order in sync with CASE_CRITERIA in lib/case.js.
+# Keep this order in sync with CASE_CRITERIA in lib/case.js. The optional fifth
+# item restricts a criterion to named scopes; the optional sixth marks a
+# measurement where zero means "unknown" rather than the best possible value.
 CRITERIA = [
     ("introduced", "Newer design", "Newer", +1),
     ("bulletGr", "Heavier bullet", "Heavier", +1),
@@ -39,6 +41,7 @@ CRITERIA = [
     ("powerFactor", "Power factor", "Power factor", +1),
     ("recoil", "Low recoil", "Low recoil", -1),
     ("costPerRound", "Low cost", "Low cost", -1),
+    ("caseLengthMm", "Compact case", "Compact case", -1, ("pistol",), True),
 ]
 
 SCOPES = {
@@ -49,6 +52,24 @@ SCOPES = {
     "rifle": ("Rifle loads", lambda row: row["category"] == "rifle"),
     "shotgun": ("Shotgun loads", lambda row: row["category"] == "shotgun"),
 }
+
+
+def scopes_for(criterion: tuple) -> tuple[str, ...] | None:
+    return criterion[4] if len(criterion) > 4 else None
+
+
+def criteria_for_scope(scope: str) -> list[tuple]:
+    return [
+        criterion
+        for criterion in CRITERIA
+        if scopes_for(criterion) is None or scope in (scopes_for(criterion) or ())
+    ]
+
+
+def is_missing(value, criterion: tuple) -> bool:
+    if value is None or not math.isfinite(value):
+        return True
+    return bool(len(criterion) > 5 and criterion[5] and value <= 0)
 
 # A strict win needs a real gap, not a floating-point accident. This is below
 # one percentile step for the largest scope (1/294 ≈ 0.0034), so it still lets
@@ -64,15 +85,18 @@ def load_rows() -> list[dict]:
     return json.loads(raw)
 
 
-def percentile_matrix(rows: list[dict], indices: list[int]) -> np.ndarray:
+def percentile_matrix(
+    rows: list[dict], indices: list[int], criteria: list[tuple]
+) -> np.ndarray:
     """Percentile score (0 = worst, 1 = best) for each scope member."""
     m = len(indices)
-    out = np.zeros((m, len(CRITERIA)), dtype=float)
-    for j, (key, _label, _short, direction) in enumerate(CRITERIA):
+    out = np.zeros((m, len(criteria)), dtype=float)
+    for j, criterion in enumerate(criteria):
+        key, _label, _short, direction = criterion[:4]
         values = []
         for i in indices:
             value = rows[i].get(key)
-            if value is None:
+            if is_missing(value, criterion):
                 value = -math.inf if direction > 0 else math.inf
             values.append(value)
         order = sorted(range(m), key=lambda p: values[p])
@@ -269,7 +293,7 @@ def best_effort_weights(
 
 def build_scope(rows: list[dict], scope: str, predicate) -> dict[int, dict]:
     indices = [i for i, row in enumerate(rows) if predicate(row)]
-    pct = percentile_matrix(rows, indices)
+    pct = percentile_matrix(rows, indices, criteria_for_scope(scope))
     results: dict[int, dict] = {}
     total = len(indices)
     for p, selected in enumerate(indices):
@@ -361,11 +385,24 @@ def main() -> None:
             },
         }
 
+    criteria_payload = []
+    for criterion in CRITERIA:
+        key, label, short, direction = criterion[:4]
+        item = {
+            "key": key,
+            "label": label,
+            "short": short,
+            "direction": direction,
+        }
+        scopes = scopes_for(criterion)
+        if scopes is not None:
+            item["scopes"] = list(scopes)
+        if len(criterion) > 5 and criterion[5]:
+            item["positive"] = True
+        criteria_payload.append(item)
+
     payload = {
-        "criteria": [
-            {"key": key, "label": label, "short": short, "direction": direction}
-            for key, label, short, direction in CRITERIA
-        ],
+        "criteria": criteria_payload,
         "scopes": scope_meta,
         "cases": cases,
     }

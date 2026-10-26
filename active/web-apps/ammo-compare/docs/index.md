@@ -212,14 +212,17 @@ the expanded detail has a “Make the case for this load” button. The panel sh
 the weights, the comparison set, the resulting rank, and the rows still ahead
 when the case loses.
 
-The eight columns are the numeric table columns: introduction year, bullet
-weight, velocity, energy, effective range, power factor, recoil, and cost.
-Higher is better for year, bullet weight, velocity, energy, range, and power
-factor; lower is better for recoil and cost. Each column becomes a percentile
-within the comparison set, so the weights are shares of a rank argument rather
-than physical units. A missing year is treated as oldest; a missing price is
-treated as most expensive. The latter matters because 227 reference loads are
-deliberately unpriced.
+The shared criteria are the eight numeric table columns: introduction year,
+bullet weight, velocity, energy, effective range, power factor, recoil, and
+cost. Pistol comparisons add a ninth, compact case length, because shorter
+cartridges are what let small pistols exist; that criterion is deliberately not
+used against rifles or shotguns. Higher is better for year, bullet weight,
+velocity, energy, range, and power factor; lower is better for recoil, cost, and
+compact case. Each criterion becomes a percentile within the comparison set, so
+the weights are shares of a rank argument rather than physical units. A missing
+year is treated as oldest; a missing price is treated as most expensive. The
+latter matters because 227 reference loads are deliberately unpriced. A zero
+case length is treated as unknown, not as the shortest case.
 
 | Comparison set | Rows |
 |---|---:|
@@ -240,8 +243,17 @@ so and reports the closest case found; it never silently forces the selected
 row to the top. A tie between closest sets goes to the narrower set, which is
 usually the more useful comparison.
 
-As of the checked-in dataset, **96 of 295 loads have a strict case** in their
+As of the checked-in dataset, **104 of 295 loads have a strict case** in their
 auto-selected set. The rest report a closest case instead of pretending.
+
+Compact case length also resolves the .380 ACP question. Across the shared
+eight criteria, 9mm Luger dominates .380 ACP: it is at least as good on every
+one and better on most. No reweighting can overcome that. But .380 ACP exists
+for small pistols, so the pistol comparison adds the dimension that explains its
+popularity. With compactness weighted, .380 ACP wins its pistol case; it still
+cannot win against all loads or all centerfire loads. That is the honest result:
+a cartridge can be the right choice for a small gun without beating 9mm on
+ballistic output.
 
 ![The case for 9mm Luger](images/case.png)
 
@@ -272,17 +284,18 @@ The current data produces these illustrative cases (weights rounded):
 | `.223 Rem` | all | #1 | cost 29%, recoil 25%, range 11% |
 | `9mm Luger` | centerfire | #1 | cost 63%, recoil 28%, bullet 6% |
 | `9mm Luger` | all (override) | closest found #2 | cost 84%, energy 12%, recoil 4% |
-| `.45 ACP` | pistol | #1 | cost 42%, bullet 28%, recoil 15% |
-| `.357 Magnum` | pistol | #1 | range 28%, recoil 24%, cost 20% |
-| `.380 ACP` | pistol | no winner; closest found #3 | cost 79%, velocity 12%, recoil 9% |
+| `.45 ACP` | pistol | #1 | bullet 28%, cost 25%, compact case 21%, recoil 9% |
+| `.357 Magnum` | pistol | #1 | range 28%, recoil 24%, cost 20%, power factor 11% |
+| `.380 ACP` | pistol | #1 | compact case 59%, bullet 19%, cost 13% |
 | `.50 BMG` | all | #1 | near-even: cost 15%, other columns 10–13% |
 
 The weights are not a claim that cost matters 63% “in reality.” They are the
 least-contrived weighting that makes the selected load win this particular
-comparison, and the panel shows them so the argument can be inspected. Two
+comparison, and the panel shows them so the argument can be inspected. Three
 other caveats are deliberate: effective range is an estimate from the
-trajectory model, and “newer design” / “heavier bullet” are directional
-preferences, not performance metrics.
+trajectory model; “newer design” / “heavier bullet” are directional
+preferences, not performance metrics; and compact case length is a proxy for
+pocket-pistol fit, not a claim that shorter is always better.
 
 Regenerate the file after changing the load data or criteria:
 
@@ -344,8 +357,8 @@ case and every referenced scope is known; all 874 load/scope results have
 non-negative weights that sum to one; the browser percentile math reproduces
 every stored rank and margin; feasible results are strictly #1; the known
 fallbacks are `.223`/all, 9mm/centerfire, `.45 ACP` and `.357 Magnum`/pistol,
-and `.50 BMG`/all; and `.380 ACP` has no winning scope and reports its closest
-pistol rank.
+and `.50 BMG`/all; and `.380 ACP` wins the pistol case through the compact-case
+criterion while remaining unable to win all or centerfire.
 
 ```
 node --test tests/*.test.mjs
@@ -356,8 +369,9 @@ Protocol — no Playwright install and no browser download, which matters on thi
 NixOS host — and asserts filtering, sorting, row expansion, the unit toggle,
 silhouette rendering, designer/range columns, trajectory tables, designer
 search, the empty state, and the Make the case flow (9mm's centerfire fallback,
-widening it back to all loads, `.223`/all, `.45 ACP`/pistol, `.380 ACP` with no
-winner, clear/restore, and a phone-width panel).
+widening it back to all loads, `.223`/all, `.45 ACP`/pistol, `.380 ACP`'s
+compact-case pistol win and its all-load failure, clear/restore, and a
+phone-width panel).
 
 Both suites are offline. The unit tests import the checked-in dataset directly;
 the browser check talks only to `localhost` (your `server.mjs` and Chrome's

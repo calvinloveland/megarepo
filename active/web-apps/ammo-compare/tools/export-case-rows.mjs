@@ -25,6 +25,7 @@ const rows = AMMO.map((load) => {
     powerFactor: derived.powerFactor,
     recoil: load.recoil,
     costPerRound: load.costPerRound ?? null,
+    caseLengthMm: load.caseLengthMm ?? null,
   };
 });
 

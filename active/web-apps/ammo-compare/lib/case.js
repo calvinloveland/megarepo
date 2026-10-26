@@ -27,10 +27,25 @@ export function scopeRows(rows, scope) {
   return rows.filter((row) => matchesScope(row, scope));
 }
 
+/**
+ * Criteria that apply to a scope. Compact case length is deliberately limited
+ * to pistols: shorter cartridges enable smaller frames, while overall length in
+ * rifles and shotguns is driven by the action and powder column.
+ */
+export function criteriaForScope(scope) {
+  return CASE_CRITERIA.filter(
+    (criterion) => !criterion.scopes || criterion.scopes.includes(scope),
+  );
+}
+
 /** The value used for a criterion, with missing data pushed to the worst end. */
 function criterionValue(row, criterion) {
   const value = row[criterion.key];
-  if (value == null || !Number.isFinite(value)) {
+  if (
+    value == null ||
+    !Number.isFinite(value) ||
+    (criterion.positive === true && value <= 0)
+  ) {
     return criterion.direction > 0 ? -Infinity : Infinity;
   }
   return value;
@@ -44,13 +59,14 @@ function criterionValue(row, criterion) {
  */
 export function percentileScores(rows, scope) {
   const members = scopeRows(rows, scope);
+  const criteria = criteriaForScope(scope);
   const size = members.length;
   const scores = new Map();
-  for (const row of members) scores.set(row.id, new Array(CASE_CRITERIA.length).fill(0.5));
+  for (const row of members) scores.set(row.id, new Array(criteria.length).fill(0.5));
   if (size <= 1) return scores;
 
-  for (let column = 0; column < CASE_CRITERIA.length; column += 1) {
-    const criterion = CASE_CRITERIA[column];
+  for (let column = 0; column < criteria.length; column += 1) {
+    const criterion = criteria[column];
     const ordered = members
       .map((row, index) => ({ row, index, value: criterionValue(row, criterion) }))
       .sort((a, b) => {

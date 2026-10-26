@@ -326,10 +326,22 @@ await setSearch('.380 ACP');
 await sleep(150);
 await caseButtonFor('380acp');
 await sleep(300);
-check('.380 ACP has no winning scope', (await caseStatus()).includes('No weighting puts it first'), await caseStatus());
-check('.380 ACP reports its closest pistol rank', (await caseStatus()).includes('closest found #3'), await caseStatus());
-check('.380 ACP keeps its true table position', (await firstLoadName()) !== '.380 ACP', await firstLoadName());
-check('.380 ACP says the available sets are exhausted', (await evaluate(`document.getElementById('case-note').textContent`)).includes('None of the available comparison sets'));
+check('.380 ACP falls back to pistols', (await evaluate(`document.getElementById('case-scope').value`)) === 'pistol');
+check('.380 ACP is first among pistols', (await firstLoadName()) === '.380 ACP', await firstLoadName());
+check('.380 ACP wins with compact case length', (await caseStatus()) === '#1 of 64 pistol loads', await caseStatus());
+check('.380 ACP pistol case shows nine weighted columns', (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 9);
+check('.380 ACP gives compact case the largest weight', (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Compact case');
+check('.380 ACP notes the narrower field', (await evaluate(`document.getElementById('case-note').textContent`)).includes('pistol loads'));
+
+await evaluate(`(() => {
+  const select = document.getElementById('case-scope');
+  select.value = 'all';
+  select.dispatchEvent(new Event('change'));
+})()`);
+await sleep(300);
+check('.380 ACP still cannot win against all loads', (await caseStatus()).includes('No weighting puts it first'), await caseStatus());
+check('.380 ACP reports its closest all-load rank', (await caseStatus()).includes('closest found #9'), await caseStatus());
+check('the closest .380 all-load table is not forced to .380', (await firstLoadName()) !== '.380 ACP', await firstLoadName());
 
 await clearCase();
 await sleep(150);

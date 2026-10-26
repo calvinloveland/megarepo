@@ -10,6 +10,7 @@ import {
   CASES,
   autoCaseFor,
   caseScore,
+  criteriaForScope,
   percentileScores,
   rankCase,
   resultFor,
@@ -33,6 +34,7 @@ const expectedCriteria = [
   'powerFactor',
   'recoil',
   'costPerRound',
+  'caseLengthMm',
 ];
 
 test('every load has a generated case and every scope is known', () => {
@@ -53,6 +55,16 @@ test('criteria and scope metadata stay in sync with the app', () => {
     Object.keys(CASE_SCOPES),
     ['all', 'centerfire', 'rimfire', 'pistol', 'rifle', 'shotgun'],
   );
+  assert.deepEqual(
+    criteriaForScope('all').map((criterion) => criterion.key),
+    expectedCriteria.slice(0, 8),
+  );
+  assert.deepEqual(
+    criteriaForScope('pistol').map((criterion) => criterion.key),
+    expectedCriteria,
+  );
+  assert.deepEqual(CASE_CRITERIA[8].scopes, ['pistol']);
+  assert.equal(CASE_CRITERIA[8].positive, true);
   assert.equal(CASE_SCOPES.all.count, ROWS.length);
   assert.equal(CASE_SCOPES.centerfire.count, ROWS.filter((r) => r.category !== 'rimfire').length);
   assert.equal(CASE_SCOPES.rimfire.count, ROWS.filter((r) => r.category === 'rimfire').length);
@@ -67,6 +79,11 @@ test('generated weights and ranks reproduce in the browser math', () => {
     for (const [scope, result] of Object.entries(entry.scopes)) {
       const members = scopeRows(ROWS, scope);
       assert.ok(members.some((row) => row.id === id), `${id} is not in ${scope}`);
+      assert.equal(
+        result.weights.length,
+        criteriaForScope(scope).length,
+        `${id}/${scope} weight count`,
+      );
 
       const sum = result.weights.reduce((total, weight) => total + weight, 0);
       assert.ok(Math.abs(sum - 1) < 2e-7, `${id}/${scope} weights sum to ${sum}`);
@@ -112,7 +129,7 @@ test('known loads get the intended comparison set', () => {
     '45acp': ['pistol', true],
     '357mag': ['pistol', true],
     '50bmg': ['all', true],
-    '380acp': ['pistol', false],
+    '380acp': ['pistol', true],
   };
   for (const [id, [scope, feasible]] of Object.entries(expected)) {
     const auto = autoCaseFor(id);
@@ -133,17 +150,21 @@ test('known loads get the intended comparison set', () => {
   assert.equal(resultFor('45acp', 'pistol').rank, 1);
   assert.equal(resultFor('357mag', 'pistol').rank, 1);
 
-  // No available scope wins for .380 ACP; the feature must admit that.
+  // Compact case length is a pistol-only criterion, so .380 ACP wins the
+  // pocket-pistol argument without changing the all/centerfire comparisons.
   const options = scopeOptionsFor('380acp');
   assert.equal(options.length, 3);
-  assert.ok(options.every((option) => !resultFor('380acp', option.scope).feasible));
-  assert.equal(resultFor('380acp', 'pistol').rank, 3);
+  assert.equal(resultFor('380acp', 'all').feasible, false);
+  assert.equal(resultFor('380acp', 'centerfire').feasible, false);
+  assert.equal(resultFor('380acp', 'pistol').rank, 1);
+  assert.equal(resultFor('380acp', 'pistol').feasible, true);
+  assert.ok(resultFor('380acp', 'pistol').weights[8] > 0.5);
 });
 
 test('rankCase exposes the closest case and its blockers', () => {
-  const result = resultFor('380acp', 'pistol');
-  const ranking = rankCase(ROWS, 'pistol', result.weights, '380acp');
-  assert.equal(ranking.rank, 3);
+  const result = resultFor('380acp', 'all');
+  const ranking = rankCase(ROWS, 'all', result.weights, '380acp');
+  assert.equal(ranking.rank, 9);
   assert.ok(ranking.blockers.length > 0);
   assert.ok(ranking.sorted.some((entry) => entry.row.id === '380acp'));
 });

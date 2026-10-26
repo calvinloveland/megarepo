@@ -22,6 +22,7 @@ import {
   resultFor,
   scopeOptionsFor,
   scopeRows,
+  criteriaForScope,
   percentileScores,
   caseScore,
   rankCase,
@@ -509,8 +510,9 @@ function caseNote(row, scope, result, ranking) {
       return `No strict weighting separates ${row.name} from the next load; the table shows the tie.`;
     }
     let note =
-      `No non-negative weighting of the eight numeric columns puts ${row.name} first ` +
-      `among ${meta.label.toLowerCase()}. The table shows a closest case found by the search.`;
+      `No non-negative weighting of the ${criteriaForScope(scope).length} numeric columns ` +
+      `puts ${row.name} first among ${meta.label.toLowerCase()}. ` +
+      `The table shows a closest case found by the search.`;
     if (ranking?.blockers.length) {
       note += ` Still ahead: ${ranking.blockers.join(', ')}.`;
     }
@@ -584,10 +586,12 @@ function renderCasePanel() {
 
   els.caseNote.textContent = caseNote(row, active.scope, result, ranking);
 
-  const ordered = CASE_CRITERIA.map((criterion, index) => ({
-    ...criterion,
-    weight: result.weights[index],
-  })).sort((a, b) => b.weight - a.weight);
+  const ordered = criteriaForScope(active.scope)
+    .map((criterion, index) => ({
+      ...criterion,
+      weight: result.weights[index],
+    }))
+    .sort((a, b) => b.weight - a.weight);
   els.caseWeights.innerHTML = ordered
     .map((criterion) => {
       const percent = criterion.weight * 100;

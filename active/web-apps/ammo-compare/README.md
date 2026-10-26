@@ -24,12 +24,12 @@ side by side, with muzzle energy, power factor, effective range, and trajectory
 - Sort any column, filter by category, search across names, designers, uses,
   and platforms.
 - **Make the case:** every row has a Case action that finds a non-negative
-  weighting of the eight numeric columns — year, bullet weight, velocity,
-  energy, effective range, power factor, recoil, and cost — and sorts the
-  comparison set by the weighted percentile score, putting the selected load
-  first when a weighting exists. It falls back to centerfire/rimfire and then
-  the load's category, shows the weights, and reports the closest case found
-  when no weighting can win.
+  weighting of the numeric columns — year, bullet weight, velocity, energy,
+  effective range, power factor, recoil, and cost, plus compact case length for
+  pistol comparisons — and sorts the comparison set by the weighted percentile
+  score, putting the selected load first when a weighting exists. It falls back
+  to centerfire/rimfire and then the load's category, shows the weights, and
+  reports the closest case found when no weighting can win.
 - Toggle imperial (grains · fps · ft·lb) and metric (g · m/s · J) units.
 - Cost is priced only for current commercial loads; obsolete, surplus, and
   collector cartridges are left blank instead of given an invented figure.
