@@ -32,13 +32,19 @@ OUT = ROOT / "data" / "cases.js"
 # Keep this order in sync with CASE_CRITERIA in lib/case.js. The optional fifth
 # item restricts a criterion to named scopes; the optional sixth marks a
 # measurement where zero means "unknown" rather than the best possible value.
+#
+# Power factor is deliberately NOT a criterion. Recoil energy is momentum squared
+# over twice the gun mass, so within a class — where the reference mass is fixed —
+# the two are the same measurement in different units, and weighting both creates
+# a null direction that scores every load identically. Power factor stays a
+# displayed column (it is the shooting-sports convention); recoil carries the
+# argument because it is what the shooter actually feels.
 CRITERIA = [
     ("introduced", "Newer design", "Newer", +1),
     ("bulletGr", "Heavier bullet", "Heavier", +1),
     ("velocityFps", "Velocity", "Velocity", +1),
     ("energyFtLb", "Energy", "Energy", +1),
     ("effectiveRangeYd", "Eff. range", "Range", +1),
-    ("powerFactor", "Power factor", "Power factor", +1),
     ("recoilFtLb", "Low recoil", "Low recoil", -1),
     ("costPerRound", "Low cost", "Low cost", -1),
     ("caseLengthMm", "Compact case", "Compact case", -1, ("pistol",), True),
@@ -76,6 +82,10 @@ def is_missing(value, criterion: tuple) -> bool:
 # a carefully chosen weighting separate near-ties.
 FEASIBLE_EPS = 1e-4
 ROUND_DIGITS = 8
+# A weighting whose scores barely differ across the comparison set is not an
+# argument. This is far above float noise, so it only rejects degenerate
+# directions (two criteria that measure the same thing) and their near-nulls.
+MIN_SPREAD = 1e-3
 
 
 def load_rows() -> list[dict]:
@@ -269,14 +279,20 @@ def best_effort_weights(
     competitor_pct = pct[competitors]
     selected_pct = pct[selected]
 
-    def evaluate(candidates: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def evaluate(candidates: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         scores = candidates @ competitor_pct.T
         selected_scores = candidates @ selected_pct
         above = (scores > selected_scores[:, None] + 1e-9).sum(axis=1)
         best_other = scores.max(axis=1)
-        return above + 1, selected_scores - best_other
+        spread = np.maximum(scores.max(axis=1), selected_scores) - np.minimum(
+            scores.min(axis=1), selected_scores
+        )
+        return above + 1, selected_scores - best_other, spread
 
-    ranks, margins = evaluate(weights)
+    ranks, margins, spreads = evaluate(weights)
+    informative = spreads >= MIN_SPREAD
+    if informative.any():
+        ranks, margins, weights = ranks[informative], margins[informative], weights[informative]
     order = np.lexsort((-margins, ranks))
     centers = weights[order[:3]]
     extra = [weights]
@@ -286,7 +302,10 @@ def best_effort_weights(
         batch /= batch.sum(axis=1, keepdims=True)
         extra.append(batch)
     weights = np.vstack(extra)
-    ranks, margins = evaluate(weights)
+    ranks, margins, spreads = evaluate(weights)
+    informative = spreads >= MIN_SPREAD
+    if informative.any():
+        ranks, margins, weights = ranks[informative], margins[informative], weights[informative]
     order = np.lexsort((-margins, ranks))
     return weights[order[0]]
 

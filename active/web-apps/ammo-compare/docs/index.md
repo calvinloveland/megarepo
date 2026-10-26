@@ -290,13 +290,21 @@ the expanded detail has a “Make the case for this load” button. The panel sh
 the weights, the comparison set, the resulting rank, and the rows still ahead
 when the case loses.
 
-The shared criteria are the eight numeric table columns: introduction year,
-bullet weight, velocity, energy, effective range, power factor, derived free
-recoil, and cost. Pistol comparisons add a ninth, compact case length, because shorter
+The shared criteria are the seven numeric table columns: introduction year,
+bullet weight, velocity, energy, effective range, derived free recoil, and cost.
+Pistol comparisons add an eighth, compact case length, because shorter
 cartridges are what let small pistols exist; that criterion is deliberately not
 used against rifles or shotguns. Higher is better for year, bullet weight,
-velocity, energy, range, and power factor; lower is better for recoil, cost, and
-compact case. Each criterion becomes a percentile within the comparison set, so
+velocity, energy, and range; lower is better for recoil, cost, and compact case.
+Power factor is deliberately **not** a criterion. Recoil energy is momentum
+squared over twice the gun mass, so inside a class — where the reference mass is
+fixed — power factor and recoil are the same measurement in different units.
+Weighting both creates a null direction that scores every load identically: the
+first build of the derived-recoil column did exactly that, and `.357 Magnum`
+“tied for first” with all 63 other pistol loads. Power factor stays a displayed
+column; recoil carries the argument, because it is what the shooter feels.
+`tests/cases.test.mjs` now rejects any stored weighting whose scores barely
+spread across its comparison set. Each criterion becomes a percentile within the comparison set, so
 the weights are shares of a rank argument rather than physical units. A missing
 year is treated as oldest; a missing price is treated as most expensive. The
 latter matters because 227 reference loads are deliberately unpriced. A zero
@@ -343,7 +351,7 @@ Two honesty rules govern that fallback, because it is what most loads get:
 ![A tie for first: .44 Magnum only wins if effective range carries all the weight](images/case-tie.png)
 
 Compact case length also resolves the .380 ACP question. Across the shared
-eight criteria, 9mm Luger dominates .380 ACP: it is at least as good on every
+seven criteria, 9mm Luger dominates .380 ACP: it is at least as good on every
 one and better on most. No reweighting can overcome that. But .380 ACP exists
 for small pistols, so the pistol comparison adds the dimension that explains its
 popularity. With compactness weighted, .380 ACP wins its pistol case; it still

@@ -355,7 +355,7 @@ check('9mm case falls back to centerfire', (await evaluate(`document.getElementB
 check('9mm is first among centerfire loads', (await firstLoadName()) === '9mm Luger', await firstLoadName());
 check('9mm case shows 284 centerfire loads', (await rowCount()) === 284, `${await rowCount()} rows`);
 check('9mm case explains the narrower field', (await evaluate(`document.getElementById('case-note').textContent`)).includes('narrows the field to centerfire loads'));
-check('9mm case shows eight weighted columns', (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 8);
+check('9mm case shows seven weighted columns', (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 7);
 check('9mm case gives cost the largest weight', (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Low cost');
 check('case mode pauses search', (await evaluate(`document.getElementById('search').disabled`)) === true);
 check('case mode pauses category chips', (await evaluate(`[...document.querySelectorAll('.chip')].every((chip) => chip.disabled)`)) === true);
@@ -416,7 +416,7 @@ await sleep(300);
 check('.380 ACP falls back to pistols', (await evaluate(`document.getElementById('case-scope').value`)) === 'pistol');
 check('.380 ACP is first among pistols', (await firstLoadName()) === '.380 ACP', await firstLoadName());
 check('.380 ACP wins with compact case length', (await caseStatus()) === '#1 of 64 pistol loads', await caseStatus());
-check('.380 ACP pistol case shows nine weighted columns', (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 9);
+check('.380 ACP pistol case shows eight weighted columns', (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 8);
 check('.380 ACP gives compact case the largest weight', (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Compact case');
 check('.380 ACP notes the narrower field', (await evaluate(`document.getElementById('case-note').textContent`)).includes('pistol loads'));
 

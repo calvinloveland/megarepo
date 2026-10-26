@@ -32,7 +32,6 @@ const expectedCriteria = [
   'velocityFps',
   'energyFtLb',
   'effectiveRangeYd',
-  'powerFactor',
   'recoilFtLb',
   'costPerRound',
   'caseLengthMm',
@@ -58,14 +57,20 @@ test('criteria and scope metadata stay in sync with the app', () => {
   );
   assert.deepEqual(
     criteriaForScope('all').map((criterion) => criterion.key),
-    expectedCriteria.slice(0, 8),
+    expectedCriteria.slice(0, 7),
   );
   assert.deepEqual(
     criteriaForScope('pistol').map((criterion) => criterion.key),
     expectedCriteria,
   );
-  assert.deepEqual(CASE_CRITERIA[8].scopes, ['pistol']);
-  assert.equal(CASE_CRITERIA[8].positive, true);
+  assert.deepEqual(CASE_CRITERIA[7].scopes, ['pistol']);
+  assert.equal(CASE_CRITERIA[7].positive, true);
+  // Power factor is a column, not a criterion: inside a class it measures the
+  // same thing as recoil, and weighting both produced a null direction.
+  assert.ok(
+    !CASE_CRITERIA.some((criterion) => criterion.key === 'powerFactor'),
+    'power factor must not be a Case criterion',
+  );
   assert.equal(CASE_SCOPES.all.count, ROWS.length);
   assert.equal(CASE_SCOPES.centerfire.count, ROWS.filter((r) => r.category !== 'rimfire').length);
   assert.equal(CASE_SCOPES.rimfire.count, ROWS.filter((r) => r.category === 'rimfire').length);
@@ -212,4 +217,35 @@ test('a single-column weighting is flagged as not an even argument', () => {
   const spread = dominantCriterion(pistol, [0.3, 0.2, 0.1, 0.1, 0.1, 0.1, 0.05, 0.04, 0.01]);
   assert.equal(spread, null);
   assert.equal(dominantCriterion(pistol, [0.5, 0.5, 0, 0, 0, 0, 0, 0, 0], 0.45)?.weight, 0.5);
+});
+
+test('no stored weighting is degenerate', () => {
+  // Regression guard for a real bug: recoil energy is momentum squared over
+  // twice the gun mass, so inside a class it is the same measurement as power
+  // factor. Weighting both let the generator return a null direction that scored
+  // every load identically, and .357 Magnum "tied for first" with all 63 other
+  // pistol loads. A weighting has to actually spread the comparison set.
+  const MIN_SPREAD = 1e-3;
+  const MIN_DISTINCT_RATIO = 0.25;
+  let worstSpread = Infinity;
+  let worstCase = '';
+  for (const [id, entry] of Object.entries(CASES)) {
+    for (const [scope, result] of Object.entries(entry.scopes)) {
+      const members = scopeRows(ROWS, scope);
+      const percentiles = percentileScores(ROWS, scope);
+      const scores = members.map((row) => caseScore(percentiles.get(row.id), result.weights));
+      const spread = Math.max(...scores) - Math.min(...scores);
+      if (spread < worstSpread) {
+        worstSpread = spread;
+        worstCase = `${id}/${scope}`;
+      }
+      assert.ok(spread >= MIN_SPREAD, `${id}/${scope} weighting spreads scores by only ${spread}`);
+      const distinct = new Set(scores.map((score) => score.toFixed(6))).size;
+      assert.ok(
+        distinct >= members.length * MIN_DISTINCT_RATIO,
+        `${id}/${scope} produces only ${distinct} distinct scores for ${members.length} loads`,
+      );
+    }
+  }
+  assert.ok(worstSpread >= MIN_SPREAD, `worst spread ${worstSpread} at ${worstCase}`);
 });
