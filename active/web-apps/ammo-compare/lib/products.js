@@ -91,6 +91,10 @@ export function productRow(product) {
     // own rough estimate is deliberately not inherited: a product row is a claim
     // about a box, and an estimate is not a listing.
     sectionalDensity: sectionalDensity(product.bulletGr, cartridge.diameterIn),
+    // Provenance travels with the row so the detail view and the CSV can cite it.
+    priceSource: product.priceSource ?? null,
+    priceChecked: product.priceChecked ?? null,
+    productSource: product.source ?? null,
     pricePerRound:
       product.priceUsd != null && product.packageRounds
         ? product.priceUsd / product.packageRounds

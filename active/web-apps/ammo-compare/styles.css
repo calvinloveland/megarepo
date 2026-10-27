@@ -627,3 +627,20 @@ tbody tr.row.is-product .load-name { letter-spacing: -.005em; }
 .listings-note { margin: 8px 0 0; color: var(--dim); font-size: 11.5px; line-height: 1.5; }
 .listings-note code { color: var(--ink); font-size: 11px; }
 .listings.is-empty { border-top: 1px solid var(--line); padding-top: 10px; }
+/* ---------- CSV export ---------- */
+.export { display: flex; align-items: center; gap: 8px; }
+.export-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.export-btn:hover { border-color: var(--accent); color: var(--accent); }
+.export-status { color: var(--dim); font-size: 11px; white-space: nowrap; }

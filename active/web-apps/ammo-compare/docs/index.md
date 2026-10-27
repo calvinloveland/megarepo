@@ -327,6 +327,20 @@ month it was last checked, so the summary can be re-read against the statute.
 - Empty filter states keep the summary line honest rather than showing a blank
   table.
 
+### Export
+
+**Export CSV** writes exactly what the table is showing: the current view, the
+current filters, the current sort, and the current units. Headers carry their
+unit (`Energy (ft·lb)`, `Velocity (m/s)`) because a spreadsheet has no column
+picker to explain itself, and the product view exports its own columns — brand,
+line, SKU, box size, price per round, and the provenance of that price. A
+missing value is an empty cell, never a zero or `NaN`: an unpriced box and a free
+one are different claims. Cells are quoted per RFC 4180, so a bullet type like
+`00 buckshot, 9 pellets` survives the round trip.
+
+The button reports how many rows it wrote, so a filter that quietly matched
+nothing is visible before the file is opened.
+
 ### Narrower windows
 
 Columns drop in priority order rather than shrinking into unreadable slivers:

@@ -286,3 +286,9 @@ test('the two-way link between cartridges and listings is documented', () => {
   says(DOC, '`from cartridge` on a velocity the manufacturer did not publish');
   says(DOC, 'a **Brand** filter built from whatever the catalog contains');
 });
+
+test('the export contract is documented', () => {
+  says(DOC, '**Export CSV** writes exactly what the table is showing');
+  says(DOC, 'Headers carry their unit');
+  says(DOC, 'A missing value is an empty cell, never a zero or `NaN`');
+});

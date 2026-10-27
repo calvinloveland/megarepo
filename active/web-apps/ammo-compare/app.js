@@ -17,6 +17,11 @@ import {
 } from './lib/trajectory.js';
 import { recoilProfile } from './lib/recoil.js';
 import {
+  cartridgeCsv,
+  productCsv,
+  csvFilename,
+} from './lib/csv.js';
+import {
   PRODUCT_ROWS,
   CATALOG_IS_FIXTURE,
   CATALOG_STATS,
@@ -52,6 +57,7 @@ const ROWS = AMMO.map((load) => ({
   designer: inventorFor(load.id),
   sectionalDensity: sectionalDensity(load.bulletGr, load.diameterIn),
   reference: referenceFor(load.id),
+  listingCount: productsFor(load.id).length,
 }));
 
 /** One shared scale, so silhouettes compare across rows. */
@@ -135,6 +141,8 @@ const els = {
   catalogNotice: document.getElementById('catalog-notice'),
   brand: document.getElementById('brand'),
   brandField: document.getElementById('brand-field'),
+  exportCsv: document.getElementById('export-csv'),
+  exportStatus: document.getElementById('export-status'),
   search: document.getElementById('search'),
   units: document.getElementById('units'),
   jurisdiction: document.getElementById('jurisdiction'),
@@ -1057,6 +1065,31 @@ els.brand.addEventListener('change', (e) => {
   state.brand = e.target.value;
   render();
 });
+
+/**
+ * Export exactly what the table is showing: the current view, filters, and sort,
+ * in the current units. A spreadsheet is not a place to discover that the page
+ * was showing something else.
+ */
+function exportCsv() {
+  const rows = visibleRows();
+  const text =
+    state.view === 'products'
+      ? productCsv(rows, state.units)
+      : cartridgeCsv(rows, state.units);
+  const blob = new Blob([`${text}\n`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = csvFilename(state.view, state.units);
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  els.exportStatus.textContent = `Exported ${rows.length} row${rows.length === 1 ? '' : 's'}`;
+}
+
+els.exportCsv.addEventListener('click', exportCsv);
 
 els.categories.addEventListener('click', (e) => {
   if (state.caseMode) return;

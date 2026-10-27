@@ -271,6 +271,32 @@ check(
   (await evaluate(`document.getElementById('brand-field').hidden`)) === true,
 );
 
+/* --------------------------------- export --------------------------------- */
+
+// The download itself cannot be inspected in headless Chrome, so the button
+// reports what it wrote and the CSV content is covered by tests/csv.test.mjs.
+await evaluate(`document.getElementById('export-csv').click()`);
+await sleep(250);
+check(
+  'the export button reports how many rows it wrote',
+  (await evaluate(`document.getElementById('export-status').textContent`)) ===
+    `Exported ${AMMO.length} rows`,
+  await evaluate(`document.getElementById('export-status').textContent`),
+);
+await evaluate(`(() => { const i = document.getElementById('search'); i.value = '9mm'; i.dispatchEvent(new Event('input')); })()`);
+await sleep(250);
+const filteredCount = await rowCount();
+await evaluate(`document.getElementById('export-csv').click()`);
+await sleep(250);
+check(
+  'the export follows the current filter, not the whole table',
+  (await evaluate(`document.getElementById('export-status').textContent`)) ===
+    `Exported ${filteredCount} rows`,
+  await evaluate(`document.getElementById('export-status').textContent`),
+);
+await evaluate(`(() => { const i = document.getElementById('search'); i.value = ''; i.dispatchEvent(new Event('input')); })()`);
+await sleep(200);
+
 /* --------------------------------- recoil --------------------------------- */
 
 const recoilOf = (id) =>
