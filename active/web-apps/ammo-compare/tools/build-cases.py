@@ -2,7 +2,7 @@
 """Generate the precomputed "make the case" weightings.
 
 For every load and every comparison scope we look for a non-negative weighting
-of the numeric columns that puts the selected load first. Eight criteria are
+of the numeric columns that puts the selected load first. Seven criteria are
 shared by every scope; pistol comparisons add compact case length because
 cartridge size is what makes small pistols possible. When a strict win exists,
 the weights are the maximum-entropy point inside a safety-margin region, so the
@@ -14,6 +14,11 @@ after changing the load data or the criteria:
 
     nix-shell -p python3Packages.scipy python3Packages.numpy --run \
       "python3 tools/build-cases.py"
+
+A full solve takes about half an hour. Two flags make the loop shorter:
+
+    --scope pistol   re-solve one comparison set and merge it into the file (~35 s)
+    --check          exit 1 if the checked-in file no longer matches a fresh solve
 """
 from __future__ import annotations
 
