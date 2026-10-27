@@ -521,6 +521,32 @@ check('starting a case moves focus to the scope menu', (await evaluate(`document
 await clearCase();
 await sleep(150);
 
+// A win too thin to call a case is its own state: first place, honestly labelled.
+await setSearch('.50 BMG');
+await sleep(150);
+await caseButtonFor('50bmg');
+await sleep(300);
+check(
+  '.50 BMG is labelled a thin win',
+  (await caseStatus()).includes('margin too thin to call a case'),
+  await caseStatus(),
+);
+check(
+  'the thin note says why it is not a case',
+  (await evaluate(`document.getElementById('case-note').textContent`)).includes(
+    'too thin to call a case',
+  ),
+  await evaluate(`document.getElementById('case-note').textContent`),
+);
+check(
+  'the thin summary says first, but by a hair',
+  (await evaluate(`document.getElementById('summary').textContent`)).includes('by a hair'),
+  await evaluate(`document.getElementById('summary').textContent`),
+);
+
+await clearCase();
+await sleep(150);
+
 // The fallback for a rifle load is a low-rank mixed weighting; the note has to
 // count the loads still ahead and the table must stay in rank order.
 await setSearch('6.5x55mm');
@@ -566,8 +592,8 @@ await sleep(150);
 await evaluate(`document.querySelector('tbody tr.detail [data-case]').click()`);
 await sleep(300);
 check('detail button starts a case', (await evaluate(`document.getElementById('case-name').textContent`)) === '.308 Win / 7.62 NATO');
-check('.308 wins against every load', (await caseStatus()).startsWith('#1 of 295 loads'), await caseStatus());
-check('.308 case uses all loads', (await evaluate(`document.getElementById('case-scope').value`)) === 'all');
+check('.308 wins its rifle set', (await caseStatus()).startsWith('#1 of 208 rifle loads'), await caseStatus());
+check('.308 case uses the rifle set', (await evaluate(`document.getElementById('case-scope').value`)) === 'rifle', await evaluate(`document.getElementById('case-scope').value`));
 check('detail button closes the old detail row', (await evaluate(`document.querySelectorAll('tbody tr.detail').length`)) === 0);
 
 await send('Emulation.setDeviceMetricsOverride', {

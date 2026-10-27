@@ -160,7 +160,9 @@ test('known loads get the intended comparison set', () => {
     // its centerfire set on four columns.
     '45acp': ['centerfire', true],
     '357mag': ['pistol', false],
-    '50bmg': ['rifle', true],
+    // .50 BMG only reaches first place among rifles by half a thousandth of the
+    // scale, which is a `thin` win rather than a case.
+    '50bmg': ['rifle', false],
     '380acp': ['pistol', true],
   };
   for (const [id, [scope, feasible]] of Object.entries(expected)) {
@@ -169,6 +171,7 @@ test('known loads get the intended comparison set', () => {
     assert.equal(auto.scope, scope, `${id} auto scope`);
     assert.equal(auto.feasible, feasible, `${id} auto feasibility`);
   }
+  assert.equal(autoCaseFor('50bmg').thin, true, '.50 BMG should be a thin win');
 
   // The user-facing example: 9mm cannot win against everything, but it can
   // once rimfire loads are excluded — and it needs one column to do it.

@@ -417,18 +417,38 @@ That number is the same quantity the generator maximises, so it is not a new
 model — just the one piece of it the panel was hiding. `tests/interaction.check.mjs`
 pins both forms (win and loss) and pins that a tie never claims a win.
 
-### Still open: the cost percentile is inflated by unpriced rows
+### Closed: the cost percentile was inflated by unpriced rows
 
-Cost is ranked over the whole comparison set, with unpriced loads pushed to the
-most-expensive end. That is deliberate (unpriced surplus must not win by default)
-but it inflates every *priced* load: `.380 ACP` scores the 94th cost percentile
-because 42 of the 64 pistol rows are unpriced obsolete rounds, while it actually
-costs more than the 9mm it competes with.
+Cost used to be ranked over the whole comparison set with unpriced loads pushed to
+the most-expensive end. Deliberate (unpriced surplus must not win by default) but
+wrong in effect: `.380 ACP` scored the 94th cost percentile because 42 of the 64
+pistol rows are unpriced obsolete rounds, while it actually costs more than the
+9mm it competes with.
 
-A prototype fixes it by ranking cost only among loads that have a price, with
-unpriced rows still at the worst end: `.380` drops to the 81st percentile, and
-its minimal case changes from `bullet + cost + compact` (margin 0.0197) to
-`velocity + compact` (margin 0.0012). That is fewer factors but a far thinner
-margin — so the change needs a companion decision about a minimum margin for a
-strict win (the current floor is `FEASIBLE_EPS = 1e-4`). Deferred rather than
-half-done: it touches every stored weight and needs a full regeneration.
+Fixed in three parts, all in the generator and its browser mirror:
+
+1. **Percentiles rank among the loads that have a value.** A missing price, year,
+   or case length is not an observation — it sits at the worst end (0) and is not
+   ranked. `.380 ACP` moves to the 83rd cost percentile, which is the honest
+   reading: cheaper than most of what you can actually buy, not cheaper than 9mm.
+   `lib/case.js` mirrors the rule exactly; `tests/cases.test.mjs` pins it (cheapest
+   priced load = 1, dearest priced = 0, unpriced = 0).
+2. **A case has to win by something.** `MIN_WIN = 5e-3` (half a percentile point)
+   is the bar for reporting a first place as a case. Between that and zero a
+   result is `thin`: first place, labelled *margin too thin to call a case*, with
+   the actual margin shown. 91 of 295 loads have a strict case in their auto set;
+   18 more are thin.
+3. **Factor counts are guaranteed, not hoped for.** The subset search can miss a
+   smaller winning set when an LP fails on a degenerate face (`65prc` kept a
+   velocity column it did not need), and the entropy step leaves sub-percent
+   residue. Weights below `SLIVER = 5e-3` are dropped, and a greedy pass then
+   removes any column whose removal still wins by `MIN_WIN`. The panel's
+   load-bearing sentence is checked at render time and now holds for every strict
+   win.
+
+That last part is what `tests/cases.test.mjs` calls the minimality condition: for
+every feasible result, removing any used column must lose first place. It failed
+twice before the greedy pass existed, which is why the pass is there.
+
+Full regeneration; `--check` reproduces the file byte-for-byte for both a base
+scope and a jurisdiction scope.
