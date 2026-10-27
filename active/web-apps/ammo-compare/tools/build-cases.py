@@ -58,7 +58,7 @@ CRITERIA = [
     ("caseLengthMm", "Compact case", "Compact case", -1, ("pistol",), True),
 ]
 
-SCOPES = {
+BASE_SCOPES = {
     "all": ("All loads", lambda row: True),
     "centerfire": ("Centerfire loads", lambda row: row["category"] != "rimfire"),
     "rimfire": ("Rimfire loads", lambda row: row["category"] == "rimfire"),
@@ -66,6 +66,26 @@ SCOPES = {
     "rifle": ("Rifle loads", lambda row: row["category"] == "rifle"),
     "shotgun": ("Shotgun loads", lambda row: row["category"] == "shotgun"),
 }
+
+# Base scopes first, jurisdiction scopes appended, so the base scopes keep the
+# same seed and a --scope rebuild of one of them reproduces the checked-in bytes.
+SCOPES = dict(BASE_SCOPES)
+
+
+def configure_scopes(jurisdictions: list[dict]) -> None:
+    """Add one comparison set per jurisdiction the legal overlay covers.
+
+    The predicate reads `restrictedIn` from the exported rows, so the sets come
+    from `data/legality.js` rather than a second copy of the rules here.
+    """
+    global SCOPES
+    SCOPES = dict(BASE_SCOPES)
+    for jurisdiction in jurisdictions:
+        code = jurisdiction["code"]
+        SCOPES[code.lower()] = (
+            f"Loads legal in {jurisdiction['label']}",
+            lambda row, code=code: code not in row["restrictedIn"],
+        )
 
 
 def scopes_for(criterion: tuple) -> tuple[str, ...] | None:
@@ -96,11 +116,12 @@ ROUND_DIGITS = 8
 MIN_SPREAD = 1e-3
 
 
-def load_rows() -> list[dict]:
+def load_rows() -> tuple[list[dict], list[dict]]:
     raw = subprocess.check_output(
         ["node", "tools/export-case-rows.mjs"], cwd=ROOT, text=True
     )
-    return json.loads(raw)
+    payload = json.loads(raw)
+    return payload["rows"], payload["jurisdictions"]
 
 
 def percentile_matrix(
@@ -518,19 +539,28 @@ def candidate_scopes(row: dict) -> list[str]:
 def assemble(
     rows: list[dict], results: dict[str, dict[str, dict]], counts: dict[str, int]
 ) -> dict:
-    """Build the payload in a deterministic order from per-scope results."""
+    """Build the payload in a deterministic order from per-scope results.
+
+    A load's scope list is the base sets it belongs to (all, ignition, category)
+    followed by every jurisdiction set it appears in, in the order the generator
+    declares them. `auto` only ever considers the base sets: a jurisdiction is a
+    filter the reader applies, not a breadth level.
+    """
+    jurisdiction_scopes = [scope for scope in SCOPES if scope not in BASE_SCOPES]
     cases = {}
     for row in rows:
         rid = row["id"]
+        order = candidate_scopes(row) + jurisdiction_scopes
         available = [
             scope
-            for scope in candidate_scopes(row)
-            if rid in results and scope in results[rid]
+            for index, scope in enumerate(order)
+            if scope not in order[:index] and rid in results and scope in results[rid]
         ]
         if not available:
             continue
+        base = [scope for scope in available if scope in BASE_SCOPES]
         cases[rid] = {
-            "auto": auto_scope(row, available, results, counts),
+            "auto": auto_scope(row, base, results, counts),
             "scopes": {scope: results[rid][scope] for scope in available},
         }
     return cases
@@ -623,8 +653,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    # The scope list has to exist before argparse validates --scope, and it comes
+    # from the legal overlay via the exported rows.
+    rows, jurisdictions = load_rows()
+    configure_scopes(jurisdictions)
     args = parse_args()
-    rows = load_rows()
     previous = read_payload()
     if args.scope and previous is None:
         sys.exit(f"--scope needs an existing {OUT.name} to merge into")

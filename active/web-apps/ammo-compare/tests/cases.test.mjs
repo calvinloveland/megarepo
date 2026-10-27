@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { AMMO } from '../data/ammo.js';
 import { derive } from '../lib/ballistics.js';
 import { ballisticProfile } from '../lib/trajectory.js';
+import { JURISDICTIONS, matchesJurisdiction } from '../lib/legality.js';
 import {
   CASE_CRITERIA,
   CASE_SCOPES,
@@ -56,10 +57,16 @@ test('every load has a generated case and every scope is known', () => {
 
 test('criteria and scope metadata stay in sync with the app', () => {
   assert.deepEqual(CASE_CRITERIA.map((criterion) => criterion.key), expectedCriteria);
-  assert.deepEqual(
-    Object.keys(CASE_SCOPES),
-    ['all', 'centerfire', 'rimfire', 'pistol', 'rifle', 'shotgun'],
-  );
+  assert.deepEqual(Object.keys(CASE_SCOPES), [
+    'all',
+    'centerfire',
+    'rimfire',
+    'pistol',
+    'rifle',
+    'shotgun',
+    // One comparison set per jurisdiction the legal overlay covers.
+    ...JURISDICTIONS.map((jurisdiction) => jurisdiction.code.toLowerCase()),
+  ]);
   assert.deepEqual(
     criteriaForScope('all').map((criterion) => criterion.key),
     expectedCriteria.slice(0, 7),
@@ -82,6 +89,17 @@ test('criteria and scope metadata stay in sync with the app', () => {
   assert.equal(CASE_SCOPES.pistol.count, ROWS.filter((r) => r.category === 'pistol').length);
   assert.equal(CASE_SCOPES.rifle.count, ROWS.filter((r) => r.category === 'rifle').length);
   assert.equal(CASE_SCOPES.shotgun.count, ROWS.filter((r) => r.category === 'shotgun').length);
+  // Jurisdiction sets are the legal overlay, not a second copy of the rules.
+  for (const jurisdiction of JURISDICTIONS) {
+    const scope = CASE_SCOPES[jurisdiction.code.toLowerCase()];
+    assert.ok(scope, `missing scope for ${jurisdiction.code}`);
+    assert.equal(scope.label, `Loads legal in ${jurisdiction.label}`);
+    assert.equal(
+      scope.count,
+      ROWS.filter((row) => matchesJurisdiction(row, jurisdiction.code)).length,
+      `${jurisdiction.code} scope count disagrees with the overlay`,
+    );
+  }
 });
 
 test('generated weights and ranks reproduce in the browser math', () => {
@@ -129,7 +147,7 @@ test('generated weights and ranks reproduce in the browser math', () => {
       checked += 1;
     }
   }
-  assert.equal(checked, 874);
+  assert.equal(checked, Object.values(CASE_SCOPES).reduce((total, scope) => total + scope.count, 0));
 });
 
 test('known loads get the intended comparison set', () => {
@@ -172,8 +190,12 @@ test('known loads get the intended comparison set', () => {
 
   // .380 ACP needs three columns: compactness is still the largest, and the
   // argument is now the fewest columns that make it rather than every column.
+  // It is legal everywhere the overlay covers, so every scope is offered.
   const options = scopeOptionsFor('380acp');
-  assert.equal(options.length, 3);
+  assert.deepEqual(
+    options.map((option) => option.scope),
+    ['all', 'centerfire', 'pistol', 'mx', 'it', 'ca'],
+  );
   assert.equal(resultFor('380acp', 'all').feasible, false);
   assert.equal(resultFor('380acp', 'centerfire').feasible, false);
   assert.equal(resultFor('380acp', 'pistol').rank, 1);
@@ -182,6 +204,23 @@ test('known loads get the intended comparison set', () => {
   const pistolWeights = resultFor('380acp', 'pistol').weights;
   const largest = pistolWeights.indexOf(Math.max(...pistolWeights));
   assert.equal(largest, 7, '.380 ACP should lead on compact case');
+
+  // A jurisdiction scope is only offered where the load is legal: 9mm cannot be
+  // compared among loads legal in Mexico or Italy, because it is not one.
+  assert.deepEqual(
+    scopeOptionsFor('9mm').map((option) => option.scope),
+    ['all', 'centerfire', 'pistol', 'ca'],
+  );
+  assert.equal(resultFor('9mm', 'mx'), null);
+  assert.equal(resultFor('9mm', 'it'), null);
+
+  // Among the loads Mexico allows, the .380 argument collapses: the 9mm it is
+  // usually measured against is not in the set, and the tiny .22/.25/.32 rounds
+  // beat it on compactness and cost.
+  const mexican = resultFor('380acp', 'mx');
+  assert.ok(mexican, '.380 ACP is legal in Mexico');
+  assert.equal(mexican.feasible, false);
+  assert.ok(mexican.rank > 1);
 });
 
 test('rankCase exposes the closest case and its blockers', () => {

@@ -285,7 +285,7 @@ restores the filter rather than narrowing a rank the weights were not solved for
 is unrestricted where 9mm is not, and .38 Special is unrestricted where .357
 Magnum is not.
 
-Suite sizes after this work: 66 unit tests, 108 browser checks.
+Suite sizes after this work: 68 unit tests, 118 browser checks.
 
 ### Follow-up: generator tooling (after the review)
 
@@ -346,3 +346,37 @@ recoil story. Recoil alone puts it 12th of 64 and does not separate it from the
 other light-kicking pistols, so the search never needs it; the fewest-assumption
 argument is "small, cheap, heavy for its size". Both are true, and the docs now
 say which one the panel is making.
+
+### Follow-up: jurisdiction-scoped cases
+
+Legality was a filter; the Case feature could not use it. Now it can: the
+generator emits one comparison set per jurisdiction the overlay covers, built
+from `restrictedIn` in the exported rows — i.e. from `data/legality.js`, not a
+second copy of the rules — and `lib/case.js` resolves those scope keys through
+`matchesJurisdiction`, so membership means the same thing in both directions.
+
+| Set | Rows | Feasible cases |
+|---|---:|---:|
+| Loads legal in Mexico | 149 | 53 |
+| Loads legal in Italy | 293 | 65 |
+| Loads legal in Canada | 289 | 63 |
+
+Starting a case while the jurisdiction filter is active opens the panel in that
+set — the filter asks "what may I own here", and the case answers "here is the
+best argument among those". A load restricted there is never offered the set
+(9mm's menu is all / centerfire / pistol / Canada). `auto` deliberately ignores
+jurisdiction sets: a jurisdiction is a filter the reader applies, not a breadth
+level, so a load that cannot win anywhere still reports its broadest base set.
+
+The payoff is an honest, slightly uncomfortable result: `.380 ACP` wins its
+pistol case (3 factors) and then **cannot** win among Mexican-legal loads — rank
+4 of 149 — because the 9mm it is usually measured against is not in that set,
+and the .22/.25/.32 rounds beat it on compactness and cost. The panel says
+"closest found #4" rather than pretending. That is the difference between "the
+best pocket pistol" and "the best cartridge you can legally buy in Mexico", and
+the feature now tells them apart.
+
+Scope metadata is derived end to end: the generator's `SCOPES` grows from the
+exported jurisdiction list, `--scope mx` rebuilds just that set (~17 s), and
+`tests/cases.test.mjs` asserts each jurisdiction scope's count against
+`matchesJurisdiction` over the dataset, so the two can never drift.

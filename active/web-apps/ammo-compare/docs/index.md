@@ -191,7 +191,9 @@ On the page, restricted rows carry a small jurisdiction badge (`MX IT`) with the
 reason in its tooltip, the detail row spells out each jurisdiction's rule, and
 the **“Legal for civilians in”** control filters the table to loads that pass
 that jurisdiction's rules. Category chips count only the loads that pass, so the
-counts never contradict the rows.
+counts never contradict the rows. The Case feature also gets one comparison set
+per jurisdiction (see [Make the case](#make-the-case)), built from these same
+rules rather than a second copy of them.
 
 Two limits worth stating. Long-gun and shotgun rules are modelled only where they
 are a simple calibre test (Mexico's .30-calibre line); transport, carry, magazine
@@ -318,6 +320,19 @@ case length is treated as unknown, not as the shortest case.
 | Pistol loads | 64 |
 | Rifle loads | 208 |
 | Shotgun loads | 12 |
+| Loads legal in Mexico | 149 |
+| Loads legal in Italy | 293 |
+| Loads legal in Canada | 289 |
+
+The jurisdiction sets come from `data/legality.js` through the same rules the
+table filters on — the generator never keeps its own copy of the law. Start a
+case while the jurisdiction filter is active and the panel opens in that set:
+“make the case for .380 ACP among loads legal in Mexico” is the question the
+filter implies. A load that is restricted there is never offered that set, and
+the result is often a lesson: `.380 ACP` wins its pistol case and then cannot
+win among Mexican-legal loads at all, because the 9mm it is usually measured
+against is not in that set and the .22/.25/.32 rounds beat it on compactness and
+cost. Rank 4 of 149, reported as a closest case rather than a win.
 
 The default is the broadest set in which the load can win: all loads first,
 then centerfire (or rimfire), then its own category. That is why 9mm Luger

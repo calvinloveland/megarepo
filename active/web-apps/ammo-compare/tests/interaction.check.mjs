@@ -597,6 +597,35 @@ check(
   'the jurisdiction filter is disabled during a case',
   (await evaluate(`document.getElementById('jurisdiction').disabled`)) === true,
 );
+// The filter is a question about what the reader may own, so the case starts in
+// that jurisdiction's comparison set instead of the usual all -> ignition path.
+check(
+  'a case started under a filter uses that jurisdiction set',
+  (await evaluate(`document.getElementById('case-scope').value`)) === 'mx',
+  await evaluate(`document.getElementById('case-scope').value`),
+);
+check(
+  'the jurisdiction case reports its own comparison set',
+  (await evaluate(`document.getElementById('case-note').textContent`)).includes(
+    'loads legal in Mexico',
+  ),
+  await evaluate(`document.getElementById('case-note').textContent`),
+);
+check(
+  'the jurisdiction case shows only that set',
+  (await rowCount()) === 149,
+  `${await rowCount()} rows`,
+);
+check(
+  'the scope menu offers every set the load belongs to',
+  (await evaluate(`document.querySelectorAll('#case-scope option').length`)) === 6,
+  String(await evaluate(`document.querySelectorAll('#case-scope option').length`)),
+);
+check(
+  '.380 ACP admits it cannot win among loads legal in Mexico',
+  (await caseStatus()).includes('No weighting puts it first'),
+  await caseStatus(),
+);
 await clearCase();
 await sleep(200);
 check(
@@ -604,6 +633,20 @@ check(
   (await evaluate(`document.getElementById('jurisdiction').value`)) === 'MX',
   await evaluate(`document.getElementById('jurisdiction').value`),
 );
+
+// 9mm is not legal in Mexico or Italy, so those sets must not be offered.
+await setJurisdiction('all');
+await sleep(120);
+await caseButtonFor('9mm');
+await sleep(300);
+check(
+  '9mm is offered only the sets it belongs to',
+  (await evaluate(`[...document.querySelectorAll('#case-scope option')].map((o) => o.value).join(',')`)) ===
+    'all,centerfire,pistol,ca',
+  await evaluate(`[...document.querySelectorAll('#case-scope option')].map((o) => o.value).join(',')`),
+);
+await clearCase();
+await sleep(150);
 await setJurisdiction('all');
 await sleep(120);
 

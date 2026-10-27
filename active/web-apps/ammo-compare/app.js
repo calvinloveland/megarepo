@@ -526,6 +526,11 @@ function renderSummary(rows) {
 function startCase(id) {
   const auto = autoCaseFor(id);
   if (!auto) return;
+  // A jurisdiction filter is a question about what the reader may own, so the
+  // case starts in that set when the load is legal there. Otherwise the usual
+  // auto scope (all -> ignition -> category) applies.
+  const jurisdictionScope = state.jurisdiction === 'all' ? null : state.jurisdiction.toLowerCase();
+  const inJurisdiction = jurisdictionScope ? resultFor(id, jurisdictionScope) : null;
   const previous = state.caseMode?.previous ?? {
     query: state.query,
     category: state.category,
@@ -533,7 +538,7 @@ function startCase(id) {
     sortKey: state.sortKey,
     sortDir: state.sortDir,
   };
-  state.caseMode = { id, scope: auto.scope, previous };
+  state.caseMode = { id, scope: inJurisdiction ? jurisdictionScope : auto.scope, previous };
   // The case owns the comparison set, so the ordinary filters are paused and
   // cleared. They are restored by Clear case. A jurisdiction filter is cleared
   // too: the stored weights were solved over the whole scope, so narrowing the
@@ -576,7 +581,11 @@ function clearCase() {
   render();
 }
 
-const scopeNoun = (meta) => (meta?.label ?? 'loads').replace(/^All /i, '').toLowerCase();
+/** "Centerfire loads", "Loads legal in Mexico" -> mid-sentence form. */
+const scopeNoun = (meta) => {
+  const label = (meta?.label ?? 'loads').replace(/^All /i, '');
+  return label.charAt(0).toLowerCase() + label.slice(1);
+};
 
 /**
  * Which used factors are load-bearing.
@@ -656,7 +665,7 @@ function caseNote(row, scope, result, ranking) {
     }
     let note =
       `No non-negative weighting of the ${criteria.length} numeric columns ` +
-      `puts ${row.name} first among ${meta.label.toLowerCase()}. ` +
+      `puts ${row.name} first among ${scopeNoun(meta)}. ` +
       `The table shows a closest case found by the search.`;
     if (ranking?.blockers.length) {
       const ahead = ranking.rank - 1;
@@ -686,17 +695,17 @@ function caseNote(row, scope, result, ranking) {
   if (all && !all.feasible) {
     return (
       `No weighting puts it first against all ${CASE_SCOPES.all.count} loads. ` +
-      `This case narrows the field to ${meta.label.toLowerCase()}. ${factors}${loadBearing}${narrow}`
+      `This case narrows the field to ${scopeNoun(meta)}. ${factors}${loadBearing}${narrow}`
     );
   }
   if (ignitionResult && !ignitionResult.feasible && scope === row.category) {
     return (
       `No weighting works against all loads or ${ignition} loads. ` +
-      `This case narrows the field to ${meta.label.toLowerCase()}. ${factors}${loadBearing}${narrow}`
+      `This case narrows the field to ${scopeNoun(meta)}. ${factors}${loadBearing}${narrow}`
     );
   }
   return (
-    `This weighting puts it first among ${meta.label.toLowerCase()}. ` +
+    `This weighting puts it first among ${scopeNoun(meta)}. ` +
     `${factors}${loadBearing}${narrow}`
   );
 }

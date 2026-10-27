@@ -3,6 +3,7 @@ import {
   CASE_SCOPES,
   CASES,
 } from '../data/cases.js';
+import { matchesJurisdiction } from './legality.js';
 
 export { CASE_CRITERIA, CASE_SCOPES, CASES };
 
@@ -12,8 +13,25 @@ export { CASE_CRITERIA, CASE_SCOPES, CASES };
  */
 export const FEASIBLE_EPS = 1e-4;
 
+/** Category scopes the generator always emits; anything else is a jurisdiction. */
+const CATEGORY_SCOPES = ['all', 'centerfire', 'rimfire', 'pistol', 'rifle', 'shotgun'];
+
+/**
+ * Scope keys that name a jurisdiction, upper-cased for the legal overlay. The
+ * generator emits them from `data/legality.js`, so this list is derived rather
+ * than written twice.
+ */
+const JURISDICTION_SCOPES = new Map(
+  Object.keys(CASE_SCOPES)
+    .filter((scope) => !CATEGORY_SCOPES.includes(scope))
+    .map((scope) => [scope, scope.toUpperCase()]),
+);
+
 /** True when a load belongs to a comparison scope. */
 export function matchesScope(row, scope) {
+  if (JURISDICTION_SCOPES.has(scope)) {
+    return matchesJurisdiction(row, JURISDICTION_SCOPES.get(scope));
+  }
   switch (scope) {
     case 'all':
       return true;

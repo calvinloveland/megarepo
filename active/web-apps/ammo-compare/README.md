@@ -25,15 +25,16 @@ side by side, with muzzle energy, power factor, effective range, and trajectory
   the window narrows.
 - Sort any column, filter by category, search across names, designers, uses,
   and platforms.
-- **Make the case:** every row has a Case action that finds a non-negative
-  weighting of the numeric columns — year, bullet weight, velocity, energy,
-  effective range, power factor, recoil, and cost, plus compact case length for
-  pistol comparisons — and sorts the comparison set by the weighted percentile
-  score, putting the selected load first when a weighting exists. It falls back
-  to centerfire/rimfire and then the load's category, shows the weights, and
-  reports the closest case found when no weighting can win — naming the loads it
-  only ties with, and saying so when the winning weighting is really a single
-  column.
+- **Make the case:** every row has a Case action that finds the **fewest**
+  numeric columns that can still put the selected load first — year, bullet
+  weight, velocity, energy, effective range, recoil, and cost, plus compact case
+  length for pistol comparisons — and sorts the comparison set by the weighted
+  percentile score. It shows how many columns the argument needs, which ones it
+  does not, and checks that each used column is load-bearing. It falls back to
+  centerfire/rimfire and then the load's category, and reports the closest case
+  found when no weighting can win — naming the loads it only ties with. Start one
+  while the jurisdiction filter is active and the case runs inside that set
+  (“best load I may legally own in Mexico”).
 - Toggle imperial (grains · fps · ft·lb) and metric (g · m/s · J) units.
 - Cost is priced only for current commercial loads; obsolete, surplus, and
   collector cartridges are left blank instead of given an invented figure.
