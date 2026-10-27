@@ -25,6 +25,11 @@ side by side, with muzzle energy, power factor, effective range, and trajectory
   the window narrows.
 - Sort any column, filter by category, search across names, designers, uses,
   and platforms.
+- **Products:** a second view lists one row per product line — brand, box size,
+  SKU, per-round price when a listing was captured — joined to the cartridge it
+  chambers so geometry and ballistics are never duplicated. Import a real catalog
+  with `node tools/import-products.mjs catalog.csv`; the checked-in rows are a
+  labelled fixture, and a price can never exist without a source and a date.
 - **Make the case:** every row has a Case action that finds the **fewest**
   numeric columns that can still put the selected load first — year, bullet
   weight, velocity, energy, effective range, recoil, and cost, plus compact case

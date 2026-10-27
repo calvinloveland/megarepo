@@ -22,6 +22,7 @@ import { derive } from '../lib/ballistics.js';
 import { ballisticProfile } from '../lib/trajectory.js';
 import { recoilProfile } from '../lib/recoil.js';
 import { matchesJurisdiction } from '../lib/legality.js';
+import { CATALOG_IS_FIXTURE, CATALOG_STATS } from '../lib/products.js';
 import {
   CASE_SCOPES,
   CASES,
@@ -44,7 +45,10 @@ const DOC = flat(readFileSync(new URL('../docs/index.md', import.meta.url), 'utf
 const README = flat(readFileSync(new URL('../README.md', import.meta.url), 'utf8'));
 
 const says = (source, claim, label) =>
-  assert.ok(source.includes(claim), `${label ?? claim} is stale or missing from the docs`);
+  assert.ok(
+    source.includes(flat(claim)),
+    `${label ?? claim} is stale or missing from the docs`,
+  );
 
 /** Counts the prose quotes, computed from the same data the prose describes. */
 const stats = (() => {
@@ -259,4 +263,20 @@ test('the README counts match the dataset', () => {
     'README case-dimension count',
   );
   says(README, `plus shotgun loads and current-production rounds`);
+});
+
+test('the product-catalog claims match the catalog', () => {
+  // The fixture is a claim about a claim: the docs must say it is a fixture while
+  // it is one, and must quote its real size.
+  assert.equal(CATALOG_IS_FIXTURE, true, 'the docs claim a fixture; keep them in step');
+  says(
+    DOC,
+    `Its ${CATALOG_STATS.products} rows exist to exercise the`,
+    'product fixture row count',
+  );
+  says(DOC, 'The table gains a **Products** view beside **Cartridges**');
+  says(DOC, 'node tools/import-products.mjs catalog.csv            # validate + write');
+  for (const field of ['cartridge', 'source', 'priceUsd', 'packageRounds', 'velocityFps']) {
+    says(DOC, `| \`${field}\` |`, `product schema row for ${field}`);
+  }
 });

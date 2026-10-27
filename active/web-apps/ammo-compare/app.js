@@ -159,7 +159,14 @@ function bullet(r) {
   const imperial = `${r.bulletGr} gr`;
   const metric = `${r.bulletGrams.toFixed(2)} g`;
   const [main, alt] = state.units === 'metric' ? [metric, imperial] : [imperial, metric];
-  return `<span class="val">${main}</span><span class="sub">${alt}${commonWeights(r)}</span>`;
+  // A product row's bullet is this box's construction, not the cartridge's range
+  // of sold weights.
+  const sub = r.productId
+    ? r.bulletType
+      ? ` · ${escapeHtml(r.bulletType)}`
+      : ''
+    : commonWeights(r);
+  return `<span class="val">${main}</span><span class="sub">${alt}${sub}</span>`;
 }
 
 /**
@@ -349,7 +356,13 @@ function rowHtml(r) {
       <td class="num col-range" title="Estimated effective range">${range(r)}</td>
       <td class="num col-pf">${momentum(r)}</td>
       <td class="recoil col-recoil">${recoil(r)}</td>
-      <td class="num col-cost">${r.costPerRound == null ? '<span class="none" title="No current retail price">—</span>' : fmtCost(r.costPerRound)}</td>
+      <td class="num col-cost">${
+        r.costPerRound == null
+          ? `<span class="none" title="${
+              r.productId ? 'No listing captured for this product' : 'No current retail price'
+            }">—</span>`
+          : fmtCost(r.costPerRound)
+      }</td>
       <td class="use col-use">${r.use}</td>
     </tr>
     ${open ? detailHtml(r) : ''}`;
@@ -402,7 +415,8 @@ function trajectoryHtml(r) {
 }
 
 function detailHtml(r) {
-  const restrictions = restrictionsFor(r);
+  // A product row inherits the cartridge's restrictions; its own id is not a load.
+  const restrictions = r.restrictions ?? restrictionsFor(r);
   const payload = r.pelletLabel
     ? `<dt>Payload</dt><dd>${r.pelletLabel}</dd>`
     : '';
@@ -421,6 +435,23 @@ function detailHtml(r) {
       }`
     : null;
   const specs = [
+    r.productId && ['Product', `${r.brand} ${r.line}`],
+    r.productId && r.sku && ['SKU', r.sku],
+    r.productId && ['Cartridge', r.cartridgeName],
+    r.productId && r.bulletType && ['Bullet', r.bulletType],
+    r.productId && ['Box size', `${r.packageRounds} rounds`],
+    r.productId && [
+      'Velocity source',
+      r.velocitySource === 'manufacturer'
+        ? 'published by the manufacturer'
+        : "inherited from the cartridge reference load — this product's own figure was not captured",
+    ],
+    r.productId && [
+      'Price',
+      r.pricePerRound == null
+        ? 'no listing captured'
+        : `${fmtCost(r.pricePerRound)} per round · ${fmtCost(r.pricePerRound * r.packageRounds)} for a ${r.packageRounds}-round box`,
+    ],
     ['Momentum', `${r.momentumLbfS.toFixed(2)} lbf·s`],
     [
       'Free recoil',
@@ -497,9 +528,13 @@ function detailHtml(r) {
           <dt>Notes</dt>
           <dd>${r.notes}</dd>
         </dl>
-        <div class="detail-actions">
+        ${
+          r.productId
+            ? ''
+            : `<div class="detail-actions">
           <button type="button" class="case-btn case-btn-wide" data-case="${r.id}">Make the case for this load</button>
-        </div>
+        </div>`
+        }
         ${trajectoryHtml(r)}
       </td>
     </tr>`;

@@ -120,6 +120,59 @@ reference rows are deliberately unpriced: many are obsolete, surplus, or
 collector-only, so attaching a dollar figure would invent data rather than
 report it. Unpriced rows sort to the bottom in both directions.
 
+## Products: the boxes on the shelf
+
+A cartridge row says what a cartridge *is*. A product row says which specific
+loading of it you can buy — one row per real product line, pointing at the
+cartridge it chambers. Everything geometric (bullet diameter, case length,
+silhouette, designer, legality) is inherited from the cartridge, so the two
+layers cannot disagree: fix a case length once and every box of that cartridge
+follows. What a product adds is what differs between two boxes of the same
+cartridge:
+
+```js
+{ id, cartridge, brand, line, sku?, bulletGr, bulletType?, packageRounds,
+  velocityFps?, velocitySource, priceUsd?, priceSource?, priceChecked?, source }
+```
+
+| Field | Rule |
+|---|---|
+| `cartridge` | An id from `data/ammo.js`. A row pointing nowhere fails validation. |
+| `source` | Required. Where the row came from. "I remember this one" is not a source. |
+| `priceUsd` | Optional, and **never guessed**. A price also needs `priceSource` and `priceChecked`, so a stale price can be found and re-read. |
+| `packageRounds` | The box size the price refers to. Prices are shown per round, so a 20-round box and a 50-round box compare. |
+| `velocityFps` | Optional. Published figures carry `velocitySource: 'manufacturer'`; without one the row borrows the cartridge's reference velocity and says so in its detail. |
+
+The table gains a **Products** view beside **Cartridges**: same columns, same
+filters, same units, with brand and line in the load cell, the box size and SKU
+underneath, and no Case action (cases are solved per cartridge). Prices only
+appear when a listing was captured; otherwise the cell shows a dash and the
+detail row says “no listing captured”.
+
+### Importing a real catalog
+
+The app never fetches anything, and neither does the importer. You hand it a file
+you already have — a manufacturer spec sheet exported to CSV, a retailer listing
+export, a spreadsheet — and it validates, derives, and writes the checked-in
+catalog:
+
+```
+node tools/import-products.mjs catalog.csv            # validate + write
+node tools/import-products.mjs catalog.csv --check    # exit 1 if stale
+node tools/import-products.mjs catalog.json --dry-run # summary only
+```
+
+CSV columns: `id, cartridge, brand, line, sku, bulletGr, bulletType,
+packageRounds, velocityFps, priceUsd, priceSource, priceChecked, source`.
+Unknown columns are ignored, so an export can be fed in as-is. The importer
+rejects a row that breaks a sourcing rule rather than writing it.
+
+**The checked-in catalog is a fixture.** Its 12 rows exist to exercise the
+schema, the importer, and the view; they are not a claim about current prices or
+availability, and the app shows an “example catalog” notice while that is true.
+The moment a real export is imported, `CATALOG_IS_FIXTURE` turns false and the
+notice disappears.
+
 ## SAAMI and CIP validation
 
 The silhouettes are generated, so they can be checked against the standards

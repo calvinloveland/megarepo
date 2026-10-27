@@ -10,7 +10,7 @@
 import { AMMO } from '../data/ammo.js';
 import { PRODUCTS, PRODUCT_SCHEMA_VERSION, PACKAGE_SIZES } from '../data/products.js';
 import { derive } from './ballistics.js';
-import { ballisticProfile } from './trajectory.js';
+import { ballisticProfile, sectionalDensity } from './trajectory.js';
 import { recoilProfile } from './recoil.js';
 import { referenceFor } from '../data/dimensions.js';
 import { inventorFor } from '../data/inventors.js';
@@ -75,6 +75,7 @@ export function productRow(product) {
     id: `product:${product.id}`,
     productId: product.id,
     name: product.line,
+    line: product.line,
     brand: product.brand,
     sku: product.sku ?? null,
     bulletGr: product.bulletGr,
@@ -89,6 +90,7 @@ export function productRow(product) {
     // A per-round price only exists when a listing was captured. The cartridge's
     // own rough estimate is deliberately not inherited: a product row is a claim
     // about a box, and an estimate is not a listing.
+    sectionalDensity: sectionalDensity(product.bulletGr, cartridge.diameterIn),
     pricePerRound:
       product.priceUsd != null && product.packageRounds
         ? product.priceUsd / product.packageRounds

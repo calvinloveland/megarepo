@@ -17,6 +17,7 @@
 import { AMMO } from '../data/ammo.js';
 import { derive } from '../lib/ballistics.js';
 import { INVENTORS } from '../data/inventors.js';
+import { PRODUCTS, CATALOG_IS_FIXTURE } from '../lib/products.js';
 import { recoilProfile } from '../lib/recoil.js';
 import { matchesJurisdiction, restrictionsFor } from '../lib/legality.js';
 
@@ -106,6 +107,99 @@ check(
   (await evaluate(`new Set([...document.querySelectorAll('td.col-svg svg')].map((s) => s.getAttribute('viewBox'))).size`)) === 1,
 );
 check('default sort is energy, highest first', (await firstLoadName()) === hottest.name, await firstLoadName());
+
+/* -------------------------------- products -------------------------------- */
+
+const setView = async (view) => {
+  await evaluate(`document.querySelector('[data-view="${view}"]').click()`);
+  await sleep(300);
+};
+const productCartridges = new Set(PRODUCTS.map((product) => product.cartridge));
+const pistolProducts = PRODUCTS.filter((product) =>
+  ['9mm', '380acp', '45acp'].includes(product.cartridge),
+).length;
+
+await setView('products');
+check(
+  'the products view shows one row per product line',
+  (await rowCount()) === PRODUCTS.length,
+  `${await rowCount()} rows vs ${PRODUCTS.length} products`,
+);
+check(
+  'the products summary counts cartridges and prices',
+  (await evaluate(`document.getElementById('summary').textContent`)).includes('product lines'),
+  await evaluate(`document.getElementById('summary').textContent`),
+);
+const firstProductName = await firstLoadName();
+check(
+  'a product row carries its brand in the name',
+  PRODUCTS.some((product) => firstProductName.includes(product.brand)),
+  firstProductName,
+);
+check(
+  'product rows carry no Case button',
+  (await evaluate(`document.querySelectorAll('tbody tr.row .case-btn').length`)) === 0,
+);
+check(
+  'the fixture catalog is labelled',
+  CATALOG_IS_FIXTURE === false ||
+    (await evaluate(`document.getElementById('catalog-notice').hidden`)) === false,
+);
+
+const filterProducts = (query) =>
+  evaluate(`(() => {
+    const input = document.getElementById('search');
+    input.value = ${JSON.stringify(query)};
+    input.dispatchEvent(new Event('input'));
+  })()`);
+
+await filterProducts('hornady');
+await sleep(250);
+check('products are searchable by brand', (await rowCount()) >= 1, `${await rowCount()} rows`);
+await filterProducts('');
+await sleep(200);
+
+await clickChip('pistol');
+await sleep(250);
+check(
+  'category chips filter products too',
+  (await rowCount()) === pistolProducts,
+  `${await rowCount()} rows vs ${pistolProducts}`,
+);
+await clickChip('all');
+await sleep(200);
+
+await evaluate(`document.querySelector('tbody tr.row').click()`);
+await sleep(250);
+const productDetail = await evaluate(
+  `document.querySelector('tbody tr.detail')?.textContent ?? ''`,
+);
+check(
+  'a product detail lists its box and velocity source',
+  productDetail.includes('Box size') && productDetail.includes('Velocity source'),
+  productDetail.slice(0, 80),
+);
+check(
+  'a product detail offers no Case action',
+  (await evaluate(`document.querySelectorAll('tbody tr.detail [data-case]').length`)) === 0,
+);
+await evaluate(`document.querySelector('tbody tr.row').click()`);
+await sleep(150);
+
+await setView('cartridges');
+check(
+  'switching back restores the cartridge rows',
+  (await rowCount()) === AMMO.length,
+  `${await rowCount()} rows`,
+);
+check(
+  'cartridge rows have their Case buttons again',
+  (await evaluate(`document.querySelectorAll('tbody tr.row .case-btn').length`)) === AMMO.length,
+);
+check(
+  'the product count matches the cartridges that have listings',
+  productCartridges.size > 0 && PRODUCTS.length > productCartridges.size,
+);
 
 /* --------------------------------- recoil --------------------------------- */
 
