@@ -290,8 +290,8 @@ action asks a different question: is there a non-negative weighting of the
 numeric columns that puts *this* load first? Every row has a Case button, and
 the expanded detail has a “Make the case for this load” button. The panel shows
 the weights, the comparison set, the resulting rank, and the rows still ahead
-when the case loses. It also states the **size of the win** — “it wins by 1.0
-percentile points over 9mm Luger +P”, or “it sits 11.8 percentile points behind
+when the case loses. It also states the **size of the win** — “it wins by 0.9
+percentile points over 9mm Luger +P”, or “it sits 11.7 percentile points behind
 .300 Whisper” — because a one-point win and a ten-point win are not the same
 argument, and the panel should not make them look alike.
 
@@ -309,11 +309,13 @@ first build of the derived-recoil column did exactly that, and `.357 Magnum`
 “tied for first” with all 63 other pistol loads. Power factor stays a displayed
 column; recoil carries the argument, because it is what the shooter feels.
 `tests/cases.test.mjs` now rejects any stored weighting whose scores barely
-spread across its comparison set. Each criterion becomes a percentile within the comparison set, so
-the weights are shares of a rank argument rather than physical units. A missing
-year is treated as oldest; a missing price is treated as most expensive. The
-latter matters because 227 reference loads are deliberately unpriced. A zero
-case length is treated as unknown, not as the shortest case.
+spread across its comparison set. Each criterion becomes a percentile among the
+members that have a value, so the weights are shares of a rank argument rather
+than physical units. A missing year, price, or case length is not an
+observation: it sits at the worst end (0) rather than being ranked, which is why
+unpriced loads cannot make a priced load look cheap, and why the 227 unpriced loads
+never win a cost argument by default. A zero case length is
+treated as unknown, not as the shortest case.
 
 | Comparison set | Rows |
 |---|---:|
@@ -347,23 +349,31 @@ so and reports the closest case found; it never silently forces the selected
 row to the top. A tie between closest sets goes to the narrower set, which is
 usually the more useful comparison.
 
-As of the checked-in dataset, **114 of 295 loads have a strict case** in their
+As of the checked-in dataset, **91 of 295 loads have a strict case** in their
 auto-selected set. The rest report a closest case instead of pretending.
 
-Two honesty rules govern that fallback, because it is what most loads get:
+Three honesty rules govern the results, because most loads get the fallback:
 
-- **A tie is a tie.** 15 load/scope results can only tie for first, and the
+- **A tie is a tie.** 16 load/scope results can only tie for first, and the
   ranking keeps the selected row in name order among the loads it ties with
   rather than floating it to the top. The panel names the tied loads (for
   `.44 Magnum`/pistol that is 29 other cartridges) and says the tie is not a
   win. The table scroller is moved to the selected row so it stays visible
   without reordering the evidence.
 - **A corner is labelled.** Rank minimisation over a step function lands on a
-  vertex of the weight simplex for 115 of the 1189 infeasible results — 45 of them
+  vertex of the weight simplex for 118 of the 1306 infeasible results — 47 of them
   in an auto-selected set. When one criterion carries at least 90 % of the weight
   the note says so (“Eff. range carries 100 % of the weight”) instead of implying
   the weights are an even-handed argument. `.44 Magnum`/pistol is the clear
   example: it ties for first only if effective range carries everything.
+
+There is a third outcome between those two: **a win too thin to call a case.**
+A result has to beat the field by at least half a percentile point
+(`MIN_WIN = 0.005`) to be reported as `#1`; between that and zero it reaches
+first place but is labelled `first, thin` with the actual margin, because a
+small change to the data would flip it. 18 of the 91 auto-selected cases are in
+that band today, and `.50 BMG`/rifle is the example in the table below: it leads
+by 0.05 percentile points.
 
 ![A tie for first: .44 Magnum only wins if effective range carries all the weight](images/case-tie.png)
 
@@ -377,18 +387,25 @@ a cartridge can be the right choice for a small gun without beating 9mm on
 ballistic output.
 
 The stored case shows what that argument actually rests on: **three of the eight
-columns** — compact case 51 %, low cost 28 %, heavier bullet 21 %. Each is
-load-bearing: drop compact case and it falls to rank 16, drop cost and it
-falls to rank 7, drop bullet weight and it falls to rank 2. No smaller set works.
-Cost alone loses by 5.6 percentile points, and the best two-column attempt
-(velocity plus compactness) still loses by half a point.
+columns** — compact case 61 %, heavier bullet 21 %, low cost 18 %. Each is
+load-bearing: drop compact case and it falls to rank 12, drop cost and it
+falls to rank 5, drop bullet weight and it falls to rank 2. No smaller set
+works: cost alone loses by 5.6 percentile points, and the best two-column
+attempt (velocity plus compactness) still loses by half a point.
+
+Those percentiles are ranked **among the loads that have a value**. 42 of the 64
+pistol rows have no price at all, and treating them as "most expensive" used to
+inflate every priced load — .380 ACP scored the 94th cost percentile while
+costing more than the 9mm it competes with. Ranked against the 22 priced pistols
+it sits at the 83rd, which is the honest reading: cheaper than most of what you
+can actually buy, but not cheaper than 9mm.
 
 The reason people usually give — recoil — is not part of the minimal case, and
 that is the honest tension in this feature. Recoil alone puts .380 ACP 12th of
 64, and recoil is the one axis where the *smaller* cartridges beat it: .25 ACP
 sits at the 98th recoil percentile against .380's 82nd, and .32 ACP at the 95th.
 Weighting recoil therefore helps them, not it. What .380 actually has is size
-(94th percentile) and price (94th), plus a heavier bullet than the rounds it
+(93rd percentile) and price (83rd), plus a heavier bullet than the rounds it
 shares a pocket with — which is exactly the real argument: the most powerful
 thing that still fits the smallest pistol. The fewest-assumption case is “small,
 cheap, heavy for its size”, not “it kicks less”. Both are true; only one of them
@@ -456,14 +473,15 @@ The current data produces these illustrative cases (weights rounded):
 | Load | Set | Result | Factors | Columns used |
 |---|---|---|---|---|
 | `9mm Luger` | centerfire | #1 | **1** | cost 100 % |
-| `.223 Rem` | all | #1 | **2** | cost 71 %, range 29 % |
-| `.50 BMG` | all | #1 | **2** | energy 50 %, cost 50 % |
-| `.45 ACP` | all | #1 | **4** | cost 54 %, bullet 19 %, range 14 %, recoil 13 % |
-| `.380 ACP` | pistol | #1 | **3** | compact case 51 %, cost 28 %, bullet 21 % |
+| `.223 Rem` | all | #1 | **2** | cost 50 %, range 50 % |
+| `12 ga slug` | shotgun | #1 | **1** | energy 100 % |
+| `.380 ACP` | pistol | #1 | **3** | compact case 61 %, bullet 21 %, cost 18 % |
+| `.45 ACP` | centerfire | #1 | **4** | bullet 32 %, range 25 %, recoil 22 %, cost 22 % |
 | `.357 Magnum` | pistol | tied #1 | **1** | range 100 % (the only weighting that reaches the top) |
+| `.50 BMG` | rifle | first, thin | **3** | recoil 43 %, energy 40 %, bullet 17 % (0.05-point margin) |
 | `9mm Luger` | all (override) | closest found #2 | 4 | cost 93 %, energy 5 %, and two rounding slivers |
 
-The weights are not a claim that cost matters 76 % “in reality.” They are the
+The weights are not a claim that cost is the only thing that matters. They are the
 fewest-column argument that makes the selected load win this particular
 comparison, split evenly inside those columns, and the panel shows them so the
 argument can be inspected. Three other caveats are deliberate: effective range

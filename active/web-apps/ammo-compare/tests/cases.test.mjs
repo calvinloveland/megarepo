@@ -9,6 +9,7 @@ import {
   CASE_CRITERIA,
   CASE_SCOPES,
   FEASIBLE_EPS,
+  MIN_WIN,
   CASES,
   autoCaseFor,
   caseScore,
@@ -157,9 +158,9 @@ test('known loads get the intended comparison set', () => {
     '9mm': ['centerfire', true],
     // With recoil derived, .45 ACP can now make its case against every load:
     // cheap, heavy, soft-shooting and flat enough for the middle of the table.
-    '45acp': ['all', true],
+    '45acp': ['centerfire', true],
     '357mag': ['pistol', false],
-    '50bmg': ['all', true],
+    '50bmg': ['rifle', true],
     '380acp': ['pistol', true],
   };
   for (const [id, [scope, feasible]] of Object.entries(expected)) {
@@ -341,7 +342,7 @@ test('a strict win uses the fewest columns that can still win', () => {
         trial[index] = 0;
         const total = trial.reduce((sum, value) => sum + value, 0);
         const ranking = rankCase(ROWS, scope, trial.map((value) => value / total), id, percentiles);
-        if (ranking.rank === 1 && ranking.margin >= FEASIBLE_EPS) {
+        if (ranking.rank === 1 && ranking.margin >= MIN_WIN) {
           worst = `${id}/${scope} survives without ${criteriaForScope(scope)[index].key}`;
         }
       }
@@ -350,4 +351,56 @@ test('a strict win uses the fewest columns that can still win', () => {
   }
   assert.ok(checked > 50, `expected plenty of multi-factor wins, checked ${checked}`);
   assert.equal(worst, null, worst ?? '');
+});
+
+test('a case, a thin win and a tie are distinct outcomes', () => {
+  // The panel has three different things to say, and they must not overlap.
+  let thin = 0;
+  for (const [id, entry] of Object.entries(CASES)) {
+    for (const [scope, result] of Object.entries(entry.scopes)) {
+      const label = `${id}/${scope}`;
+      if (result.feasible) {
+        assert.equal(result.rank, 1, `${label} is feasible but not first`);
+        assert.ok(result.margin >= MIN_WIN, `${label} feasible with margin ${result.margin}`);
+        assert.equal(result.thin, false, `${label} cannot be feasible and thin`);
+      } else if (result.thin) {
+        thin += 1;
+        assert.equal(result.rank, 1, `${label} is thin but not first`);
+        assert.ok(
+          result.margin > 0 && result.margin < MIN_WIN,
+          `${label} thin margin ${result.margin}`,
+        );
+      } else if (result.rank === 1) {
+        assert.ok(result.margin <= FEASIBLE_EPS, `${label} is first with margin ${result.margin}`);
+      }
+    }
+  }
+  assert.ok(thin > 0, 'expected some thin wins in the dataset');
+});
+
+test('cost is ranked among the loads that have a price', () => {
+  // The bug this replaced: unpriced rows were ranked as "most expensive", so
+  // every priced load looked cheap. .380 ACP scored the 94th cost percentile
+  // while costing more than the 9mm it competes with.
+  const percentiles = percentileScores(ROWS, 'pistol');
+  const column = criteriaForScope('pistol').findIndex((c) => c.key === 'costPerRound');
+  const priced = ROWS.filter((row) => row.category === 'pistol' && row.costPerRound != null).sort(
+    (a, b) => a.costPerRound - b.costPerRound,
+  );
+  assert.ok(priced.length > 5, 'need priced pistol loads');
+  assert.equal(percentiles.get(priced[0].id)[column], 1, 'cheapest priced load is the top percentile');
+  assert.equal(
+    percentiles.get(priced[priced.length - 1].id)[column],
+    0,
+    'dearest priced load is the bottom percentile',
+  );
+  const unpriced = ROWS.find((row) => row.category === 'pistol' && row.costPerRound == null);
+  assert.equal(
+    percentiles.get(unpriced.id)[column],
+    0,
+    'no price is the worst end, not an observation',
+  );
+  const pct380 = percentiles.get('380acp')[column];
+  assert.ok(pct380 > 0.7 && pct380 < 0.9, `.380 ACP cost percentile is ${pct380}`);
+  assert.equal(MIN_WIN, 5e-3, 'MIN_WIN must match the generator');
 });

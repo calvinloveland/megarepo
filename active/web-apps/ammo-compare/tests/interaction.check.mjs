@@ -417,12 +417,12 @@ await setSearch('.45 ACP');
 await sleep(150);
 await caseButtonFor('45acp');
 await sleep(300);
-check('.45 ACP can now win against every load', (await evaluate(`document.getElementById('case-scope').value`)) === 'all', await evaluate(`document.getElementById('case-scope').value`));
-check('.45 ACP is first among all loads', (await firstLoadName()) === '.45 ACP', await firstLoadName());
-check('.45 ACP reports a strict win', (await caseStatus()).startsWith('#1 of 295 loads'), await caseStatus());
+check('.45 ACP falls back to centerfire', (await evaluate(`document.getElementById('case-scope').value`)) === 'centerfire', await evaluate(`document.getElementById('case-scope').value`));
+check('.45 ACP is first among centerfire loads', (await firstLoadName()) === '.45 ACP', await firstLoadName());
+check('.45 ACP reports a strict win', (await caseStatus()).startsWith('#1 of 284 centerfire loads'), await caseStatus());
 check(
-  '.45 ACP case leads on cost',
-  (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Low cost',
+  '.45 ACP case leads on bullet weight',
+  (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Heavier bullet',
   await evaluate(`document.querySelector('.case-weight .cw-label').textContent`),
 );
 await clearCase();

@@ -138,6 +138,7 @@ input[type="search"]:focus-visible, select:focus-visible, button:focus-visible {
 }
 .case-status.is-feasible { color: var(--green); }
 .case-status.is-infeasible { color: var(--red); }
+.case-status.is-thin { color: var(--accent); }
 .case-clear {
   flex: none;
   background: transparent;

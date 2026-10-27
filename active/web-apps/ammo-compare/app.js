@@ -26,6 +26,7 @@ import {
   CASE_CRITERIA,
   CASE_SCOPES,
   FEASIBLE_EPS,
+  MIN_WIN,
   autoCaseFor,
   resultFor,
   scopeOptionsFor,
@@ -495,7 +496,11 @@ function renderSummary(rows) {
   if (state.caseMode) {    const row = ROWS.find((r) => r.id === state.caseMode.id);
     const result = resultFor(state.caseMode.id, state.caseMode.scope);
     const meta = CASE_SCOPES[state.caseMode.scope];
-    const verdict = result?.feasible ? 'ranked #1' : `closest found #${result?.rank ?? '—'}`;
+    const verdict = result?.feasible
+      ? 'ranked #1'
+      : result?.thin
+        ? 'first, but by a hair'
+        : `closest found #${result?.rank ?? '—'}`;
     const factorNote = result ? ` · ${result.factors} factor${result.factors === 1 ? '' : 's'}` : '';
     els.summary.innerHTML =
       `The case for <strong>${row?.name ?? 'this load'}</strong> · ` +
@@ -614,7 +619,7 @@ function essentialFactors(id, scope, weights) {
       );
       return {
         index,
-        keeps: ranking ? ranking.rank === 1 && ranking.margin >= FEASIBLE_EPS : false,
+        keeps: ranking ? ranking.rank === 1 && ranking.margin >= MIN_WIN : false,
       };
     });
 }
@@ -666,6 +671,16 @@ function caseNote(row, scope, result, ranking) {
     ? ` This is not an even argument: ${dominant.criterion.label} carries ` +
       `${Math.round(dominant.weight * 100)}% of the weight.`
     : '';
+
+  if (result.thin) {
+    // First place, but not by enough to be an argument anybody would repeat.
+    const beats = runnerUp ? ` over ${runnerUp}` : '';
+    return (
+      `It does reach first place, by ${points(ranking.margin)}${beats} — too thin to ` +
+      `call a case, because a small change to the data would flip it. ` +
+      `${factors}${narrow}`
+    );
+  }
 
   if (!result.feasible) {
     if (result.rank === 1) {
@@ -757,6 +772,12 @@ function renderCasePanel() {
     els.caseStatus.textContent =
       `#1 of ${meta.count} ${scopeNoun(meta)} · ${result.factors} ` +
       `factor${result.factors === 1 ? '' : 's'}`;
+  } else if (result.thin) {
+    // First place, but by less than a case is worth making. Saying "tied" would
+    // be false, and saying "#1" would oversell it.
+    els.caseStatus.className = 'case-status is-thin';
+    els.caseStatus.textContent =
+      `#1 of ${meta.count} ${scopeNoun(meta)} · margin too thin to call a case`;
   } else if (result.rank === 1) {
     els.caseStatus.className = 'case-status is-infeasible';
     els.caseStatus.textContent = `No strict weighting · tied for #1 · ${result.factors} factor${result.factors === 1 ? '' : 's'}`;

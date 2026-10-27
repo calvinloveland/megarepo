@@ -13,6 +13,13 @@ export { CASE_CRITERIA, CASE_SCOPES, CASES };
  */
 export const FEASIBLE_EPS = 1e-4;
 
+/**
+ * The margin a case needs before it is worth calling one, matching `MIN_WIN` in
+ * the generator. Between FEASIBLE_EPS and this, a result is a `thin` win: it
+ * reaches first place, but a small change to the data would flip it.
+ */
+export const MIN_WIN = 5e-3;
+
 /** Category scopes the generator always emits; anything else is a jurisdiction. */
 const CATEGORY_SCOPES = ['all', 'centerfire', 'rimfire', 'pistol', 'rifle', 'shotgun'];
 
@@ -62,17 +69,14 @@ export function criteriaForScope(scope) {
   );
 }
 
-/** The value used for a criterion, with missing data pushed to the worst end. */
-function criterionValue(row, criterion) {
+/** True when the row has no usable value for a criterion. */
+function criterionMissing(row, criterion) {
   const value = row[criterion.key];
-  if (
+  return (
     value == null ||
     !Number.isFinite(value) ||
     (criterion.positive === true && value <= 0)
-  ) {
-    return criterion.direction > 0 ? -Infinity : Infinity;
-  }
-  return value;
+  );
 }
 
 /**
@@ -86,28 +90,34 @@ export function percentileScores(rows, scope) {
   const criteria = criteriaForScope(scope);
   const size = members.length;
   const scores = new Map();
-  for (const row of members) scores.set(row.id, new Array(criteria.length).fill(0.5));
-  if (size <= 1) return scores;
+  // Missing data is the worst end (0), not an observation. Ranking unpriced rows
+  // as "most expensive" would make every priced load look cheap.
+  for (const row of members) scores.set(row.id, new Array(criteria.length).fill(0));
+  if (size === 0) return scores;
 
   for (let column = 0; column < criteria.length; column += 1) {
     const criterion = criteria[column];
-    const ordered = members
-      .map((row, index) => ({ row, index, value: criterionValue(row, criterion) }))
+    const present = members
+      .map((row, index) => ({ row, index, value: row[criterion.key] }))
+      .filter((entry) => !criterionMissing(entry.row, criterion))
       .sort((a, b) => {
         if (a.value < b.value) return -1;
         if (a.value > b.value) return 1;
         return a.index - b.index;
       });
 
+    const count = present.length;
+    if (count === 0) continue; // no member has a value: the column says nothing
+
     let cursor = 0;
-    while (cursor < size) {
+    while (cursor < count) {
       let end = cursor;
-      while (end + 1 < size && ordered[end + 1].value === ordered[cursor].value) end += 1;
+      while (end + 1 < count && present[end + 1].value === present[cursor].value) end += 1;
       const averageRank = (cursor + end) / 2 + 1;
-      const percentile = (averageRank - 1) / (size - 1);
+      const percentile = count === 1 ? 0.5 : (averageRank - 1) / (count - 1);
       const directed = criterion.direction < 0 ? 1 - percentile : percentile;
       for (let tie = cursor; tie <= end; tie += 1) {
-        scores.get(ordered[tie].row.id)[column] = directed;
+        scores.get(present[tie].row.id)[column] = directed;
       }
       cursor = end + 1;
     }

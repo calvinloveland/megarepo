@@ -62,7 +62,7 @@ const stats = (() => {
         continue;
       }
       infeasible += 1;
-      if (result.rank === 1) rankOneTies += 1;
+      if (result.rank === 1 && !result.thin) rankOneTies += 1;
       if (result.factors === 1) {
         oneHot += 1;
         if (scope === entry.auto) autoOneHot += 1;
@@ -95,7 +95,7 @@ test('the coverage numbers in the docs match the dataset', () => {
   says(DOC, `Cost per round is only present for the ${stats.priced} cartridges`);
   says(DOC, `because ${stats.unpricedPistols} of the ${stats.pistols} pistol rows are unpriced`);
   says(DOC, `the data has one (${stats.bcRows} rows)`);
-  says(DOC, `because ${stats.unpriced} reference loads are deliberately unpriced`);
+  says(DOC, `the ${stats.unpriced} unpriced loads never win a cost argument by default`);
 });
 
 test('the SAAMI/CIP counts in the docs match the overlay', () => {
@@ -167,10 +167,11 @@ test('the illustrative cases in the docs are the stored ones', () => {
   const rows = [
     ['9mm Luger', '9mm', 'centerfire', 1],
     ['.223 Rem', '223', 'all', 2],
-    ['.50 BMG', '50bmg', 'all', 2],
-    ['.45 ACP', '45acp', 'all', 4],
+    ['12 ga slug', '12ga-slug', 'shotgun', 1],
     ['.380 ACP', '380acp', 'pistol', 3],
+    ['.45 ACP', '45acp', 'centerfire', 4],
     ['.357 Magnum', '357mag', 'pistol', 1],
+    ['.50 BMG', '50bmg', 'rifle', 3],
   ];
   for (const [name, id, scope, factors] of rows) {
     const result = CASES[id].scopes[scope];
@@ -178,7 +179,15 @@ test('the illustrative cases in the docs are the stored ones', () => {
     assert.equal(result.factors, factors, `${id}/${scope} factor count changed`);
     says(
       DOC,
-      `| \`${name}\` | ${scope} | ${result.feasible ? '#1' : result.rank === 1 ? 'tied #1' : `closest found #${result.rank}`} | **${factors}** |`,
+      `| \`${name}\` | ${scope} | ${
+        result.feasible
+          ? '#1'
+          : result.thin
+            ? 'first, thin'
+            : result.rank === 1
+              ? 'tied #1'
+              : `closest found #${result.rank}`
+      } | **${factors}** |`,
       `illustrative table row for ${id}/${scope}`,
     );
   }

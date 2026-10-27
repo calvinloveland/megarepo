@@ -109,6 +109,15 @@ def is_missing(value, criterion: tuple) -> bool:
 # one percentile step for the largest scope (1/294 ≈ 0.0034), so it still lets
 # a carefully chosen weighting separate near-ties.
 FEASIBLE_EPS = 1e-4
+# ...but a win of 0.01 percentile points is not an argument anybody would repeat.
+# A case has to clear this to be reported as one; a thinner rank-one result is
+# recorded as `thin` and shown as "wins, but not by enough to call it a case".
+MIN_WIN = 5e-3
+# The entropy step leaves residue on columns the optimum does not need — a tenth
+# of a percent here and there. That is not part of the argument, and the panel
+# promises every listed column is load-bearing, so anything below this is
+# dropped and the rest renormalised.
+SLIVER = 5e-3
 ROUND_DIGITS = 8
 # A weighting whose scores barely differ across the comparison set is not an
 # argument. This is far above float noise, so it only rejects degenerate
@@ -127,36 +136,42 @@ def load_rows() -> tuple[list[dict], list[dict]]:
 def percentile_matrix(
     rows: list[dict], indices: list[int], criteria: list[tuple]
 ) -> np.ndarray:
-    """Percentile score (0 = worst, 1 = best) for each scope member."""
+    """Percentile score (0 = worst, 1 = best) for each scope member.
+
+    Ranks are computed among the members that *have* a value. A load with no
+    price, no introduction year, or no case length sits at the worst end (0)
+    instead of being ranked as if it were an observation. That distinction
+    matters: ranking unpriced rows as "most expensive" made every priced load
+    look cheap, so `.380 ACP` scored the 94th cost percentile while actually
+    costing more than the 9mm it competes with — 42 of the 64 pistol rows have
+    no price at all.
+    """
     m = len(indices)
     out = np.zeros((m, len(criteria)), dtype=float)
     for j, criterion in enumerate(criteria):
         key, _label, _short, direction = criterion[:4]
-        values = []
-        for i in indices:
-            value = rows[i].get(key)
-            if is_missing(value, criterion):
-                value = -math.inf if direction > 0 else math.inf
-            values.append(value)
-        order = sorted(range(m), key=lambda p: values[p])
-        ranks = [0.0] * m
+        present = [
+            p for p in range(m) if not is_missing(rows[indices[p]].get(key), criterion)
+        ]
+        n = len(present)
+        if n == 0:
+            continue  # every member is missing: the column carries no information
+        order = sorted(present, key=lambda p: rows[indices[p]][key])
         p = 0
-        while p < m:
+        while p < n:
             q = p
-            while q + 1 < m and values[order[q + 1]] == values[order[p]]:
+            while (
+                q + 1 < n
+                and rows[indices[order[q + 1]]][key] == rows[indices[order[p]]][key]
+            ):
                 q += 1
-            # 1-based average rank for ties.
-            avg = (p + q) / 2.0 + 1.0
+            # 1-based average rank for ties, over the values that exist.
+            average_rank = (p + q) / 2.0 + 1.0
+            percentile = 0.5 if n == 1 else (average_rank - 1.0) / (n - 1.0)
+            directed = 1.0 - percentile if direction < 0 else percentile
             for t in range(p, q + 1):
-                ranks[order[t]] = avg
+                out[order[t], j] = directed
             p = q + 1
-        if m == 1:
-            out[:, j] = 0.5
-        else:
-            values_pct = [(rank - 1.0) / (m - 1.0) for rank in ranks]
-            if direction < 0:
-                values_pct = [1.0 - v for v in values_pct]
-            out[:, j] = values_pct
     return out
 
 
@@ -393,7 +408,7 @@ def sparsest_case(
             if found is None:
                 continue
             margin, weights = found
-            if margin < FEASIBLE_EPS:
+            if margin < MIN_WIN:
                 continue
             if best is None or margin > best[1]:
                 best = (subset, margin, weights)
@@ -402,10 +417,29 @@ def sparsest_case(
     return None
 
 
+def strip_slivers(weights: np.ndarray) -> np.ndarray:
+    """Drop rounding residue so a factor count means "columns that matter"."""
+    kept = np.where(np.asarray(weights, dtype=float) >= SLIVER, weights, 0.0)
+    total = float(kept.sum())
+    if total <= 0.0:
+        return np.asarray(weights, dtype=float)
+    return kept / total
+
+
 def greedy_sparsify(
-    pct: np.ndarray, selected: int, competitors: list[int], weights: np.ndarray
+    pct: np.ndarray,
+    selected: int,
+    competitors: list[int],
+    weights: np.ndarray,
+    min_margin: float | None = None,
 ) -> np.ndarray:
-    """Drop factors the closest case does not need to keep its rank."""
+    """Drop factors the result does not need.
+
+    The subset search can miss a smaller winning set when an LP fails on a
+    degenerate face, so this pass is the guarantee the panel relies on: with
+    `min_margin`, a column may only go if the result still *wins* by that much
+    (the feasible branch); without it, the closest case only has to keep its rank.
+    """
     best = np.asarray(weights, dtype=float).copy()
     best_rank = rank_of(pct, selected, competitors, normalized(best))
     for index in np.argsort(best):
@@ -417,7 +451,15 @@ def greedy_sparsify(
         if total <= 0.0:
             continue
         trial /= total
-        if rank_of(pct, selected, competitors, normalized(trial)) <= best_rank:
+        rounded = normalized(trial)
+        if min_margin is None:
+            if rank_of(pct, selected, competitors, rounded) <= best_rank:
+                best = trial
+            continue
+        if (
+            rank_of(pct, selected, competitors, rounded) == 1
+            and margin_of(pct, selected, competitors, rounded) >= min_margin
+        ):
             best = trial
     return best
 
@@ -433,7 +475,7 @@ def build_scope(rows: list[dict], scope: str, predicate) -> dict[str, dict]:
         if best is None:
             continue
         margin, weights = best
-        feasible = margin >= FEASIBLE_EPS
+        feasible = margin >= MIN_WIN
         chosen = weights
         if feasible:
             # Fewest factors first: the smallest set of columns that can still
@@ -444,7 +486,7 @@ def build_scope(rows: list[dict], scope: str, predicate) -> dict[str, dict]:
                 subset, subset_margin, subset_weights = sparse
                 chosen = subset_weights
                 if len(subset) > 1:
-                    entropy_eps = max(FEASIBLE_EPS, min(0.01, subset_margin * 0.5))
+                    entropy_eps = max(MIN_WIN, min(0.01, subset_margin * 0.5))
                     start = np.array([subset_weights[i] for i in subset], dtype=float)
                     start = start / start.sum() + 1e-6
                     start = start / start.sum()
@@ -460,7 +502,7 @@ def build_scope(rows: list[dict], scope: str, predicate) -> dict[str, dict]:
                         chosen[list(subset)] = even
             else:
                 # No subset up to MAX_FACTORS wins; use the full simplex.
-                entropy_eps = max(FEASIBLE_EPS, min(0.01, margin * 0.5))
+                entropy_eps = max(MIN_WIN, min(0.01, margin * 0.5))
                 start = weights + 1.0 / (len(weights) * 1000.0)
                 start = start / start.sum()
                 entropy = entropy_weights(pct, p, competitors, start, entropy_eps)
@@ -484,18 +526,43 @@ def build_scope(rows: list[dict], scope: str, predicate) -> dict[str, dict]:
         rounded = normalized(chosen)
         rounded_margin = margin_of(pct, p, competitors, rounded)
         rounded_rank = rank_of(pct, p, competitors, rounded)
-        if feasible and rounded_margin < FEASIBLE_EPS / 2.0:
-            # Rounding occasionally shaves a very thin win; fall back to the
-            # max-margin point, which is the safest strict separator.
+        if feasible and rounded_margin < MIN_WIN:
+            # Rounding occasionally shaves a thin win; fall back to the
+            # max-margin point, which is the safest separator.
             rounded = normalized(weights)
             rounded_margin = margin_of(pct, p, competitors, rounded)
             rounded_rank = rank_of(pct, p, competitors, rounded)
+        # Residue on columns the optimum does not need would be counted as a
+        # factor the panel cannot defend, so drop it and re-verify.
+        stripped = normalized(strip_slivers(np.asarray(rounded, dtype=float)))
+        if stripped != rounded:
+            stripped_margin = margin_of(pct, p, competitors, stripped)
+            stripped_rank = rank_of(pct, p, competitors, stripped)
+            if stripped_rank <= rounded_rank and (
+                not feasible or stripped_margin >= MIN_WIN
+            ):
+                rounded, rounded_margin, rounded_rank = stripped, stripped_margin, stripped_rank
+        # Then drop any column the win does not actually need. The subset search
+        # can miss one when an LP fails on a degenerate face, and a factor the
+        # panel cannot defend is worse than one column too many.
+        if feasible:
+            trimmed = normalized(
+                greedy_sparsify(pct, p, competitors, np.asarray(rounded, dtype=float), MIN_WIN)
+            )
+            if trimmed != rounded:
+                trimmed_margin = margin_of(pct, p, competitors, trimmed)
+                trimmed_rank = rank_of(pct, p, competitors, trimmed)
+                if trimmed_rank == 1 and trimmed_margin >= MIN_WIN:
+                    rounded, rounded_margin, rounded_rank = trimmed, trimmed_margin, trimmed_rank
+        wins = rounded_rank == 1 and rounded_margin >= MIN_WIN
         results[rows[selected]["id"]] = {
             "weights": rounded,
             "margin": round(rounded_margin, ROUND_DIGITS),
             "rank": rounded_rank,
             "factors": sum(1 for weight in rounded if weight > 0.0),
-            "feasible": bool(feasible and rounded_rank == 1),
+            # First place, but by less than a case is worth making.
+            "thin": bool(rounded_rank == 1 and not wins and rounded_margin > FEASIBLE_EPS),
+            "feasible": wins,
         }
     return results
 
