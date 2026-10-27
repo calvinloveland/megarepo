@@ -123,8 +123,8 @@ report it. Unpriced rows sort to the bottom in both directions.
 ## SAAMI and CIP validation
 
 The silhouettes are generated, so they can be checked against the standards
-instead of being taken on faith. Thirty-nine cartridges (42 rows, because +P
-variants share a drawing) have published dimensions from ANSI/SAAMI Z299 or
+instead of being taken on faith. Thirty-five published drawings cover 42 rows
+(+P variants and same-gauge shot shells share one) from ANSI/SAAMI Z299 or
 C.I.P. TDCC; those values live in `data/dimensions.js` and are asserted in
 `tests/dimensions.test.mjs`.
 
@@ -349,14 +349,14 @@ auto-selected set. The rest report a closest case instead of pretending.
 
 Two honesty rules govern that fallback, because it is what most loads get:
 
-- **A tie is a tie.** 14 load/scope results can only tie for first, and the
+- **A tie is a tie.** 15 load/scope results can only tie for first, and the
   ranking keeps the selected row in name order among the loads it ties with
   rather than floating it to the top. The panel names the tied loads (for
   `.44 Magnum`/pistol that is 29 other cartridges) and says the tie is not a
   win. The table scroller is moved to the selected row so it stays visible
   without reordering the evidence.
 - **A corner is labelled.** Rank minimisation over a step function lands on a
-  vertex of the weight simplex for 75 of the 639 infeasible results — 45 of them
+  vertex of the weight simplex for 115 of the 1189 infeasible results — 45 of them
   in an auto-selected set. When one criterion carries at least 90 % of the weight
   the note says so (“Eff. range carries 100 % of the weight”) instead of implying
   the weights are an even-handed argument. `.44 Magnum`/pistol is the clear
@@ -375,7 +375,7 @@ ballistic output.
 
 The stored case shows what that argument actually rests on: **three of the eight
 columns** — compact case 51 %, low cost 28 %, heavier bullet 21 %. Each is
-load-bearing: drop compact case and .380 ACP falls to rank 16, drop cost and it
+load-bearing: drop compact case and it falls to rank 16, drop cost and it
 falls to rank 7, drop bullet weight and it falls to rank 2. No smaller set works.
 Cost alone loses by 5.6 percentile points, and the best two-column attempt
 (velocity plus compactness) still loses by half a point.

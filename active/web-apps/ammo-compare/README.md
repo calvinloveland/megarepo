@@ -15,7 +15,7 @@ side by side, with muzzle energy, power factor, effective range, and trajectory
   longer share the same dot score.
 - Each row also draws a cartridge profile generated from its case length, bullet
   diameter, and bullet weight, so the shapes are data, not bespoke artwork. Case
-  bodies use published SAAMI or C.I.P. dimensions for 39 cartridges (42 rows);
+  bodies use published SAAMI or C.I.P. dimensions: 35 drawings across 42 rows;
   the rest are inferred and documented as schematics.
 - Expanded rows include a sampled trajectory table (velocity, energy, drop, and
   time of flight out to the effective range), sectional density, and a published

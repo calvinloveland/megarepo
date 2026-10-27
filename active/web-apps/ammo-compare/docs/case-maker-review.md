@@ -380,3 +380,26 @@ Scope metadata is derived end to end: the generator's `SCOPES` grows from the
 exported jurisdiction list, `--scope mx` rebuilds just that set (~17 s), and
 `tests/cases.test.mjs` asserts each jurisdiction scope's count against
 `matchesJurisdiction` over the dataset, so the two can never drift.
+
+### Follow-up: the docs now check themselves
+
+Every regeneration moved numbers that `docs/index.md` and `README.md` quote —
+strict-case counts, scope sizes, single-column fallbacks, the `.380 ACP` split.
+Keeping them in sync by hand failed repeatedly during this work, so
+`tests/docs.test.mjs` now reads both documents and asserts the claims against the
+data:
+
+- coverage (designers, priced/unpriced, published ballistic coefficients),
+- the SAAMI/C.I.P. drawing count and the row count it covers,
+- every row of the comparison-set table, with jurisdiction counts checked
+  against `matchesJurisdiction` rather than the payload alone,
+- strict-case / tie / single-column-fallback statistics,
+- the illustrative case table (load, set, result, factor count),
+- the `.380 ACP` walkthrough, including the three ablation ranks,
+- the `.44 Magnum` tie count.
+
+It found three stale claims on its first run: the drawing count said 39
+cartridges when there are 35 distinct drawings covering 42 rows, the tie count
+said 14 when it had become 15, and the single-column fallback count said 75 of
+639 when jurisdiction scopes had made it 115 of 1189. Those are exactly the
+numbers a reader would trust.
