@@ -403,3 +403,32 @@ cartridges when there are 35 distinct drawings covering 42 rows, the tie count
 said 14 when it had become 15, and the single-column fallback count said 75 of
 639 when jurisdiction scopes had made it 115 of 1189. Those are exactly the
 numbers a reader would trust.
+
+### Follow-up: the panel states the size of the win
+
+The `.380 ACP` answer exposed a gap: every strict win looked equally convincing.
+It wins by 1.0 percentile point over 9mm Luger +P — a squeaker — while `.50 BMG`
+wins its case by much more. The note now says so: “it wins by 1.0 percentile
+points over 9mm Luger +P”, or for a fallback “it sits 11.8 percentile points
+behind .204 Ruger”. A tie claims no margin at all, and the `.44 Magnum` branch
+still says it only ties.
+
+That number is the same quantity the generator maximises, so it is not a new
+model — just the one piece of it the panel was hiding. `tests/interaction.check.mjs`
+pins both forms (win and loss) and pins that a tie never claims a win.
+
+### Still open: the cost percentile is inflated by unpriced rows
+
+Cost is ranked over the whole comparison set, with unpriced loads pushed to the
+most-expensive end. That is deliberate (unpriced surplus must not win by default)
+but it inflates every *priced* load: `.380 ACP` scores the 94th cost percentile
+because 42 of the 64 pistol rows are unpriced obsolete rounds, while it actually
+costs more than the 9mm it competes with.
+
+A prototype fixes it by ranking cost only among loads that have a price, with
+unpriced rows still at the worst end: `.380` drops to the 81st percentile, and
+its minimal case changes from `bullet + cost + compact` (margin 0.0197) to
+`velocity + compact` (margin 0.0012). That is fewer factors but a far thinner
+margin — so the change needs a companion decision about a minimum margin for a
+strict win (the current floor is `FEASIBLE_EPS = 1e-4`). Deferred rather than
+half-done: it touches every stored weight and needs a full regeneration.

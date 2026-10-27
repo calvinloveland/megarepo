@@ -290,7 +290,10 @@ action asks a different question: is there a non-negative weighting of the
 numeric columns that puts *this* load first? Every row has a Case button, and
 the expanded detail has a “Make the case for this load” button. The panel shows
 the weights, the comparison set, the resulting rank, and the rows still ahead
-when the case loses.
+when the case loses. It also states the **size of the win** — “it wins by 1.0
+percentile points over 9mm Luger +P”, or “it sits 11.8 percentile points behind
+.300 Whisper” — because a one-point win and a ten-point win are not the same
+argument, and the panel should not make them look alike.
 
 The shared criteria are the seven numeric table columns: introduction year,
 bullet weight, velocity, energy, effective range, derived free recoil, and cost.

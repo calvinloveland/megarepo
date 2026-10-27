@@ -456,6 +456,20 @@ check(
   await evaluate(`document.getElementById('case-note').textContent`),
 );
 check('.380 ACP notes the narrower field', (await evaluate(`document.getElementById('case-note').textContent`)).includes('pistol loads'));
+// The panel quantifies the argument: a one-point win is a squeaker, and saying so
+// keeps every win from looking equally convincing.
+check(
+  '.380 ACP reports how close its win is',
+  /wins by [\d.]+ percentile points over/.test(
+    await evaluate(`document.getElementById('case-note').textContent`),
+  ),
+  await evaluate(`document.getElementById('case-note').textContent`),
+);
+check(
+  'the win names the load it beats',
+  (await evaluate(`document.getElementById('case-note').textContent`)).includes('over 9mm Luger +P'),
+  await evaluate(`document.getElementById('case-note').textContent`),
+);
 
 await evaluate(`(() => {
   const select = document.getElementById('case-scope');
@@ -493,6 +507,11 @@ check(
   await evaluate(`document.getElementById('case-note').textContent`),
 );
 check(
+  'a tie does not claim a margin',
+  !(await evaluate(`document.getElementById('case-note').textContent`)).includes('wins by'),
+  await evaluate(`document.getElementById('case-note').textContent`),
+);
+check(
   'case mode marks the pistol chip instead of All',
   (await evaluate(`document.querySelector('.chip[aria-pressed="true"]')?.dataset.category`)) === 'pistol',
   await evaluate(`document.querySelector('.chip[aria-pressed="true"]')?.dataset.category`),
@@ -512,6 +531,13 @@ check('6.5×55mm reports a closest case, not a win', (await caseStatus()).includ
 check(
   '6.5×55mm counts the loads still ahead',
   /and \d+ others/.test(await evaluate(`document.getElementById('case-note').textContent`)),
+  await evaluate(`document.getElementById('case-note').textContent`),
+);
+check(
+  'a losing case reports how far behind it sits',
+  /sits [\d.]+ percentile points behind/.test(
+    await evaluate(`document.getElementById('case-note').textContent`),
+  ),
   await evaluate(`document.getElementById('case-note').textContent`),
 );
 check(

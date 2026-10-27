@@ -637,6 +637,19 @@ function caseNote(row, scope, result, ranking) {
   const factors =
     `It needs ${result.factors} of the ${criteria.length} columns: ${nameList(usedList, 4)}.`;
 
+  // How strong the argument is, in the same units the weights are shares of.
+  // A one-point win is a squeaker; ten points is not. Saying so keeps the panel
+  // from implying every win is equally convincing.
+  const runnerUp = ranking?.sorted[1]?.row.name;
+  const points = (value) => `${(value * 100).toFixed(1)} percentile points`;
+  const gap = !ranking
+    ? ''
+    : result.feasible && ranking.margin >= 1e-4 && runnerUp
+      ? ` It wins by ${points(ranking.margin)} over ${runnerUp}.`
+      : !result.feasible && ranking.margin < -1e-4 && ranking.sorted[0]
+        ? ` It sits ${points(-ranking.margin)} behind ${ranking.sorted[0].row.name}.`
+        : '';
+
   // Essentiality is a claim the panel can check: drop a used column, renormalise,
   // and see whether the load is still first. The generator solves for the
   // fewest columns, so for a strict win every one of them should matter.
@@ -666,7 +679,7 @@ function caseNote(row, scope, result, ranking) {
     let note =
       `No non-negative weighting of the ${criteria.length} numeric columns ` +
       `puts ${row.name} first among ${scopeNoun(meta)}. ` +
-      `The table shows a closest case found by the search.`;
+      `The table shows a closest case found by the search.${gap}`;
     if (ranking?.blockers.length) {
       const ahead = ranking.rank - 1;
       note +=
@@ -686,7 +699,7 @@ function caseNote(row, scope, result, ranking) {
   if (scope === 'all') {
     return (
       `This weighting puts ${row.name} first against all ${meta.count} loads. ` +
-      `${factors}${loadBearing}${narrow}`
+      `${factors}${loadBearing}${gap}${narrow}`
     );
   }
   const all = resultFor(row.id, 'all');
@@ -695,18 +708,18 @@ function caseNote(row, scope, result, ranking) {
   if (all && !all.feasible) {
     return (
       `No weighting puts it first against all ${CASE_SCOPES.all.count} loads. ` +
-      `This case narrows the field to ${scopeNoun(meta)}. ${factors}${loadBearing}${narrow}`
+      `This case narrows the field to ${scopeNoun(meta)}. ${factors}${loadBearing}${gap}${narrow}`
     );
   }
   if (ignitionResult && !ignitionResult.feasible && scope === row.category) {
     return (
       `No weighting works against all loads or ${ignition} loads. ` +
-      `This case narrows the field to ${scopeNoun(meta)}. ${factors}${loadBearing}${narrow}`
+      `This case narrows the field to ${scopeNoun(meta)}. ${factors}${loadBearing}${gap}${narrow}`
     );
   }
   return (
     `This weighting puts it first among ${scopeNoun(meta)}. ` +
-    `${factors}${loadBearing}${narrow}`
+    `${factors}${loadBearing}${gap}${narrow}`
   );
 }
 
