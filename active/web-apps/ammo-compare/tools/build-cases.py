@@ -23,6 +23,7 @@ A full solve takes about half an hour. Two flags make the loop shorter:
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import math
 import re
@@ -317,6 +318,91 @@ def best_effort_weights(
     return weights[order[0]]
 
 
+# Fewest-factors search is exact up to this many criteria; past it the full
+# simplex is both cheaper and more honest than an incomplete subset sweep.
+MAX_FACTORS = 4
+
+
+def max_margin_subset(
+    pct: np.ndarray, selected: int, competitors: list[int], subset: tuple[int, ...]
+) -> tuple[float, np.ndarray] | None:
+    """Max-margin LP restricted to a subset of criteria, expanded back to full width."""
+    sub = pct[:, subset]
+    k = sub.shape[1]
+    c = np.zeros(k + 1)
+    c[-1] = -1.0
+    a_ub = []
+    for j in competitors:
+        d = sub[selected] - sub[j]
+        row = np.zeros(k + 1)
+        row[:k] = -d
+        row[-1] = 1.0
+        a_ub.append(row)
+    a_eq = np.zeros((1, k + 1))
+    a_eq[0, :k] = 1.0
+    result = linprog(
+        c,
+        A_ub=np.array(a_ub),
+        b_ub=np.zeros(len(a_ub)),
+        A_eq=a_eq,
+        b_eq=np.array([1.0]),
+        bounds=[(0.0, None)] * k + [(None, None)],
+        method="highs",
+    )
+    if not result.success:
+        return None
+    weights = np.zeros(pct.shape[1])
+    weights[list(subset)] = result.x[:k]
+    return float(result.x[-1]), weights
+
+
+def sparsest_case(
+    pct: np.ndarray, selected: int, competitors: list[int]
+) -> tuple[tuple[int, ...], float, np.ndarray] | None:
+    """Fewest criteria that can put the load strictly first.
+
+    The strongest case is the one that needs the fewest assumptions: "it is the
+    cheapest" is a better argument than "it is cheapest, softest, and lightest".
+    Tries every subset of size 1, then 2, and so on, and stops at the first size
+    that yields a strict win; within that size it keeps the widest margin.
+    """
+    width = pct.shape[1]
+    for size in range(1, min(MAX_FACTORS, width) + 1):
+        best: tuple[tuple[int, ...], float, np.ndarray] | None = None
+        for subset in itertools.combinations(range(width), size):
+            found = max_margin_subset(pct, selected, competitors, subset)
+            if found is None:
+                continue
+            margin, weights = found
+            if margin < FEASIBLE_EPS:
+                continue
+            if best is None or margin > best[1]:
+                best = (subset, margin, weights)
+        if best is not None:
+            return best
+    return None
+
+
+def greedy_sparsify(
+    pct: np.ndarray, selected: int, competitors: list[int], weights: np.ndarray
+) -> np.ndarray:
+    """Drop factors that the closest case does not need to keep its rank."""
+    best = np.asarray(weights, dtype=float).copy()
+    best_rank = rank_of(pct, selected, competitors, normalized(best))
+    for index in np.argsort(best):
+        if best[index] <= 0.0:
+            continue
+        trial = best.copy()
+        trial[index] = 0.0
+        total = float(trial.sum())
+        if total <= 0.0:
+            continue
+        trial /= total
+        if rank_of(pct, selected, competitors, normalized(trial)) <= best_rank:
+            best = trial
+    return best
+
+
 def build_scope(rows: list[dict], scope: str, predicate) -> dict[str, dict]:
     indices = [i for i, row in enumerate(rows) if predicate(row)]
     pct = percentile_matrix(rows, indices, criteria_for_scope(scope))
@@ -330,22 +416,46 @@ def build_scope(rows: list[dict], scope: str, predicate) -> dict[str, dict]:
         margin, weights = best
         feasible = margin >= FEASIBLE_EPS
         chosen = weights
+        factors = None
         if feasible:
-            # Keep a real safety margin instead of settling for the thinnest
-            # numerical win: aim for half the maximum margin, capped at one
-            # percentile point, then maximize entropy inside that region.
-            entropy_eps = max(FEASIBLE_EPS, min(0.01, margin * 0.5))
-            start = weights + 1.0 / (len(weights) * 1000.0)
-            start = start / start.sum()
-            entropy = entropy_weights(pct, p, competitors, start, entropy_eps)
-            if entropy is None:
-                entropy = entropy_weights(pct, p, competitors, start, FEASIBLE_EPS)
-            if entropy is not None:
-                chosen = entropy
+            sparse = sparsest_case(pct, p, competitors)
+            if sparse is not None:
+                subset, subset_margin, subset_weights = sparse
+                factors = len(subset)
+                # Spread the weight as evenly as possible *inside* the chosen
+                # subset: the argument needs those columns, not an arbitrary
+                # split of them.
+                entropy_eps = max(FEASIBLE_EPS, min(0.01, subset_margin * 0.5))
+                start = np.array([subset_weights[i] for i in subset], dtype=float)
+                start = start / start.sum() + 1e-6
+                start = start / start.sum()
+                if factors > 1:
+                    even = entropy_weights(
+                        pct[:, subset], p, competitors, start, entropy_eps
+                    )
+                    if even is None:
+                        even = entropy_weights(
+                            pct[:, subset], p, competitors, start, FEASIBLE_EPS
+                        )
+                    if even is not None:
+                        chosen = np.zeros(pct.shape[1])
+                        chosen[list(subset)] = even
+                if chosen is weights or factors == 1:
+                    chosen = subset_weights
             else:
-                fallback = max_min_weight(pct, p, competitors, entropy_eps)
-                if fallback is not None:
-                    chosen = fallback
+                # No subset up to MAX_FACTORS wins; fall back to the full simplex.
+                entropy_eps = max(FEASIBLE_EPS, min(0.01, margin * 0.5))
+                start = weights + 1.0 / (len(weights) * 1000.0)
+                start = start / start.sum()
+                entropy = entropy_weights(pct, p, competitors, start, entropy_eps)
+                if entropy is None:
+                    entropy = entropy_weights(pct, p, competitors, start, FEASIBLE_EPS)
+                if entropy is not None:
+                    chosen = entropy
+                else:
+                    fallback = max_min_weight(pct, p, competitors, entropy_eps)
+                    if fallback is not None:
+                        chosen = fallback
         else:
             chosen = best_effort_weights(
                 pct,
@@ -354,6 +464,7 @@ def build_scope(rows: list[dict], scope: str, predicate) -> dict[str, dict]:
                 weights,
                 seed=100003 * (list(SCOPES).index(scope) + 1) + selected,
             )
+            chosen = greedy_sparsify(pct, p, competitors, chosen)
         rounded = normalized(chosen)
         rounded_margin = margin_of(pct, p, competitors, rounded)
         rounded_rank = rank_of(pct, p, competitors, rounded)
@@ -363,201 +474,12 @@ def build_scope(rows: list[dict], scope: str, predicate) -> dict[str, dict]:
             rounded = normalized(weights)
             rounded_margin = margin_of(pct, p, competitors, rounded)
             rounded_rank = rank_of(pct, p, competitors, rounded)
+        nonzero = sum(1 for weight in rounded if weight > 0.0)
         results[rows[selected]["id"]] = {
             "weights": rounded,
             "margin": round(rounded_margin, ROUND_DIGITS),
             "rank": rounded_rank,
+            "factors": nonzero,
             "feasible": bool(feasible and rounded_rank == 1),
         }
     return results
-
-
-def auto_scope(
-    row: dict,
-    available: list[str],
-    results: dict[str, dict[str, dict]],
-    counts: dict[str, int],
-) -> str:
-    """Broadest set the load can win, else the closest one.
-
-    All loads first, then centre/rimfire, then the load's own category. A tie
-    between closest sets goes to the narrower set, which is usually the more
-    useful comparison.
-    """
-    rid = row["id"]
-    feasible = [scope for scope in available if results[rid][scope]["feasible"]]
-    if feasible:
-        return feasible[0]
-    return min(
-        available,
-        key=lambda scope: (
-            results[rid][scope]["rank"],
-            counts[scope],
-            available.index(scope),
-        ),
-    )
-
-
-def candidate_scopes(row: dict) -> list[str]:
-    ignition = "rimfire" if row["category"] == "rimfire" else "centerfire"
-    order = ["all", ignition, row["category"]]
-    seen: list[str] = []
-    for scope in order:
-        if scope not in seen:
-            seen.append(scope)
-    return seen
-
-
-def assemble(
-    rows: list[dict], results: dict[str, dict[str, dict]], counts: dict[str, int]
-) -> dict:
-    """Build the payload in a deterministic order from per-scope results."""
-    cases = {}
-    for row in rows:
-        rid = row["id"]
-        available = [
-            scope
-            for scope in candidate_scopes(row)
-            if rid in results and scope in results[rid]
-        ]
-        if not available:
-            continue
-        cases[rid] = {
-            "auto": auto_scope(row, available, results, counts),
-            "scopes": {scope: results[rid][scope] for scope in available},
-        }
-    return cases
-
-
-def serialize(payload: dict) -> str:
-    return (
-        "// Generated by tools/build-cases.py. Do not edit by hand.\n"
-        "// Regenerate with: nix-shell -p python3Packages.scipy python3Packages.numpy "
-        '--run "python3 tools/build-cases.py"\n'
-        f"export const CASE_CRITERIA = {json.dumps(payload['criteria'], separators=(',', ':'))};\n"
-        f"export const CASE_SCOPES = {json.dumps(payload['scopes'], separators=(',', ':'))};\n"
-        f"export const CASES = {json.dumps(payload['cases'], separators=(',', ':'))};\n"
-    )
-
-
-def criteria_payload() -> list[dict]:
-    payload = []
-    for criterion in CRITERIA:
-        key, label, short, direction = criterion[:4]
-        item = {"key": key, "label": label, "short": short, "direction": direction}
-        scopes = scopes_for(criterion)
-        if scopes is not None:
-            item["scopes"] = list(scopes)
-        if len(criterion) > 5 and criterion[5]:
-            item["positive"] = True
-        payload.append(item)
-    return payload
-
-
-def read_payload() -> dict | None:
-    """Parse the checked-in file so a single scope can be rebuilt in place."""
-    if not OUT.exists():
-        return None
-    text = OUT.read_text()
-    found = {}
-    for name in ("CASE_CRITERIA", "CASE_SCOPES", "CASES"):
-        match = re.search(rf"^export const {name} = (.*);$", text, re.MULTILINE)
-        if match is None:
-            return None
-        found[name] = json.loads(match.group(1))
-    return {"criteria": found["CASE_CRITERIA"], "scopes": found["CASE_SCOPES"], "cases": found["CASES"]}
-
-
-def build(rows: list[dict], only: str | None, previous: dict | None) -> dict:
-    """Solve the requested scopes and merge them with what is already checked in."""
-    scope_meta: dict[str, dict] = {}
-    if only and previous:
-        scope_meta = dict(previous["scopes"])
-
-    # Existing per-scope results, minus any scope being rebuilt.
-    merged: dict[str, dict[str, dict]] = {}
-    if previous:
-        for rid, entry in previous["cases"].items():
-            kept = {scope: result for scope, result in entry["scopes"].items() if scope != only}
-            if kept:
-                merged[rid] = kept
-
-    for scope, (label, predicate) in SCOPES.items():
-        if only and scope != only:
-            continue
-        indices = [i for i, row in enumerate(rows) if predicate(row)]
-        scope_meta[scope] = {"label": label, "count": len(indices)}
-        print(f"building {scope}: {len(indices)} rows", file=sys.stderr)
-        results = build_scope(rows, scope, predicate)
-        for rid, result in results.items():
-            merged.setdefault(rid, {})[scope] = result
-
-    counts = {scope: meta["count"] for scope, meta in scope_meta.items()}
-    return {
-        "criteria": criteria_payload(),
-        "scopes": scope_meta,
-        "cases": assemble(rows, merged, counts),
-    }
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument(
-        "--scope",
-        choices=list(SCOPES),
-        help="rebuild one comparison set and merge it into the checked-in file",
-    )
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="do not write; exit 1 if the checked-in file differs from a fresh solve",
-    )
-    return parser.parse_args()
-
-
-def main() -> None:
-    args = parse_args()
-    rows = load_rows()
-    previous = read_payload()
-    if args.scope and previous is None:
-        sys.exit(f"--scope needs an existing {OUT.name} to merge into")
-
-    payload = build(rows, args.scope, previous)
-    text = serialize(payload)
-
-    if args.check:
-        if previous is None:
-            sys.exit(f"no checked-in {OUT.name} to compare against")
-        current = OUT.read_text()
-        if text != current:
-            print(f"{OUT.name} is stale — regenerate it", file=sys.stderr)
-            stale = [
-                rid
-                for rid, case in payload["cases"].items()
-                if previous["cases"].get(rid) != case
-            ]
-            print(
-                f"  {len(stale)} load(s) differ: {', '.join(stale[:8])}"
-                f"{' …' if len(stale) > 8 else ''}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        print(f"{OUT.name} is up to date", file=sys.stderr)
-        return
-
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(text)
-    feasible = sum(
-        1
-        for case in payload["cases"].values()
-        if case["scopes"].get(case["auto"], {}).get("feasible")
-    )
-    scope_note = f" ({args.scope} only)" if args.scope else ""
-    print(
-        f"wrote {OUT}{scope_note} — {feasible}/{len(rows)} loads have a strict case",
-        file=sys.stderr,
-    )
-
-
-if __name__ == "__main__":
-    main()
