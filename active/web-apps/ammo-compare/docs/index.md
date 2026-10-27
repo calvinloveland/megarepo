@@ -145,9 +145,17 @@ cartridge:
 
 The table gains a **Products** view beside **Cartridges**: same columns, same
 filters, same units, with brand and line in the load cell, the box size and SKU
-underneath, and no Case action (cases are solved per cartridge). Prices only
-appear when a listing was captured; otherwise the cell shows a dash and the
-detail row says “no listing captured”.
+underneath, a **Brand** filter built from whatever the catalog contains, and no
+Case action (cases are solved per cartridge). Prices only appear when a listing
+was captured; otherwise the cell shows a dash and the detail row says “no listing
+captured”.
+
+The two views are joined both ways. A cartridge row with listings carries a count
+badge (`4 listings`), and its detail row lists them — brand, line, bullet,
+velocity, energy, price — with two honest markers: `from cartridge` on a velocity
+the manufacturer did not publish for that line, and `no listing captured` where
+the box is known but its price is not. A cartridge with no imported products says
+so and points at the importer instead of showing an empty table.
 
 ### Importing a real catalog
 

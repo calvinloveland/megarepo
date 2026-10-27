@@ -20,6 +20,7 @@ import {
   PRODUCT_ROWS,
   CATALOG_IS_FIXTURE,
   CATALOG_STATS,
+  productRow,
   productsFor,
 } from './lib/products.js';
 import {
@@ -69,6 +70,8 @@ const CATEGORIES = ['all', ...new Set(ROWS.map((r) => r.category))];
 const state = {
   // Which dataset the table shows: one row per cartridge, or one row per box.
   view: 'cartridges',
+  // Brand filter, only meaningful in the product view.
+  brand: 'all',
   query: '',
   category: 'all',
   jurisdiction: 'all',
@@ -130,6 +133,8 @@ const els = {
   summary: document.getElementById('summary'),
   views: document.getElementById('views'),
   catalogNotice: document.getElementById('catalog-notice'),
+  brand: document.getElementById('brand'),
+  brandField: document.getElementById('brand-field'),
   search: document.getElementById('search'),
   units: document.getElementById('units'),
   jurisdiction: document.getElementById('jurisdiction'),
@@ -179,13 +184,81 @@ function commonWeights(r) {
   return ` · ${lo === hi ? lo : `${lo}–${hi}`} gr`;
 }
 
-/** Nation, bullet diameter, and case length under the cartridge name. */
+/** Cartridge rows advertise how many boxes of them the catalog knows about. */
+function listingBadge(r) {
+  const listings = r.productId ? [] : productsFor(r.id);
+  if (listings.length === 0) return '';
+  const label = `${listings.length} listing${listings.length === 1 ? '' : 's'}`;
+  return `<span class="listing-badge" title="${escapeHtml(
+    listings.map((product) => `${product.brand} ${product.line}`).join(' · '),
+  )}">${label}</span>`;
+}
+
+/** Subline for a product row: the cartridge it chambers, then this box's details. */
 function productSubline(r) {
   const parts = [r.cartridgeName, `${r.bulletGr} gr`];
   if (r.bulletType) parts.push(r.bulletType);
   if (r.packageRounds) parts.push(`${r.packageRounds} rd box`);
   if (r.sku) parts.push(r.sku);
   return `<span class="load-sub">${parts.map((part) => escapeHtml(part)).join(' · ')}</span>`;
+}
+
+/**
+ * The boxes of this cartridge that the catalog knows about.
+ *
+ * A price only appears when a listing was captured; otherwise the row says so,
+ * because "no price recorded" and "cheap" are different claims.
+ */
+function listingsHtml(r) {
+  const listings = r.productId ? [] : productsFor(r.id);
+  if (listings.length === 0) {
+    return `
+      <div class="listings is-empty">
+        <h3>Listings</h3>
+        <p class="listings-note">
+          No product line for this cartridge has been imported yet. Add one with
+          <code>tools/import-products.mjs</code>.
+        </p>
+      </div>`;
+  }
+  const rows = listings
+    .map((product) => {
+      const row = productRow(product);
+      const price =
+        row.pricePerRound == null
+          ? '<span class="none">no listing captured</span>'
+          : `${fmtCost(row.pricePerRound)}/rd · ${fmtCost(row.pricePerRound * row.packageRounds)} box`;
+      const velocity =
+        row.velocitySource === 'manufacturer'
+          ? `${fmtInt(row.velocityFps)} fps <span class="listings-tag">published</span>`
+          : `${fmtInt(row.velocityFps)} fps <span class="listings-tag is-inherited">from cartridge</span>`;
+      return `
+        <tr>
+          <td>${escapeHtml(product.brand)}</td>
+          <td>${escapeHtml(product.line)}</td>
+          <td class="num">${row.bulletGr} gr</td>
+          <td class="num">${velocity}</td>
+          <td class="num">${fmtInt(row.energyFtLb)} ft·lb</td>
+          <td class="num">${price}</td>
+        </tr>`;
+    })
+    .join('');
+  return `
+      <div class="listings">
+        <h3>Listings (${listings.length})</h3>
+        <table>
+          <thead>
+            <tr><th scope="col">Brand</th><th scope="col">Line</th><th scope="col">Bullet</th><th scope="col">Velocity</th><th scope="col">Energy</th><th scope="col">Price</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p class="listings-note">
+          Prices exist only where a listing was captured; a dash means the box is
+          known but its price is not. “From cartridge” marks a velocity the
+          manufacturer did not publish for this line, so the cartridge's reference
+          figure is shown instead.
+        </p>
+      </div>`;
 }
 
 /** Nation, bullet diameter, and case length under the cartridge name. */
@@ -296,6 +369,7 @@ function visibleRows() {
     (r) =>
       (state.category === 'all' || r.category === state.category) &&
       allowedIn(r, state.jurisdiction) &&
+      (state.view !== 'products' || state.brand === 'all' || r.brand === state.brand) &&
       matchesQuery(r, state.query),
   );
   const get = ACCESSORS[state.sortKey] ?? ACCESSORS.energy;
@@ -341,7 +415,7 @@ function rowHtml(r) {
               : `<button type="button" class="case-btn${cased ? ' is-active' : ''}" data-case="${r.id}"
                   title="Make the case for ${escapeHtml(r.name)}"
                   aria-label="Make the case for ${escapeHtml(r.name)}">Case</button>`
-          }${lawBadge}
+          }${lawBadge}${listingBadge(r)}
         </span>
         ${r.productId ? productSubline(r) : loadSubline(r)}
       </th>
@@ -535,6 +609,7 @@ function detailHtml(r) {
           <button type="button" class="case-btn case-btn-wide" data-case="${r.id}">Make the case for this load</button>
         </div>`
         }
+        ${listingsHtml(r)}
         ${trajectoryHtml(r)}
       </td>
     </tr>`;
@@ -598,9 +673,10 @@ function renderSummary(rows) {
   if (state.view === 'products') {
     const cartridges = new Set(rows.map((row) => row.cartridgeId)).size;
     const priced = rows.filter((row) => row.pricePerRound != null).length;
+    const brand = state.brand === 'all' ? '' : ` · ${state.brand} only`;
     els.summary.innerHTML =
       `Showing <strong>${rows.length}</strong> of ${PRODUCT_VIEW_ROWS.length} product lines · ` +
-      `${cartridges} cartridges · ${priced} with a captured price`;
+      `${cartridges} cartridges · ${priced} with a captured price${brand}`;
     return;
   }
   const hottest = rows.reduce((a, b) => (b.energyFtLb > a.energyFtLb ? b : a));
@@ -937,6 +1013,9 @@ function render() {
   els.jurisdiction.value = state.jurisdiction;
   els.jurisdiction.disabled = Boolean(state.caseMode);
   els.catalogNotice.hidden = !(state.view === 'products' && CATALOG_IS_FIXTURE);
+  els.brandField.hidden = state.view !== 'products';
+  els.brand.value = state.brand;
+  els.brand.disabled = Boolean(state.caseMode);
   els.table.classList.toggle('is-products', state.view === 'products');
   for (const button of els.views.querySelectorAll('[data-view]')) {
     button.setAttribute('aria-pressed', String(button.dataset.view === state.view));
@@ -970,6 +1049,12 @@ els.units.addEventListener('change', (e) => {
 els.jurisdiction.addEventListener('change', (e) => {
   if (state.caseMode) return;
   state.jurisdiction = e.target.value;
+  render();
+});
+
+els.brand.addEventListener('change', (e) => {
+  if (state.caseMode) return;
+  state.brand = e.target.value;
   render();
 });
 
@@ -1052,6 +1137,16 @@ els.jurisdiction.insertAdjacentHTML(
         jurisdiction.scope,
       )})</option>`,
   ).join(''),
+);
+
+// One brand option per brand the catalog knows, so a listing export with fifty
+// brands does not need a hand-written list.
+els.brand.insertAdjacentHTML(
+  'beforeend',
+  [...new Set(PRODUCT_ROWS.map((row) => row.brand))]
+    .sort((a, b) => a.localeCompare(b))
+    .map((brand) => `<option value="${escapeHtml(brand)}">${escapeHtml(brand)}</option>`)
+    .join(''),
 );
 
 render();

@@ -201,6 +201,76 @@ check(
   productCartridges.size > 0 && PRODUCTS.length > productCartridges.size,
 );
 
+/* --------------------------- listings on a cartridge --------------------------- */
+
+const listingCount = await evaluate(`document.querySelectorAll('.listing-badge').length`);
+check(
+  'cartridges with listings carry a count badge',
+  listingCount === productCartridges.size,
+  `${listingCount} badges vs ${productCartridges.size} cartridges with listings`,
+);
+
+await evaluate(`document.querySelector('tbody tr.row[data-id="9mm"]').click()`);
+await sleep(350);
+const nineListings = PRODUCTS.filter((product) => product.cartridge === '9mm').length;
+check(
+  'a cartridge detail lists its product lines',
+  (await evaluate(`document.querySelectorAll('tbody tr.detail .listings tbody tr').length`)) ===
+    nineListings,
+  `${await evaluate(`document.querySelectorAll('tbody tr.detail .listings tbody tr').length`)} vs ${nineListings}`,
+);
+check(
+  'inherited velocities are labelled as such',
+  (await evaluate(`document.querySelectorAll('tbody tr.detail .listings-tag.is-inherited').length`)) ===
+    nineListings,
+);
+check(
+  'an uncaptured price says so rather than showing a number',
+  (await evaluate(`document.querySelector('tbody tr.detail .listings tbody tr')?.textContent ?? ''`)).includes(
+    'no listing captured',
+  ),
+);
+await evaluate(`document.querySelector('tbody tr.row[data-id="9mm"]').click()`);
+await sleep(200);
+
+/* ------------------------------- brand filter ------------------------------- */
+
+await setView('products');
+check(
+  'the brand filter appears only in the product view',
+  (await evaluate(`!document.getElementById('brand-field').hidden`)) === true,
+);
+const brandCount = await evaluate(`document.querySelectorAll('#brand option').length`);
+check(
+  'the brand filter is built from the catalog',
+  brandCount === new Set(PRODUCTS.map((product) => product.brand)).size + 1,
+  `${brandCount} options`,
+);
+const federal = PRODUCTS.filter((product) => product.brand === 'Federal').length;
+await evaluate(`(() => {
+  const select = document.getElementById('brand');
+  select.value = 'Federal';
+  select.dispatchEvent(new Event('change'));
+})()`);
+await sleep(300);
+check('the brand filter narrows the rows', (await rowCount()) === federal, `${await rowCount()} vs ${federal}`);
+check(
+  'the products summary names the brand',
+  (await evaluate(`document.getElementById('summary').textContent`)).includes('Federal only'),
+  await evaluate(`document.getElementById('summary').textContent`),
+);
+await evaluate(`(() => {
+  const select = document.getElementById('brand');
+  select.value = 'all';
+  select.dispatchEvent(new Event('change'));
+})()`);
+await sleep(200);
+await setView('cartridges');
+check(
+  'the brand filter hides again in the cartridge view',
+  (await evaluate(`document.getElementById('brand-field').hidden`)) === true,
+);
+
 /* --------------------------------- recoil --------------------------------- */
 
 const recoilOf = (id) =>

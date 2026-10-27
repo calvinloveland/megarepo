@@ -280,3 +280,9 @@ test('the product-catalog claims match the catalog', () => {
     says(DOC, `| \`${field}\` |`, `product schema row for ${field}`);
   }
 });
+
+test('the two-way link between cartridges and listings is documented', () => {
+  says(DOC, 'A cartridge row with listings carries a count badge');
+  says(DOC, '`from cartridge` on a velocity the manufacturer did not publish');
+  says(DOC, 'a **Brand** filter built from whatever the catalog contains');
+});
