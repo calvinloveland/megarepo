@@ -382,11 +382,14 @@ Cost alone loses by 5.6 percentile points, and the best two-column attempt
 
 The reason people usually give — recoil — is not part of the minimal case, and
 that is the honest tension in this feature. Recoil alone puts .380 ACP 12th of
-64, and it does not separate it from the other light-kicking pistols, so the
-search never needs it. The fewest-assumption argument for .380 is “small, cheap,
-heavy for its size”, not “it kicks less”. Both are true; only one of them is
-minimal. That is the difference between an argument and a buyer's reasoning, and
-the panel is explicit about which one it is making.
+64, and recoil is the one axis where the *smaller* cartridges beat it: .25 ACP
+sits at the 98th recoil percentile against .380's 82nd, and .32 ACP at the 95th.
+Weighting recoil therefore helps them, not it. What .380 actually has is size
+(94th percentile) and price (94th), plus a heavier bullet than the rounds it
+shares a pocket with — which is exactly the real argument: the most powerful
+thing that still fits the smallest pistol. The fewest-assumption case is “small,
+cheap, heavy for its size”, not “it kicks less”. Both are true; only one of them
+is minimal, and the panel is explicit about which one it is making.
 
 ### What the model still cannot see about that choice
 
