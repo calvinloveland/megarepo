@@ -156,8 +156,8 @@ test('known loads get the intended comparison set', () => {
     '223': ['all', true],
     '22lr': ['all', true],
     '9mm': ['centerfire', true],
-    // With recoil derived, .45 ACP can now make its case against every load:
-    // cheap, heavy, soft-shooting and flat enough for the middle of the table.
+    // .45 ACP cannot quite make its case against every load any more, but it wins
+    // its centerfire set on four columns.
     '45acp': ['centerfire', true],
     '357mag': ['pistol', false],
     '50bmg': ['rifle', true],
