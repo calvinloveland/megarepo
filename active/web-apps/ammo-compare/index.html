@@ -21,6 +21,11 @@
 
   <main>
     <section class="controls" id="controls" aria-label="Table controls">
+      <div class="views" id="views" role="group" aria-label="Dataset">
+        <button type="button" class="view-btn" data-view="cartridges" aria-pressed="true">Cartridges</button>
+        <button type="button" class="view-btn" data-view="products" aria-pressed="false">Products</button>
+      </div>
+
       <label class="search">
         <span>Filter</span>
         <input id="search" type="search" placeholder="9mm, Browning, shotgun…" autocomplete="off" />
@@ -43,6 +48,12 @@
         </select>
       </label>
     </section>
+
+    <p class="catalog-notice" id="catalog-notice" hidden>
+      Example catalog: these product rows exist to exercise the schema and the
+      importer. They are not a claim about current prices or availability.
+      Import a real export with <code>node tools/import-products.mjs catalog.csv</code>.
+    </p>
 
     <section class="case-panel" id="case-panel" hidden aria-label="Weighting case">
       <div class="case-head">

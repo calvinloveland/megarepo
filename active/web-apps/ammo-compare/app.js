@@ -17,6 +17,12 @@ import {
 } from './lib/trajectory.js';
 import { recoilProfile } from './lib/recoil.js';
 import {
+  PRODUCT_ROWS,
+  CATALOG_IS_FIXTURE,
+  CATALOG_STATS,
+  productsFor,
+} from './lib/products.js';
+import {
   JURISDICTIONS,
   matchesJurisdiction,
   restrictionsFor,
@@ -50,11 +56,19 @@ const ROWS = AMMO.map((load) => ({
 /** One shared scale, so silhouettes compare across rows. */
 const EXTENTS = cartridgeExtents(ROWS);
 for (const row of ROWS) row.silhouette = cartridgeSvg(row, EXTENTS);
+// Product rows inherit their cartridge's geometry, so they draw at the same
+// scale as the cartridge rows beside them.
+const PRODUCT_VIEW_ROWS = PRODUCT_ROWS.map((row) => ({
+  ...row,
+  silhouette: cartridgeSvg(row, EXTENTS),
+}));
 const MAX_ENERGY = Math.max(...ROWS.map((r) => r.energyFtLb));
 const MAX_LOG_ENERGY = Math.log1p(MAX_ENERGY);
 const CATEGORIES = ['all', ...new Set(ROWS.map((r) => r.category))];
 
 const state = {
+  // Which dataset the table shows: one row per cartridge, or one row per box.
+  view: 'cartridges',
   query: '',
   category: 'all',
   jurisdiction: 'all',
@@ -80,6 +94,21 @@ const legalJurisdiction = () =>
     ? null
     : (JURISDICTIONS.find((jurisdiction) => jurisdiction.code === state.jurisdiction) ?? null);
 
+/** Which dataset the table is showing: one row per cartridge, or per box. */
+const baseRows = () => (state.view === 'products' ? PRODUCT_VIEW_ROWS : ROWS);
+
+/**
+ * Jurisdiction gate for both layers. A product row carries the restrictions of
+ * its cartridge, so a box is legal exactly when the cartridge is.
+ */
+function allowedIn(row, code) {
+  if (!code || code === 'all') return true;
+  if (row.restrictions) {
+    return !row.restrictions.some((restriction) => restriction.code === code);
+  }
+  return matchesJurisdiction(row, code);
+}
+
 /** Numeric-aware accessors: sorting and rendering both read from these. */
 const ACCESSORS = {
   name: (r) => r.name.toLowerCase(),
@@ -99,6 +128,8 @@ const ACCESSORS = {
 const els = {
   rows: document.getElementById('rows'),
   summary: document.getElementById('summary'),
+  views: document.getElementById('views'),
+  catalogNotice: document.getElementById('catalog-notice'),
   search: document.getElementById('search'),
   units: document.getElementById('units'),
   jurisdiction: document.getElementById('jurisdiction'),
@@ -139,6 +170,15 @@ function commonWeights(r) {
   if (!r.commonGrains) return '';
   const [lo, hi] = r.commonGrains;
   return ` · ${lo === hi ? lo : `${lo}–${hi}`} gr`;
+}
+
+/** Nation, bullet diameter, and case length under the cartridge name. */
+function productSubline(r) {
+  const parts = [r.cartridgeName, `${r.bulletGr} gr`];
+  if (r.bulletType) parts.push(r.bulletType);
+  if (r.packageRounds) parts.push(`${r.packageRounds} rd box`);
+  if (r.sku) parts.push(r.sku);
+  return `<span class="load-sub">${parts.map((part) => escapeHtml(part)).join(' · ')}</span>`;
 }
 
 /** Nation, bullet diameter, and case length under the cartridge name. */
@@ -217,6 +257,12 @@ function matchesQuery(r, q) {
       r.nation ?? '',
       r.introduced ?? '',
       r.designer?.name ?? '',
+      // Product rows: the box is searchable by brand, line, SKU and cartridge.
+      r.brand ?? '',
+      r.line ?? '',
+      r.sku ?? '',
+      r.bulletType ?? '',
+      r.cartridgeName ?? '',
       ...r.platforms,
     ].join(' '),
   );
@@ -239,10 +285,10 @@ function visibleRows() {
     return ranking ? ranking.sorted.map((entry) => entry.row) : [];
   }
 
-  const filtered = ROWS.filter(
+  const filtered = baseRows().filter(
     (r) =>
       (state.category === 'all' || r.category === state.category) &&
-      matchesJurisdiction(r, state.jurisdiction) &&
+      allowedIn(r, state.jurisdiction) &&
       matchesQuery(r, state.query),
   );
   const get = ACCESSORS[state.sortKey] ?? ACCESSORS.energy;
@@ -278,16 +324,19 @@ function rowHtml(r) {
   // below .50 BMG into an invisible sliver.
   const width = Math.max(2, Math.round((Math.log1p(r.energyFtLb) / MAX_LOG_ENERGY) * 100));
   return `
-    <tr class="row${open ? ' is-open' : ''}${cased ? ' is-case' : ''}" data-id="${r.id}" tabindex="0"
+    <tr class="row${r.productId ? ' is-product' : ''}${open ? ' is-open' : ''}${cased ? ' is-case' : ''}" data-id="${r.id}" tabindex="0"
         aria-expanded="${open}" aria-controls="detail-${r.id}">
       <th scope="row" class="load">
         <span class="load-main">
-          <span class="load-name">${r.name}</span><span class="cat">${r.category}</span>
-          <button type="button" class="case-btn${cased ? ' is-active' : ''}" data-case="${r.id}"
+          <span class="load-name">${r.productId ? `${escapeHtml(r.brand)} ${escapeHtml(r.name)}` : r.name}</span><span class="cat">${r.category}</span>${
+            r.productId
+              ? ''
+              : `<button type="button" class="case-btn${cased ? ' is-active' : ''}" data-case="${r.id}"
                   title="Make the case for ${escapeHtml(r.name)}"
-                  aria-label="Make the case for ${escapeHtml(r.name)}">Case</button>${lawBadge}
+                  aria-label="Make the case for ${escapeHtml(r.name)}">Case</button>`
+          }${lawBadge}
         </span>
-        ${loadSubline(r)}
+        ${r.productId ? productSubline(r) : loadSubline(r)}
       </th>
       <td class="col-svg">${r.silhouette}</td>
       <td class="num col-introduced">${r.introduced ?? '<span class="none">—</span>'}</td>
@@ -463,15 +512,14 @@ function renderChips() {
   const scopeCategory = state.caseMode
     ? (state.caseMode.scope === 'centerfire' ? null : state.caseMode.scope)
     : null;
+  const rows = baseRows();
   els.categories.innerHTML = CATEGORIES.map((cat) => {
-    const count = cat === 'all'
-      ? ROWS.filter((r) => matchesJurisdiction(r, state.jurisdiction) && matchesQuery(r, state.query)).length
-      : ROWS.filter(
-          (r) =>
-            r.category === cat &&
-            matchesJurisdiction(r, state.jurisdiction) &&
-            matchesQuery(r, state.query),
-        ).length;
+    const count = rows.filter(
+      (r) =>
+        (cat === 'all' || r.category === cat) &&
+        allowedIn(r, state.jurisdiction) &&
+        matchesQuery(r, state.query),
+    ).length;
     const active = state.caseMode ? cat === scopeCategory : state.category === cat;
     return `<button type="button" class="chip" data-category="${cat}"
               aria-pressed="${active}"${state.caseMode ? ' disabled' : ''}>${
@@ -493,7 +541,8 @@ function renderSortIndicators() {
 }
 
 function renderSummary(rows) {
-  if (state.caseMode) {    const row = ROWS.find((r) => r.id === state.caseMode.id);
+  if (state.caseMode) {
+    const row = ROWS.find((r) => r.id === state.caseMode.id);
     const result = resultFor(state.caseMode.id, state.caseMode.scope);
     const meta = CASE_SCOPES[state.caseMode.scope];
     const verdict = result?.feasible
@@ -509,6 +558,14 @@ function renderSummary(rows) {
   }
   if (!rows.length) {
     els.summary.innerHTML = 'No loads match that filter.';
+    return;
+  }
+  if (state.view === 'products') {
+    const cartridges = new Set(rows.map((row) => row.cartridgeId)).size;
+    const priced = rows.filter((row) => row.pricePerRound != null).length;
+    els.summary.innerHTML =
+      `Showing <strong>${rows.length}</strong> of ${PRODUCT_VIEW_ROWS.length} product lines · ` +
+      `${cartridges} cartridges · ${priced} with a captured price`;
     return;
   }
   const hottest = rows.reduce((a, b) => (b.energyFtLb > a.energyFtLb ? b : a));
@@ -529,6 +586,8 @@ function renderSummary(rows) {
 /* ------------------------------- the case ------------------------------ */
 
 function startCase(id) {
+  // Cases are solved per cartridge, so a product row has no case of its own.
+  if (state.view !== 'cartridges') return;
   const auto = autoCaseFor(id);
   if (!auto) return;
   // A jurisdiction filter is a question about what the reader may own, so the
@@ -842,9 +901,25 @@ function render() {
   els.search.value = state.query;
   els.jurisdiction.value = state.jurisdiction;
   els.jurisdiction.disabled = Boolean(state.caseMode);
+  els.catalogNotice.hidden = !(state.view === 'products' && CATALOG_IS_FIXTURE);
+  els.table.classList.toggle('is-products', state.view === 'products');
+  for (const button of els.views.querySelectorAll('[data-view]')) {
+    button.setAttribute('aria-pressed', String(button.dataset.view === state.view));
+  }
 }
 
 /* ------------------------------- events ------------------------------- */
+
+els.views.addEventListener('click', (e) => {
+  const button = e.target.closest('[data-view]');
+  if (!button || button.dataset.view === state.view) return;
+  // A case is a cartridge argument; leaving that view has to end it rather than
+  // leave a panel explaining a table that is no longer shown.
+  if (state.caseMode) clearCase();
+  state.view = button.dataset.view;
+  state.sortKey = state.view === 'products' ? 'energy' : state.sortKey;
+  render();
+});
 
 els.search.addEventListener('input', (e) => {
   if (state.caseMode) return;
