@@ -6,6 +6,12 @@ import {
 
 export { CASE_CRITERIA, CASE_SCOPES, CASES };
 
+/**
+ * The margin a strict win needs, matching `FEASIBLE_EPS` in the generator.
+ * A win thinner than this is rounding noise, not an argument.
+ */
+export const FEASIBLE_EPS = 1e-4;
+
 /** True when a load belongs to a comparison scope. */
 export function matchesScope(row, scope) {
   switch (scope) {
@@ -153,11 +159,19 @@ export function rankCase(rows, scope, weights, selectedId, percentiles = null) {
     (entry) =>
       entry.row.id !== selectedId && Math.abs(entry.score - selected.score) <= 1e-9,
   );
+  const bestOther = scored.reduce(
+    (best, entry) =>
+      entry.row.id === selectedId ? best : Math.max(best, entry.score),
+    Number.NEGATIVE_INFINITY,
+  );
   return {
     rank: above.length + 1,
     selected,
     sorted,
     percentiles: scores,
+    // How far clear of the next load the selection is. Positive is a win; zero
+    // is a tie. Mirrors the generator's notion of a strict win.
+    margin: Number.isFinite(bestOther) ? selected.score - bestOther : 0,
     tiedWith: tied.map((entry) => entry.row.name),
     blockers: above
       .sort((a, b) => b.score - a.score)

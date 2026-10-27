@@ -14,8 +14,8 @@
       current-production rounds. Each row carries the cartridge’s origin, age,
       designer, bullet dimensions, and a ballistic profile; energy, power factor,
       effective range, and trajectory are computed from bullet weight and muzzle
-      velocity, not copied from a chart. The Case action finds a weighting of the
-      numeric columns that puts a chosen load first.
+      velocity, not copied from a chart. The Case action finds the fewest numeric
+      columns that can still put a chosen load first.
     </p>
   </header>
 
@@ -62,10 +62,12 @@
       </div>
       <div class="case-weights" id="case-weights"></div>
       <p class="case-foot">
-        Weights are chosen to be as even as possible while still winning by a safety
-        margin. When no weighting wins, these are the closest weights found, and the
-        search optimises rank rather than balance — so the result is sometimes a single
-        column carrying all of the weight, and the note above says so when it is. Newer
+        The panel solves for the <strong>fewest columns</strong> that can still put this load
+        first, then splits the weight as evenly as possible between them — “it is the
+        cheapest” is treated as a better argument than “it is cheapest and softest and
+        lightest”. Each of those columns is checked to be load-bearing: drop one and the
+        load loses first place. When no weighting wins, the closest case found is shown
+        instead, and the note says so when that weighting is a single column. Newer
         design, heavier bullet, velocity, energy, and range score higher; recoil and
         cost score lower. Power factor is shown but not weighted: inside a class it is
         the same measurement as recoil. Pistol comparisons also score compact
@@ -142,9 +144,10 @@
       <p>
         <strong>Make the case.</strong> The Case button finds a non-negative weighting
         of the numeric columns (with compact case length added for pistols) that puts
-        the selected load first. Weights are
-        chosen to be as even as possible while retaining a safety margin, and the table
-        then shows the comparison set sorted by the weighted percentile score. When no
+        the selected load first, and it looks for the one that needs the <em>fewest</em>
+        columns — “cheapest alone” beats “cheapest and softest and lightest”. Weight is
+        then split as evenly as possible inside that set, and the table shows the
+        comparison set sorted by the weighted percentile score. When no
         weighting can win against all loads, the case tries centerfire or rimfire and
         then the load’s own category; the “Compare against” menu exposes each set.
         If no weighting wins anywhere, the feature reports the closest case found

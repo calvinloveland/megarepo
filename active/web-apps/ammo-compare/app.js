@@ -25,6 +25,7 @@ import {
 import {
   CASE_CRITERIA,
   CASE_SCOPES,
+  FEASIBLE_EPS,
   autoCaseFor,
   resultFor,
   scopeOptionsFor,
@@ -495,9 +496,10 @@ function renderSummary(rows) {
     const result = resultFor(state.caseMode.id, state.caseMode.scope);
     const meta = CASE_SCOPES[state.caseMode.scope];
     const verdict = result?.feasible ? 'ranked #1' : `closest found #${result?.rank ?? '—'}`;
+    const factorNote = result ? ` · ${result.factors} factor${result.factors === 1 ? '' : 's'}` : '';
     els.summary.innerHTML =
       `The case for <strong>${row?.name ?? 'this load'}</strong> · ` +
-      `${rows.length} ${scopeNoun(meta)} · ${verdict}`;
+      `${rows.length} ${scopeNoun(meta)} · ${verdict}${factorNote}`;
     return;
   }
   if (!rows.length) {
@@ -576,6 +578,38 @@ function clearCase() {
 
 const scopeNoun = (meta) => (meta?.label ?? 'loads').replace(/^All /i, '').toLowerCase();
 
+/**
+ * Which used factors are load-bearing.
+ *
+ * A factor is essential when removing it (and renormalising the rest) drops the
+ * load out of first place. The generator solves for the fewest columns, so for a
+ * strict win every used column should come back essential; the panel checks that
+ * rather than claiming it.
+ */
+function essentialFactors(id, scope, weights) {
+  const percentiles = casePercentiles(scope);
+  return weights
+    .map((weight, index) => ({ weight, index }))
+    .filter((entry) => entry.weight >= 1e-6)
+    .map(({ index }) => {
+      const trial = weights.slice();
+      trial[index] = 0;
+      const total = trial.reduce((sum, value) => sum + value, 0);
+      if (total <= 0) return { index, keeps: false };
+      const ranking = rankCase(
+        ROWS,
+        scope,
+        trial.map((value) => value / total),
+        id,
+        percentiles,
+      );
+      return {
+        index,
+        keeps: ranking ? ranking.rank === 1 && ranking.margin >= FEASIBLE_EPS : false,
+      };
+    });
+}
+
 /** "A, B, C and 26 others" — long tie lists need a count, not a wall of names. */
 function nameList(names, limit = 3) {
   if (names.length <= limit) return names.join(', ');
@@ -585,14 +619,28 @@ function nameList(names, limit = 3) {
 
 function caseNote(row, scope, result, ranking) {
   const meta = CASE_SCOPES[scope];
+  const criteria = criteriaForScope(scope);
   const anyFeasible = scopeOptionsFor(row.id).some(
     (option) => resultFor(row.id, option.scope)?.feasible,
   );
-  // A fallback weighting is often a simplex vertex: one column carrying
-  // everything. Say so, because "weights chosen to be as even as possible" only
-  // describes the feasible branch.
-  const dominant = dominantCriterion(criteriaForScope(scope), result.weights);
-  const narrow = dominant
+  const used = criteria.filter((criterion, index) => result.weights[index] >= 1e-6);
+  const usedList = used.map((criterion) => criterion.label.toLowerCase());
+  const factors =
+    `It needs ${result.factors} of the ${criteria.length} columns: ${nameList(usedList, 4)}.`;
+
+  // Essentiality is a claim the panel can check: drop a used column, renormalise,
+  // and see whether the load is still first. The generator solves for the
+  // fewest columns, so for a strict win every one of them should matter.
+  const essential = result.feasible && result.factors > 1 ? essentialFactors(row.id, scope, result.weights) : null;
+  const loadBearing = essential && essential.every((entry) => !entry.keeps)
+    ? ' Every one of them is load-bearing: drop any and it loses first place.'
+    : '';
+
+  // A fallback weighting can be a simplex vertex: one column carrying everything.
+  // For a strict win that is now the *point* (fewest factors), so only the
+  // fallback branch says it is not an even argument.
+  const dominant = dominantCriterion(criteria, result.weights);
+  const narrow = dominant && !result.feasible
     ? ` This is not an even argument: ${dominant.criterion.label} carries ` +
       `${Math.round(dominant.weight * 100)}% of the weight.`
     : '';
@@ -607,7 +655,7 @@ function caseNote(row, scope, result, ranking) {
       );
     }
     let note =
-      `No non-negative weighting of the ${criteriaForScope(scope).length} numeric columns ` +
+      `No non-negative weighting of the ${criteria.length} numeric columns ` +
       `puts ${row.name} first among ${meta.label.toLowerCase()}. ` +
       `The table shows a closest case found by the search.`;
     if (ranking?.blockers.length) {
@@ -627,7 +675,10 @@ function caseNote(row, scope, result, ranking) {
   }
 
   if (scope === 'all') {
-    return `This weighting puts ${row.name} first against all ${meta.count} loads.${narrow}`;
+    return (
+      `This weighting puts ${row.name} first against all ${meta.count} loads. ` +
+      `${factors}${loadBearing}${narrow}`
+    );
   }
   const all = resultFor(row.id, 'all');
   const ignition = row.category === 'rimfire' ? 'rimfire' : 'centerfire';
@@ -635,16 +686,19 @@ function caseNote(row, scope, result, ranking) {
   if (all && !all.feasible) {
     return (
       `No weighting puts it first against all ${CASE_SCOPES.all.count} loads. ` +
-      `This case narrows the field to ${meta.label.toLowerCase()}.${narrow}`
+      `This case narrows the field to ${meta.label.toLowerCase()}. ${factors}${loadBearing}${narrow}`
     );
   }
   if (ignitionResult && !ignitionResult.feasible && scope === row.category) {
     return (
       `No weighting works against all loads or ${ignition} loads. ` +
-      `This case narrows the field to ${meta.label.toLowerCase()}.${narrow}`
+      `This case narrows the field to ${meta.label.toLowerCase()}. ${factors}${loadBearing}${narrow}`
     );
   }
-  return `This weighting puts it first among ${meta.label.toLowerCase()}.${narrow}`;
+  return (
+    `This weighting puts it first among ${meta.label.toLowerCase()}. ` +
+    `${factors}${loadBearing}${narrow}`
+  );
 }
 
 function renderCasePanel() {
@@ -678,10 +732,12 @@ function renderCasePanel() {
 
   if (result.feasible) {
     els.caseStatus.className = 'case-status is-feasible';
-    els.caseStatus.textContent = `#1 of ${meta.count} ${scopeNoun(meta)}`;
+    els.caseStatus.textContent =
+      `#1 of ${meta.count} ${scopeNoun(meta)} · ${result.factors} ` +
+      `factor${result.factors === 1 ? '' : 's'}`;
   } else if (result.rank === 1) {
     els.caseStatus.className = 'case-status is-infeasible';
-    els.caseStatus.textContent = 'No strict weighting · tied for #1';
+    els.caseStatus.textContent = `No strict weighting · tied for #1 · ${result.factors} factor${result.factors === 1 ? '' : 's'}`;
   } else {
     els.caseStatus.className = 'case-status is-infeasible';
     els.caseStatus.textContent =
@@ -690,24 +746,34 @@ function renderCasePanel() {
 
   els.caseNote.textContent = caseNote(row, active.scope, result, ranking);
 
+  // The generator solves for the fewest columns that can make the argument, so
+  // the panel leads with those and lists the rest as unused.
   const ordered = criteriaForScope(active.scope)
     .map((criterion, index) => ({
       ...criterion,
       weight: result.weights[index],
     }))
     .sort((a, b) => b.weight - a.weight);
-  els.caseWeights.innerHTML = ordered
-    .map((criterion) => {
-      const percent = criterion.weight * 100;
-      const label = percent < 0.5 ? '<1%' : `${percent >= 10 ? percent.toFixed(0) : percent.toFixed(1)}%`;
-      return `
+  const used = ordered.filter((criterion) => criterion.weight >= 1e-6);
+  const unused = ordered.filter((criterion) => criterion.weight < 1e-6);
+  els.caseWeights.innerHTML =
+    used
+      .map((criterion) => {
+        const percent = criterion.weight * 100;
+        const label = percent >= 10 ? `${percent.toFixed(0)}%` : `${percent.toFixed(1)}%`;
+        return `
         <div class="case-weight" title="${escapeHtml(criterion.label)}: ${percent.toFixed(1)}%">
           <span class="cw-label">${escapeHtml(criterion.label)}</span>
           <span class="cw-bar"><span style="--w:${Math.max(percent, 0).toFixed(2)}%"></span></span>
           <span class="cw-pct">${label}</span>
         </div>`;
-    })
-    .join('');
+      })
+      .join('') +
+    (unused.length
+      ? `<p class="case-unused">Not needed: ${unused
+          .map((criterion) => escapeHtml(criterion.label))
+          .join(', ')}</p>`
+      : '');
 
   // The selected row is no longer floated to the top, so bring it into view
   // inside the table's own scroll container without moving the page away from

@@ -7,6 +7,7 @@ import { ballisticProfile } from '../lib/trajectory.js';
 import {
   CASE_CRITERIA,
   CASE_SCOPES,
+  FEASIBLE_EPS,
   CASES,
   autoCaseFor,
   caseScore,
@@ -151,33 +152,36 @@ test('known loads get the intended comparison set', () => {
   }
 
   // The user-facing example: 9mm cannot win against everything, but it can
-  // once rimfire loads are excluded.
+  // once rimfire loads are excluded — and it needs one column to do it.
   assert.equal(resultFor('9mm', 'all').feasible, false);
   assert.equal(resultFor('9mm', 'all').rank, 2);
   assert.equal(resultFor('9mm', 'centerfire').rank, 1);
   // Criteria order: introduced, bullet, velocity, energy, range, recoil, cost,
   // then compact case for pistols.
-  assert.ok(resultFor('9mm', 'centerfire').weights[6] > 0.4, 'cost should lead the 9mm case');
-  assert.ok(resultFor('9mm', 'centerfire').weights[5] > 0.05, 'recoil should carry some weight');
+  assert.equal(resultFor('9mm', 'centerfire').factors, 1, '9mm should need one column');
+  assert.equal(resultFor('9mm', 'centerfire').weights[6], 1, 'that column is cost');
 
-  // Within pistols, .45 ACP wins outright; .357 Magnum can only tie for first.
+  // Within pistols, .45 ACP wins outright on two columns; .357 Magnum can only
+  // tie for first, and only on effective range.
   assert.equal(resultFor('45acp', 'pistol').rank, 1);
   assert.equal(resultFor('45acp', 'pistol').feasible, true);
+  assert.equal(resultFor('45acp', 'pistol').factors, 2, '.45 ACP should need two columns');
   assert.equal(resultFor('357mag', 'pistol').rank, 1);
   assert.equal(resultFor('357mag', 'pistol').feasible, false);
+  assert.equal(resultFor('357mag', 'pistol').factors, 1);
 
-  // .380 ACP's case rests on recoil, then compactness and cost — the pistol-only
-  // criterion is no longer carrying it alone.
+  // .380 ACP needs three columns: compactness is still the largest, and the
+  // argument is now the fewest columns that make it rather than every column.
   const options = scopeOptionsFor('380acp');
   assert.equal(options.length, 3);
   assert.equal(resultFor('380acp', 'all').feasible, false);
   assert.equal(resultFor('380acp', 'centerfire').feasible, false);
   assert.equal(resultFor('380acp', 'pistol').rank, 1);
   assert.equal(resultFor('380acp', 'pistol').feasible, true);
+  assert.equal(resultFor('380acp', 'pistol').factors, 3);
   const pistolWeights = resultFor('380acp', 'pistol').weights;
   const largest = pistolWeights.indexOf(Math.max(...pistolWeights));
-  assert.equal(largest, 5, '.380 ACP should lead on low recoil');
-  assert.ok(pistolWeights[7] > 0.1, 'compact case should still carry real weight');
+  assert.equal(largest, 7, '.380 ACP should lead on compact case');
 });
 
 test('rankCase exposes the closest case and its blockers', () => {
@@ -216,21 +220,29 @@ test('a tie is reported as a tie, not as a win', () => {
 });
 
 test('a single-column weighting is flagged as not an even argument', () => {
-  const pistol = criteriaForScope('pistol');
-  const dominant = dominantCriterion(pistol, resultFor('44mag', 'pistol').weights);
-  assert.ok(dominant, 'expected a dominant criterion');
-  assert.equal(dominant.criterion.key, 'effectiveRangeYd');
-  assert.equal(dominant.weight, 1);
-
-  const even = dominantCriterion(
+  // Dominance is a property of the weights; whether it is a problem depends on
+  // the branch. A strict win on one column is the point of the fewest-factors
+  // search; a fallback that lands on one column is a weak argument.
+  const dominant = dominantCriterion(
     criteriaForScope('centerfire'),
     resultFor('9mm', 'centerfire').weights,
   );
-  assert.equal(even, null, '9mm keeps cost at 63 %, below the dominance threshold');
+  assert.ok(dominant, 'expected a dominant criterion');
+  assert.equal(dominant.criterion.key, 'costPerRound');
+  assert.equal(dominant.weight, 1);
 
-  const spread = dominantCriterion(pistol, [0.3, 0.2, 0.1, 0.1, 0.1, 0.1, 0.05, 0.04, 0.01]);
+  const tie = dominantCriterion(criteriaForScope('pistol'), resultFor('44mag', 'pistol').weights);
+  assert.equal(tie.criterion.key, 'effectiveRangeYd');
+
+  const even = dominantCriterion(
+    criteriaForScope('pistol'),
+    resultFor('380acp', 'pistol').weights,
+  );
+  assert.equal(even, null, 'a three-column case is not dominated by one column');
+
+  const spread = dominantCriterion(criteriaForScope('pistol'), [0.3, 0.2, 0.1, 0.1, 0.1, 0.1, 0.05, 0.04]);
   assert.equal(spread, null);
-  assert.equal(dominantCriterion(pistol, [0.5, 0.5, 0, 0, 0, 0, 0, 0, 0], 0.45)?.weight, 0.5);
+  assert.equal(dominantCriterion(criteriaForScope('pistol'), [0.5, 0.5, 0, 0, 0, 0, 0, 0], 0.45)?.weight, 0.5);
 });
 
 test('no stored weighting is degenerate', () => {
@@ -256,4 +268,47 @@ test('no stored weighting is degenerate', () => {
     }
   }
   assert.ok(worstSpread >= MIN_SPREAD, `worst spread ${worstSpread} at ${worstCase}`);
+});
+
+test('every stored result reports its factor count honestly', () => {
+  for (const [id, entry] of Object.entries(CASES)) {
+    for (const [scope, result] of Object.entries(entry.scopes)) {
+      const used = result.weights.filter((weight) => weight > 0).length;
+      assert.equal(result.factors, used, `${id}/${scope} factors vs non-zero weights`);
+      assert.ok(result.factors >= 1, `${id}/${scope} needs at least one factor`);
+      assert.ok(
+        result.factors <= criteriaForScope(scope).length,
+        `${id}/${scope} has more factors than criteria`,
+      );
+    }
+  }
+});
+
+test('a strict win uses the fewest columns that can still win', () => {
+  // The point of the sparse search: for every feasible result, removing any one
+  // of its columns (and renormalising) must lose first place. If a column can be
+  // dropped without losing, the stored weighting was not minimal.
+  let checked = 0;
+  let worst = null;
+  for (const [id, entry] of Object.entries(CASES)) {
+    for (const [scope, result] of Object.entries(entry.scopes)) {
+      if (!result.feasible || result.factors < 2) continue;
+      const percentiles = percentileScores(ROWS, scope);
+      const used = result.weights
+        .map((weight, index) => ({ weight, index }))
+        .filter((entry) => entry.weight > 0);
+      for (const { index } of used) {
+        const trial = result.weights.slice();
+        trial[index] = 0;
+        const total = trial.reduce((sum, value) => sum + value, 0);
+        const ranking = rankCase(ROWS, scope, trial.map((value) => value / total), id, percentiles);
+        if (ranking.rank === 1 && ranking.margin >= FEASIBLE_EPS) {
+          worst = `${id}/${scope} survives without ${criteriaForScope(scope)[index].key}`;
+        }
+      }
+      checked += 1;
+    }
+  }
+  assert.ok(checked > 50, `expected plenty of multi-factor wins, checked ${checked}`);
+  assert.equal(worst, null, worst ?? '');
 });

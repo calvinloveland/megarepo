@@ -341,7 +341,7 @@ Two honesty rules govern that fallback, because it is what most loads get:
   win. The table scroller is moved to the selected row so it stays visible
   without reordering the evidence.
 - **A corner is labelled.** Rank minimisation over a step function lands on a
-  vertex of the weight simplex for 67 of the 639 infeasible results — 43 of them
+  vertex of the weight simplex for 75 of the 639 infeasible results — 45 of them
   in an auto-selected set. When one criterion carries at least 90 % of the weight
   the note says so (“Eff. range carries 100 % of the weight”) instead of implying
   the weights are an even-handed argument. `.44 Magnum`/pistol is the clear
@@ -358,20 +358,25 @@ cannot win against all loads or all centerfire loads. That is the honest result:
 a cartridge can be the right choice for a small gun without beating 9mm on
 ballistic output.
 
-The stored weighting shows what that argument actually rests on: **low recoil
-27 %, heavier bullet 23 %, compact case 19 %, low cost 12 %**, and under 9 % for
-the rest. Ablating one criterion at a time says the same thing — drop recoil and
-.380 ACP falls to rank 25 of 64; drop compact case and it falls to rank 10; drop
-cost and it falls to rank 4. On its own, compactness (17.3 mm, tied with .32 ACP
-and .32 NAA, behind .25 ACP and .32 S&W) is only good enough for rank 4, and
-recoil alone is rank 12 — the case needs both, which is the argument people
-actually make: a small pistol you will carry and can shoot well. The win is real
-and narrow, a one-percentile-point gap over 9mm Luger +P and .25 ACP.
+The stored case shows what that argument actually rests on: **three of the eight
+columns** — compact case 51 %, low cost 28 %, heavier bullet 21 %. Each is
+load-bearing: drop compact case and .380 ACP falls to rank 16, drop cost and it
+falls to rank 7, drop bullet weight and it falls to rank 2. No smaller set works.
+Cost alone loses by 5.6 percentile points, and the best two-column attempt
+(velocity plus compactness) still loses by half a point.
+
+The reason people usually give — recoil — is not part of the minimal case, and
+that is the honest tension in this feature. Recoil alone puts .380 ACP 12th of
+64, and it does not separate it from the other light-kicking pistols, so the
+search never needs it. The fewest-assumption argument for .380 is “small, cheap,
+heavy for its size”, not “it kicks less”. Both are true; only one of them is
+minimal. That is the difference between an argument and a buyer's reasoning, and
+the panel is explicit about which one it is making.
 
 ### What the model still cannot see about that choice
 
 Recoil is now derived, so the column finally separates .380 ACP (1.37 ft·lb, 2/5)
-from 9mm Luger (3.22 ft·lb, 3/5), and the .380 case now leads on it. What remains
+from 9mm Luger (3.22 ft·lb, 3/5), and a weighting can be built on it. What remains
 outside the model:
 
 - **Gun mass is one reference per class, not the gun you would carry.** The
@@ -405,39 +410,47 @@ For each load and comparison set:
 
 1. A max-margin linear program finds the largest possible score gap. If the
    gap is below 0.0001, there is no strict case.
-2. If a case exists, a second optimization maximizes weight entropy subject to
-   a margin of at least half the maximum gap (capped at one percentile point).
-   That picks the most even mix that still wins by a safety margin, instead of
-   putting 100% on one column or settling for a numerical tie.
-3. If no case exists, a deterministic Dirichlet search over the weight simplex,
-   followed by local perturbations, finds a low-rank weighting. The UI calls
-   this “closest found”; rank minimization over a step function is not an LP, so
-   it is a search result, not a proof of optimality.
-4. Weights are rounded to eight decimals. `tests/cases.test.mjs` recomputes every
+2. If a case exists, a second search looks for the **fewest columns** that can
+   still win: every subset of one criterion, then of two, and so on, each with
+   its own max-margin LP, stopping at the first size that produces a strict win.
+   The strongest case is the one that needs the fewest assumptions — “it is the
+   cheapest” is a better argument than “it is cheapest, softest and lightest”.
+3. Weight is then split as evenly as possible *inside* that subset, subject to a
+   margin of at least half the maximum gap (capped at one percentile point), so
+   a two-column case does not collapse onto one of its two columns.
+4. If no case exists, a deterministic Dirichlet search over the weight simplex,
+   followed by local perturbations, finds a low-rank weighting, and a greedy
+   pass drops any column the closest case does not need. The UI calls this
+   “closest found”; rank minimization over a step function is not an LP, so it
+   is a search result, not a proof of optimality.
+5. Weights are rounded to eight decimals. `tests/cases.test.mjs` recomputes every
    stored rank and margin with the browser math, so generator/browser drift
-   fails offline.
+   fails offline. Two more tests pin the new objective: every result's `factors`
+   field must match its non-zero weights, and for every strict win, removing any
+   one of its columns must lose first place — a necessary condition for
+   minimality that would catch a search that stopped one subset too late.
 
 The current data produces these illustrative cases (weights rounded):
 
-| Load | Set | Result | Largest weights |
-|---|---|---|---|
-| `.223 Rem` | all | #1 | cost 31 %, recoil 22 %, bullet 14 %, range 13 % |
-| `9mm Luger` | centerfire | #1 | cost 76 %, recoil 13 %, bullet 7 % |
-| `9mm Luger` | all (override) | closest found #2 | cost 93 %, energy 5 % |
-| `.45 ACP` | all | #1 | cost 50 %, bullet 22 %, recoil 14 %, range 12 % |
-| `.357 Magnum` | pistol | tied #1 | range 100 % (the only weighting that reaches the top) |
-| `.380 ACP` | pistol | #1 | recoil 27 %, bullet 23 %, compact case 19 %, cost 12 % |
-| `.50 BMG` | all | #1 | near-even: bullet 18 %, energy 16 %, range 15 %, cost 15 %, recoil 13 % |
+| Load | Set | Result | Factors | Columns used |
+|---|---|---|---|---|
+| `9mm Luger` | centerfire | #1 | **1** | cost 100 % |
+| `.223 Rem` | all | #1 | **2** | cost 71 %, range 29 % |
+| `.50 BMG` | all | #1 | **2** | energy 50 %, cost 50 % |
+| `.45 ACP` | all | #1 | **4** | cost 54 %, bullet 19 %, range 14 %, recoil 13 % |
+| `.380 ACP` | pistol | #1 | **3** | compact case 51 %, cost 28 %, bullet 21 % |
+| `.357 Magnum` | pistol | tied #1 | **1** | range 100 % (the only weighting that reaches the top) |
+| `9mm Luger` | all (override) | closest found #2 | 4 | cost 93 %, energy 5 %, and two rounding slivers |
 
-The weights are not a claim that cost matters 63 % “in reality.” They are the
-least-contrived weighting that makes the selected load win this particular
-comparison, and the panel shows them so the argument can be inspected. Three
-other caveats are deliberate: effective range is an estimate from the
-trajectory model; “newer design” / “heavier bullet” are directional
-preferences, not performance metrics; and compact case length is a proxy for
-pocket-pistol fit, not a claim that shorter is always better. The eight shared
-criteria are also collinear — velocity, energy, power factor, and bullet weight
-are all functions of two underlying numbers — so a weight is a share of a rank
+The weights are not a claim that cost matters 76 % “in reality.” They are the
+fewest-column argument that makes the selected load win this particular
+comparison, split evenly inside those columns, and the panel shows them so the
+argument can be inspected. Three other caveats are deliberate: effective range
+is an estimate from the trajectory model; “newer design” / “heavier bullet” are
+directional preferences, not performance metrics; and compact case length is a
+proxy for pocket-pistol fit, not a claim that shorter is always better. The
+shared criteria are also collinear — velocity, energy, and bullet weight all feed
+energy, and recoil is momentum squared — so a weight is a share of a rank
 argument, not an independent measure of importance.
 
 Regenerate the file after changing the load data or criteria:

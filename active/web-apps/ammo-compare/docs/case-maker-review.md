@@ -303,3 +303,46 @@ about 27 minutes once recoil became continuous:
 
 `tools/export-case-rows.mjs` also stopped emitting `powerFactor`, which the
 generator no longer reads.
+
+### Follow-up: fewest factors (after the review)
+
+The Case feature originally solved for the *most even* weighting that wins. That
+is the wrong objective for the thing the panel claims to do: a case is an
+argument, and the strongest argument is the one that needs the fewest
+assumptions. "It is the cheapest" beats "it is cheapest, softest and lightest".
+
+`tools/build-cases.py` now searches subsets by size — every single criterion, then
+every pair, and so on, each with its own max-margin LP — and stops at the first
+size that yields a strict win. Weight is then split as evenly as possible *inside*
+that subset, so a two-column case does not collapse onto one of them. The fallback
+for loads that cannot win gets a greedy pass that drops columns the closest case
+does not need.
+
+The payload carries `factors` per result, the status line reads
+`#1 of 284 centerfire loads · 1 factor`, and the panel lists the columns it does
+not use. Each used column is then *checked* to be load-bearing by re-ranking with
+that column removed; the note only claims it when the check passes.
+
+| Load | Set | Result | Factors | Columns |
+|---|---|---|---|---|
+| `9mm Luger` | centerfire | #1 | 1 | cost 100 % |
+| `.223 Rem` | all | #1 | 2 | cost 71 %, range 29 % |
+| `.50 BMG` | all | #1 | 2 | energy 50 %, cost 50 % |
+| `.380 ACP` | pistol | #1 | 3 | compact case 51 %, cost 28 %, bullet 21 % |
+| `.45 ACP` | all | #1 | 4 | cost 54 %, bullet 19 %, range 14 %, recoil 13 % |
+
+Across the 235 feasible results the median is 2 factors; only 15 need more than
+five. Feasibility did not change (114/295 auto-selected, as before).
+
+Two tests pin the objective: `factors` must match the non-zero weights, and for
+every strict win, removing any one of its columns must lose first place. The
+second is a necessary condition for minimality, and it is what caught the one
+case where the search's notion of "wins" (margin ≥ 1e-4) differed from the
+browser's (rank 1), which is why `rankCase()` now returns `margin` and
+`lib/case.js` exports the same `FEASIBLE_EPS` the generator uses.
+
+One consequence worth stating plainly: the minimal case for .380 ACP is not the
+recoil story. Recoil alone puts it 12th of 64 and does not separate it from the
+other light-kicking pistols, so the search never needs it; the fewest-assumption
+argument is "small, cheap, heavy for its size". Both are true, and the docs now
+say which one the panel is making.

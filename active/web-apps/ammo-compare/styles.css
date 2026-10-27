@@ -540,3 +540,10 @@ tr.detail .badge { border: 1px solid var(--line); border-radius: 6px; padding: 2
   }
   tbody tr.row:hover th.load, tbody tr.row.is-open th.load { background: #1b2029; }
 }
+.case-unused {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: .01em;
+}

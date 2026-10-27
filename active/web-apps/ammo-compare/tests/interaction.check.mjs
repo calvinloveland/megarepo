@@ -355,7 +355,21 @@ check('9mm case falls back to centerfire', (await evaluate(`document.getElementB
 check('9mm is first among centerfire loads', (await firstLoadName()) === '9mm Luger', await firstLoadName());
 check('9mm case shows 284 centerfire loads', (await rowCount()) === 284, `${await rowCount()} rows`);
 check('9mm case explains the narrower field', (await evaluate(`document.getElementById('case-note').textContent`)).includes('narrows the field to centerfire loads'));
-check('9mm case shows seven weighted columns', (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 7);
+check(
+  '9mm case shows one weighted column',
+  (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 1,
+  String(await evaluate(`document.querySelectorAll('.case-weight').length`)),
+);
+check(
+  '9mm case lists the columns it does not need',
+  (await evaluate(`document.querySelector('.case-unused')?.textContent ?? ''`)).includes('Not needed:'),
+  await evaluate(`document.querySelector('.case-unused')?.textContent ?? ''`),
+);
+check(
+  '9mm case reports a single factor',
+  (await caseStatus()).includes('1 factor'),
+  await caseStatus(),
+);
 check('9mm case gives cost the largest weight', (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Low cost');
 check('case mode pauses search', (await evaluate(`document.getElementById('search').disabled`)) === true);
 check('case mode pauses category chips', (await evaluate(`[...document.querySelectorAll('.chip')].every((chip) => chip.disabled)`)) === true);
@@ -393,7 +407,7 @@ await setSearch('.223 Rem');
 await sleep(150);
 await caseButtonFor('223');
 await sleep(300);
-check('.223 can win against every load', (await caseStatus()) === '#1 of 295 loads', await caseStatus());
+check('.223 can win against every load', (await caseStatus()).startsWith('#1 of 295 loads'), await caseStatus());
 check('.223 is actually first', (await firstLoadName()).startsWith('.223 Rem'), await firstLoadName());
 check('.223 case spans range and cost', (await evaluate(`document.querySelectorAll('.case-weight .cw-label')[0].textContent`)) === 'Low cost');
 await clearCase();
@@ -405,7 +419,7 @@ await caseButtonFor('45acp');
 await sleep(300);
 check('.45 ACP can now win against every load', (await evaluate(`document.getElementById('case-scope').value`)) === 'all', await evaluate(`document.getElementById('case-scope').value`));
 check('.45 ACP is first among all loads', (await firstLoadName()) === '.45 ACP', await firstLoadName());
-check('.45 ACP reports a strict win', (await caseStatus()) === '#1 of 295 loads', await caseStatus());
+check('.45 ACP reports a strict win', (await caseStatus()).startsWith('#1 of 295 loads'), await caseStatus());
 check(
   '.45 ACP case leads on cost',
   (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Low cost',
@@ -420,12 +434,26 @@ await caseButtonFor('380acp');
 await sleep(300);
 check('.380 ACP falls back to pistols', (await evaluate(`document.getElementById('case-scope').value`)) === 'pistol');
 check('.380 ACP is first among pistols', (await firstLoadName()) === '.380 ACP', await firstLoadName());
-check('.380 ACP wins its pistol case', (await caseStatus()) === '#1 of 64 pistol loads', await caseStatus());
-check('.380 ACP pistol case shows eight weighted columns', (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 8);
+check('.380 ACP wins its pistol case', (await caseStatus()).startsWith('#1 of 64 pistol loads'), await caseStatus());
 check(
-  '.380 ACP now leads on derived recoil',
-  (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Low recoil',
+  '.380 ACP pistol case needs three columns',
+  (await caseStatus()).includes('3 factors'),
+  await caseStatus(),
+);
+check(
+  '.380 ACP case shows exactly those three columns',
+  (await evaluate(`document.querySelectorAll('.case-weight').length`)) === 3,
+  String(await evaluate(`document.querySelectorAll('.case-weight').length`)),
+);
+check(
+  '.380 ACP leads on compact case',
+  (await evaluate(`document.querySelector('.case-weight .cw-label').textContent`)) === 'Compact case',
   await evaluate(`document.querySelector('.case-weight .cw-label').textContent`),
+);
+check(
+  '.380 ACP says each column is load-bearing',
+  (await evaluate(`document.getElementById('case-note').textContent`)).includes('load-bearing'),
+  await evaluate(`document.getElementById('case-note').textContent`),
 );
 check('.380 ACP notes the narrower field', (await evaluate(`document.getElementById('case-note').textContent`)).includes('pistol loads'));
 
@@ -512,7 +540,7 @@ await sleep(150);
 await evaluate(`document.querySelector('tbody tr.detail [data-case]').click()`);
 await sleep(300);
 check('detail button starts a case', (await evaluate(`document.getElementById('case-name').textContent`)) === '.308 Win / 7.62 NATO');
-check('.308 wins against every load', (await caseStatus()) === '#1 of 295 loads', await caseStatus());
+check('.308 wins against every load', (await caseStatus()).startsWith('#1 of 295 loads'), await caseStatus());
 check('.308 case uses all loads', (await evaluate(`document.getElementById('case-scope').value`)) === 'all');
 check('detail button closes the old detail row', (await evaluate(`document.querySelectorAll('tbody tr.detail').length`)) === 0);
 
