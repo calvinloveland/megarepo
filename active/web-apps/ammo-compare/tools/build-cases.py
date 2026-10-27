@@ -17,8 +17,10 @@ after changing the load data or the criteria:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import math
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -310,10 +312,10 @@ def best_effort_weights(
     return weights[order[0]]
 
 
-def build_scope(rows: list[dict], scope: str, predicate) -> dict[int, dict]:
+def build_scope(rows: list[dict], scope: str, predicate) -> dict[str, dict]:
     indices = [i for i, row in enumerate(rows) if predicate(row)]
     pct = percentile_matrix(rows, indices, criteria_for_scope(scope))
-    results: dict[int, dict] = {}
+    results: dict[str, dict] = {}
     total = len(indices)
     for p, selected in enumerate(indices):
         competitors = [q for q in range(total) if q != p]
@@ -356,7 +358,7 @@ def build_scope(rows: list[dict], scope: str, predicate) -> dict[int, dict]:
             rounded = normalized(weights)
             rounded_margin = margin_of(pct, p, competitors, rounded)
             rounded_rank = rank_of(pct, p, competitors, rounded)
-        results[selected] = {
+        results[rows[selected]["id"]] = {
             "weights": rounded,
             "margin": round(rounded_margin, ROUND_DIGITS),
             "rank": rounded_rank,
@@ -365,68 +367,65 @@ def build_scope(rows: list[dict], scope: str, predicate) -> dict[int, dict]:
     return results
 
 
-def main() -> None:
-    rows = load_rows()
-    scope_meta = {}
-    scope_results = {}
-    for scope, (label, predicate) in SCOPES.items():
-        indices = [i for i, row in enumerate(rows) if predicate(row)]
-        scope_meta[scope] = {"label": label, "count": len(indices)}
-        print(f"building {scope}: {len(indices)} rows", file=sys.stderr)
-        scope_results[scope] = build_scope(rows, scope, predicate)
+def auto_scope(
+    row: dict,
+    available: list[str],
+    results: dict[str, dict[str, dict]],
+    counts: dict[str, int],
+) -> str:
+    """Broadest set the load can win, else the closest one.
 
+    All loads first, then centre/rimfire, then the load's own category. A tie
+    between closest sets goes to the narrower set, which is usually the more
+    useful comparison.
+    """
+    rid = row["id"]
+    feasible = [scope for scope in available if results[rid][scope]["feasible"]]
+    if feasible:
+        return feasible[0]
+    return min(
+        available,
+        key=lambda scope: (
+            results[rid][scope]["rank"],
+            counts[scope],
+            available.index(scope),
+        ),
+    )
+
+
+def candidate_scopes(row: dict) -> list[str]:
+    ignition = "rimfire" if row["category"] == "rimfire" else "centerfire"
+    order = ["all", ignition, row["category"]]
+    seen: list[str] = []
+    for scope in order:
+        if scope not in seen:
+            seen.append(scope)
+    return seen
+
+
+def assemble(
+    rows: list[dict], results: dict[str, dict[str, dict]], counts: dict[str, int]
+) -> dict:
+    """Build the payload in a deterministic order from per-scope results."""
     cases = {}
-    for i, row in enumerate(rows):
-        ignition = "rimfire" if row["category"] == "rimfire" else "centerfire"
-        order = ["all", ignition, row["category"]]
-        available = []
-        for scope in order:
-            if scope not in available and i in scope_results.get(scope, {}):
-                available.append(scope)
-        feasible = [scope for scope in available if scope_results[scope][i]["feasible"]]
-        if feasible:
-            auto = feasible[0]
-        elif available:
-            auto = min(
-                available,
-                key=lambda scope: (
-                    scope_results[scope][i]["rank"],
-                    scope_meta[scope]["count"],
-                    available.index(scope),
-                ),
-            )
-        else:
-            auto = "all"
-        cases[row["id"]] = {
-            "auto": auto,
-            "scopes": {
-                scope: scope_results[scope][i] for scope in available if i in scope_results[scope]
-            },
+    for row in rows:
+        rid = row["id"]
+        available = [
+            scope
+            for scope in candidate_scopes(row)
+            if rid in results and scope in results[rid]
+        ]
+        if not available:
+            continue
+        cases[rid] = {
+            "auto": auto_scope(row, available, results, counts),
+            "scopes": {scope: results[rid][scope] for scope in available},
         }
+    return cases
 
-    criteria_payload = []
-    for criterion in CRITERIA:
-        key, label, short, direction = criterion[:4]
-        item = {
-            "key": key,
-            "label": label,
-            "short": short,
-            "direction": direction,
-        }
-        scopes = scopes_for(criterion)
-        if scopes is not None:
-            item["scopes"] = list(scopes)
-        if len(criterion) > 5 and criterion[5]:
-            item["positive"] = True
-        criteria_payload.append(item)
 
-    payload = {
-        "criteria": criteria_payload,
-        "scopes": scope_meta,
-        "cases": cases,
-    }
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(
+def serialize(payload: dict) -> str:
+    return (
         "// Generated by tools/build-cases.py. Do not edit by hand.\n"
         "// Regenerate with: nix-shell -p python3Packages.scipy python3Packages.numpy "
         '--run "python3 tools/build-cases.py"\n'
@@ -434,12 +433,125 @@ def main() -> None:
         f"export const CASE_SCOPES = {json.dumps(payload['scopes'], separators=(',', ':'))};\n"
         f"export const CASES = {json.dumps(payload['cases'], separators=(',', ':'))};\n"
     )
+
+
+def criteria_payload() -> list[dict]:
+    payload = []
+    for criterion in CRITERIA:
+        key, label, short, direction = criterion[:4]
+        item = {"key": key, "label": label, "short": short, "direction": direction}
+        scopes = scopes_for(criterion)
+        if scopes is not None:
+            item["scopes"] = list(scopes)
+        if len(criterion) > 5 and criterion[5]:
+            item["positive"] = True
+        payload.append(item)
+    return payload
+
+
+def read_payload() -> dict | None:
+    """Parse the checked-in file so a single scope can be rebuilt in place."""
+    if not OUT.exists():
+        return None
+    text = OUT.read_text()
+    found = {}
+    for name in ("CASE_CRITERIA", "CASE_SCOPES", "CASES"):
+        match = re.search(rf"^export const {name} = (.*);$", text, re.MULTILINE)
+        if match is None:
+            return None
+        found[name] = json.loads(match.group(1))
+    return {"criteria": found["CASE_CRITERIA"], "scopes": found["CASE_SCOPES"], "cases": found["CASES"]}
+
+
+def build(rows: list[dict], only: str | None, previous: dict | None) -> dict:
+    """Solve the requested scopes and merge them with what is already checked in."""
+    scope_meta: dict[str, dict] = {}
+    if only and previous:
+        scope_meta = dict(previous["scopes"])
+
+    # Existing per-scope results, minus any scope being rebuilt.
+    merged: dict[str, dict[str, dict]] = {}
+    if previous:
+        for rid, entry in previous["cases"].items():
+            kept = {scope: result for scope, result in entry["scopes"].items() if scope != only}
+            if kept:
+                merged[rid] = kept
+
+    for scope, (label, predicate) in SCOPES.items():
+        if only and scope != only:
+            continue
+        indices = [i for i, row in enumerate(rows) if predicate(row)]
+        scope_meta[scope] = {"label": label, "count": len(indices)}
+        print(f"building {scope}: {len(indices)} rows", file=sys.stderr)
+        results = build_scope(rows, scope, predicate)
+        for rid, result in results.items():
+            merged.setdefault(rid, {})[scope] = result
+
+    counts = {scope: meta["count"] for scope, meta in scope_meta.items()}
+    return {
+        "criteria": criteria_payload(),
+        "scopes": scope_meta,
+        "cases": assemble(rows, merged, counts),
+    }
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--scope",
+        choices=list(SCOPES),
+        help="rebuild one comparison set and merge it into the checked-in file",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="do not write; exit 1 if the checked-in file differs from a fresh solve",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    rows = load_rows()
+    previous = read_payload()
+    if args.scope and previous is None:
+        sys.exit(f"--scope needs an existing {OUT.name} to merge into")
+
+    payload = build(rows, args.scope, previous)
+    text = serialize(payload)
+
+    if args.check:
+        if previous is None:
+            sys.exit(f"no checked-in {OUT.name} to compare against")
+        current = OUT.read_text()
+        if text != current:
+            print(f"{OUT.name} is stale — regenerate it", file=sys.stderr)
+            stale = [
+                rid
+                for rid, case in payload["cases"].items()
+                if previous["cases"].get(rid) != case
+            ]
+            print(
+                f"  {len(stale)} load(s) differ: {', '.join(stale[:8])}"
+                f"{' …' if len(stale) > 8 else ''}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(f"{OUT.name} is up to date", file=sys.stderr)
+        return
+
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(text)
     feasible = sum(
         1
-        for case in cases.values()
+        for case in payload["cases"].values()
         if case["scopes"].get(case["auto"], {}).get("feasible")
     )
-    print(f"wrote {OUT} — {feasible}/{len(rows)} loads have a strict case", file=sys.stderr)
+    scope_note = f" ({args.scope} only)" if args.scope else ""
+    print(
+        f"wrote {OUT}{scope_note} — {feasible}/{len(rows)} loads have a strict case",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":

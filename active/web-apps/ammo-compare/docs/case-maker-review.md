@@ -286,3 +286,20 @@ is unrestricted where 9mm is not, and .38 Special is unrestricted where .357
 Magnum is not.
 
 Suite sizes after this work: 66 unit tests, 108 browser checks.
+
+### Follow-up: generator tooling (after the review)
+
+The review's P3 item — "the only way to verify the checked-in file is to
+regenerate it, which takes 11 minutes" — is now closed, and the time had grown to
+about 27 minutes once recoil became continuous:
+
+- `--scope <name>` re-solves one comparison set and merges it into the checked-in
+  file, recomputing every load's `auto` scope and the scope counts from the
+  combined results. Pistols take ~35 s. Rebuilding a scope with no data change
+  reproduces the checked-in bytes exactly, which is verified in this commit.
+- `--check` solves (all scopes, or one with `--scope`) and exits 1 with the list
+  of stale loads instead of writing. Perturbing `.380 ACP`'s velocity by 20 fps
+  makes `--check --scope pistol` report 31 stale loads in 35 seconds.
+
+`tools/export-case-rows.mjs` also stopped emitting `powerFactor`, which the
+generator no longer reads.

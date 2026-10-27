@@ -451,6 +451,25 @@ The generator shells out to `node tools/export-case-rows.mjs` for the enriched
 rows, so Node and SciPy are both required. The app itself stays dependency-free
 and the generated file is checked in.
 
+A full solve takes about half an hour, so the generator has two flags for the
+work either side of it:
+
+```
+# Rebuild one comparison set and merge it into the checked-in file (~35 s for pistols)
+... --run "python3 tools/build-cases.py --scope pistol"
+
+# Fail if the checked-in file no longer matches a fresh solve (no writes)
+... --run "python3 tools/build-cases.py --check"              # all scopes, slow
+... --run "python3 tools/build-cases.py --check --scope rifle"  # one scope, fast
+```
+
+`--scope` writes the whole file, so it stays the single source of truth, but it
+only re-solves the scope you name — the merge recomputes every load's `auto`
+scope and the scope counts from the combined results. Rebuilding a scope with no
+data change reproduces the checked-in bytes exactly; that is the property
+`--check` relies on, and it is how the drift guard stays honest without a
+half-hour wait.
+
 ## Tests
 
 `tests/ballistics.test.mjs` (node:test, no dependencies) checks:
